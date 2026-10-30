@@ -1,0 +1,147 @@
+// Package api définit l'API REST typée de Frigg (huma) : opérations, contrôle
+// d'accès et erreurs en français.
+package api
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/alexedwards/scs/v2"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
+
+	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/config"
+	"github.com/balsakup/frigg/internal/database"
+	"github.com/balsakup/frigg/internal/database/sqlc"
+)
+
+// Deps regroupe les dépendances des handlers. Elles peuvent être vides pour
+// produire le schéma OpenAPI (frigg openapi).
+type Deps struct {
+	Store    *database.Store
+	Sessions *scs.SessionManager
+	Limits   *auth.Limits
+	Config   config.Config
+	Logger   *slog.Logger
+}
+
+type server struct {
+	Deps
+}
+
+// New enregistre toutes les opérations sous le préfixe /api.
+func New(mux *http.ServeMux, deps Deps) huma.API {
+	cfg := huma.DefaultConfig("Frigg API", "1.0.0")
+	// huma publie par défaut /openapi, /docs et /schemas sans authentification :
+	// interdit par le principe II (voir research.md › R4 et R18).
+	cfg.OpenAPIPath = ""
+	cfg.DocsPath = ""
+	cfg.SchemasPath = ""
+	// Sans route /schemas, pas de champ $schema ni d'en-tête Link dans les réponses.
+	cfg.CreateHooks = nil
+	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"session": {Type: "apiKey", In: "cookie", Name: "frigg_session"},
+	}
+
+	api := humago.NewWithPrefix(mux, "/api", cfg)
+	s := &server{Deps: deps}
+	api.UseMiddleware(s.accessMiddleware(api))
+
+	s.registerAuth(api)
+	s.registerMe(api)
+	s.registerInvitations(api)
+	s.mountDocs(mux, api)
+	return api
+}
+
+// register déclare une opération avec son niveau d'accès minimal, lu ensuite par
+// accessMiddleware. Aucune opération ne doit être enregistrée autrement.
+func register[I, O any](api huma.API, access auth.Access, op huma.Operation, h func(context.Context, *I) (*O, error)) {
+	if op.Metadata == nil {
+		op.Metadata = map[string]any{}
+	}
+	op.Metadata[accessMetadataKey] = access
+	if access != auth.Public {
+		op.Security = []map[string][]string{{"session": {}}}
+	}
+	huma.Register(api, op, h)
+}
+
+const accessMetadataKey = "access"
+
+// AccessOf renvoie le niveau d'accès déclaré d'une opération.
+func AccessOf(op *huma.Operation) (auth.Access, bool) {
+	a, ok := op.Metadata[accessMetadataKey].(auth.Access)
+	return a, ok
+}
+
+type ctxKey int
+
+const (
+	accountKey ctxKey = iota
+	clientIPKey
+)
+
+// accessMiddleware applique le refus par défaut (principe II) et la fonction
+// d'autorisation unique (principe III).
+func (s *server) accessMiddleware(api huma.API) func(huma.Context, func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		access, ok := AccessOf(ctx.Operation())
+		if !ok {
+			_ = huma.WriteErr(api, ctx, http.StatusInternalServerError, "Opération sans niveau d'accès déclaré.")
+			return
+		}
+		r, _ := humago.Unwrap(ctx)
+		ctx = huma.WithValue(ctx, clientIPKey, auth.ClientIP(r, s.Config.TrustedProxies))
+		if access == auth.Public {
+			next(ctx)
+			return
+		}
+
+		reqCtx := ctx.Context()
+		id, epoch, ok := auth.Current(reqCtx, s.Sessions)
+		if !ok {
+			_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "Vous devez être connecté.")
+			return
+		}
+		account, err := s.Store.Read.GetAccountByID(reqCtx, id)
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && account.AuthEpoch != epoch) {
+			// Compte supprimé, mot de passe changé ailleurs, etc. : session révoquée.
+			_ = auth.Logout(reqCtx, s.Sessions)
+			_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "Votre session a expiré.")
+			return
+		}
+		if err != nil {
+			s.Logger.ErrorContext(reqCtx, "lecture du compte impossible", "error", err)
+			_ = huma.WriteErr(api, ctx, http.StatusInternalServerError, "Une erreur inattendue s'est produite.")
+			return
+		}
+		SetRequestAccount(reqCtx, account.ID)
+		if !auth.Allows(account.Role, access) {
+			_ = huma.WriteErr(api, ctx, http.StatusForbidden, "Vous n'avez pas accès à cette ressource.")
+			return
+		}
+		next(huma.WithValue(ctx, accountKey, account))
+	}
+}
+
+// CurrentAccount renvoie le compte connecté (opérations non publiques).
+func CurrentAccount(ctx context.Context) sqlc.Account {
+	a, _ := ctx.Value(accountKey).(sqlc.Account)
+	return a
+}
+
+func clientIP(ctx context.Context) string {
+	ip, _ := ctx.Value(clientIPKey).(string)
+	return ip
+}
+
+// internalError journalise l'erreur et renvoie un 500 générique.
+func (s *server) internalError(ctx context.Context, msg string, err error) error {
+	s.Logger.ErrorContext(ctx, msg, "error", err)
+	return huma.Error500InternalServerError("Une erreur inattendue s'est produite.")
+}
