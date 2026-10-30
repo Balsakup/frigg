@@ -1,0 +1,65 @@
+# Commandes du projet. Lancer avec `go tool task <tâche>` (go-task déclaré dans go.mod).
+version: "3"
+
+tasks:
+  web:build:
+    desc: Compile le SPA (requis avant toute compilation Go)
+    dir: web
+    cmds:
+      - bun install --frozen-lockfile
+      - bun run build
+
+  build:
+    desc: Compile le binaire unique bin/frigg
+    deps: [web:build]
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -o bin/frigg ./cmd/frigg
+
+  gen:
+    desc: Régénère le code sqlc, le schéma OpenAPI et les types TypeScript
+    deps: [web:build]
+    cmds:
+      - go generate ./...
+      - go run ./cmd/frigg openapi > web/app/api/openapi.json
+      - cd web && bun run gen:api
+
+  dev:
+    desc: Lance l'API (:8080) et le serveur Vite (:5173) en parallèle
+    deps: [dev:api, dev:web]
+
+  dev:api:
+    internal: true
+    cmds:
+      - go run ./cmd/frigg serve
+
+  dev:web:
+    internal: true
+    dir: web
+    cmds:
+      - bun run dev
+
+  test:
+    desc: Tests Go et tests unitaires du frontend
+    cmds:
+      - go test ./...
+      - cd web && bun run test
+
+  e2e:
+    desc: Tests de bout en bout (prérequis docker compose up -d)
+    deps: [build]
+    dir: web
+    cmds:
+      - bun run e2e
+
+  check:
+    desc: Contrôles exigés par la constitution avant fusion
+    cmds:
+      - task: build
+      - go vet ./...
+      - go test ./...
+      - task: gen
+      - git diff --exit-code internal/database/sqlc web/app/api
+      - cd web && bun run typecheck && bun run lint && bun run test
+      - task: e2e
