@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* Tokens de l'artefact de référence (constitution, principe IV), en canaux RGB
+   « r g b » : les couleurs de l'association pourront être recalculées en JS. */
+:root {
+  color-scheme: light;
+  --brand: 31 82 120;
+  --brand-ink: 31 82 120;
+  --on-brand: 255 255 255;
+  --accent: 196 72 34;
+  --on-accent: 255 255 255;
+  --ink: 24 31 41;
+  --muted: 82 90 103;
+  --line: 221 225 231;
+  --line-strong: 128 135 147;
+  --canvas: 245 246 248;
+  --surface: 255 255 255;
+  --ok: 21 112 68;
+  --warn: 134 80 0;
+  --danger: 180 28 28;
+  --info: 29 90 170;
+  --sidebar-w: 18rem;
+  --sidebar-w-collapsed: 4.5rem;
+}
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Atkinson Hyperlegible", system-ui, sans-serif;
+
+  --color-brand: rgb(var(--brand));
+  --color-brand-ink: rgb(var(--brand-ink));
+  --color-on-brand: rgb(var(--on-brand));
+  --color-accent: rgb(var(--accent));
+  --color-on-accent: rgb(var(--on-accent));
+  --color-ink: rgb(var(--ink));
+  --color-muted: rgb(var(--muted));
+  --color-line: rgb(var(--line));
+  --color-line-strong: rgb(var(--line-strong));
+  --color-canvas: rgb(var(--canvas));
+  --color-surface: rgb(var(--surface));
+  --color-ok: rgb(var(--ok));
+  --color-warn: rgb(var(--warn));
+  --color-danger: rgb(var(--danger));
+  --color-info: rgb(var(--info));
+}
+
+html,
+body {
+  @apply bg-canvas text-ink;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1,
+h2 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 3px solid rgb(var(--brand-ink));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tout élément cliquable affiche le curseur main (Tailwind v4 ne le fait plus
+   pour les boutons). En couche base : les utilitaires comme
+   aria-disabled:cursor-not-allowed gardent la priorité. */
+@layer base {
+  a[href],
+  button:not(:disabled),
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="color"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* L'attribut hidden l'emporte sur les utilitaires d'affichage. */
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hidden doit l'emporter sur les utilitaires d'affichage */
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: la préférence de l'utilisateur prime sur tout style */
+    transition: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: idem */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: idem */
+    scroll-behavior: auto !important;
+  }
+}
