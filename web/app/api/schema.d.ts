@@ -159,6 +159,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saisons de l'association */
+        get: operations["list-seasons"];
+        put?: never;
+        /** Créer une saison */
+        post: operations["create-season"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/seasons/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fiche d'une saison */
+        get: operations["get-season"];
+        put?: never;
+        post?: never;
+        /** Supprimer une saison en brouillon */
+        delete: operations["delete-season"];
+        options?: never;
+        head?: never;
+        /** Modifier les dates d'une saison */
+        patch: operations["update-season"];
+        trace?: never;
+    };
+    "/admin/seasons/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Créer la saison suivante à partir d'une saison */
+        post: operations["duplicate-season"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/seasons/{id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ouvrir une saison */
+        post: operations["open-season"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/email-verification/confirm": {
         parameters: {
             query?: never;
@@ -481,6 +552,79 @@ export interface components {
             /** @description Jeton reçu par e-mail */
             token: string;
         };
+        Season: {
+            actions: components["schemas"]["SeasonActions"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date */
+            endsOn: string;
+            /**
+             * Format: date
+             * @description Date de fin la plus lointaine autorisée
+             */
+            endsOnMax: string;
+            /**
+             * Format: date
+             * @description Date de fin la plus proche autorisée
+             */
+            endsOnMin: string;
+            /** Format: int64 */
+            id: number;
+            /** @description La saison contient la date du jour */
+            isCurrent: boolean;
+            label: string;
+            /** Format: date-time */
+            openedAt: string | null;
+            /** @description Saison suivante dont le début suivra une modification de la fin */
+            shiftsSeasonLabel: string | null;
+            /** Format: date */
+            startsOn: string;
+            /** @enum {string} */
+            status: "draft" | "open" | "closed";
+        };
+        SeasonActions: {
+            delete: boolean;
+            duplicate: boolean;
+            editEndsOn: boolean;
+            editStartsOn: boolean;
+            open: boolean;
+            /** @description Raison pour laquelle l'ouverture n'est pas proposée */
+            openBlockedReason: string | null;
+        };
+        SeasonDatesBody: {
+            /**
+             * Format: date
+             * @description Dernier jour, inclus
+             */
+            endsOn: string;
+            /**
+             * Format: date
+             * @description Premier jour, inclus
+             */
+            startsOn: string;
+        };
+        SeasonList: {
+            /** Format: int64 */
+            currentId: number | null;
+            /** @description De la plus récente à la plus ancienne */
+            items: components["schemas"]["Season"][] | null;
+            /** Format: date */
+            nextEndsOnMax: string | null;
+            /** Format: date */
+            nextEndsOnMin: string | null;
+            /**
+             * Format: date
+             * @description Début imposé de la prochaine saison ; null s'il n'en existe aucune
+             */
+            nextStartsOn: string | null;
+            /** @enum {string} */
+            setup: "missing" | "no-current" | "current-draft" | "ready";
+            /**
+             * Format: date
+             * @description Date du jour à Paris
+             */
+            today: string;
+        };
         Session: {
             account: components["schemas"]["Account"];
             association: components["schemas"]["Association"];
@@ -495,6 +639,18 @@ export interface components {
         TokenInputBody: {
             /** @description Jeton reçu par e-mail */
             token: string;
+        };
+        UpdateSeasonInputBody: {
+            /**
+             * Format: date
+             * @description Nouveau dernier jour, inclus
+             */
+            endsOn: string;
+            /**
+             * Format: date
+             * @description Nouveau premier jour (première saison en brouillon uniquement) ; absent = inchangé
+             */
+            startsOn?: string;
         };
     };
     responses: never;
@@ -848,6 +1004,230 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Invitation"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-seasons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeasonDatesBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeasonInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicate-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "open-season": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Season"];
                 };
             };
             /** @description Error */

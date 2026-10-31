@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Calendar,
+  CalendarRange,
   CircleHelp,
   ClipboardCheck,
   Coins,
@@ -20,7 +21,7 @@ export interface NavEntry {
   icon: LucideIcon;
   path: string;
   space: Space;
-  section: "main" | "resources";
+  section: "main" | "settings";
   /** Rubrique livrée par une fonctionnalité ultérieure : page « Bientôt disponible ». */
   comingSoon?: boolean;
 }
@@ -88,7 +89,7 @@ export const navigation: NavEntry[] = [
     icon: CircleHelp,
     path: "/aide",
     space: "member",
-    section: "resources",
+    section: "settings",
     comingSoon: true,
   },
 
@@ -155,12 +156,20 @@ export const navigation: NavEntry[] = [
     comingSoon: true,
   },
   {
+    id: "saisons",
+    label: "Saisons",
+    icon: CalendarRange,
+    path: "/admin/saisons",
+    space: "admin",
+    section: "settings",
+  },
+  {
     id: "comptes",
     label: "Comptes",
     icon: Shield,
     path: "/admin/comptes",
     space: "admin",
-    section: "resources",
+    section: "settings",
   },
   {
     id: "aide-admin",
@@ -168,7 +177,7 @@ export const navigation: NavEntry[] = [
     icon: CircleHelp,
     path: "/admin/aide",
     space: "admin",
-    section: "resources",
+    section: "settings",
     comingSoon: true,
   },
 ];

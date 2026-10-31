@@ -13,7 +13,17 @@ describe("navigation", () => {
   it("sépare les rubriques des deux espaces", () => {
     expect(entriesFor("member", "main").every((e) => !e.path.startsWith("/admin"))).toBe(true);
     expect(entriesFor("admin", "main").every((e) => e.path.startsWith("/admin"))).toBe(true);
-    expect(entriesFor("admin", "resources").map((e) => e.id)).toContain("comptes");
+  });
+
+  it("regroupe la configuration de l'administration : Saisons, Comptes, Aide", () => {
+    expect(entriesFor("admin", "settings").map((e) => e.id)).toEqual([
+      "saisons",
+      "comptes",
+      "aide-admin",
+    ]);
+    const saisons = entryForPath("/admin/saisons");
+    expect(saisons?.label).toBe("Saisons");
+    expect(saisons?.comingSoon).toBeUndefined();
   });
 
   it("a des identifiants et des chemins uniques", () => {

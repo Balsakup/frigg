@@ -130,10 +130,10 @@ function SidebarContent({ collapsed, mobile, onNavigate }: ContentProps) {
               collapsed && "sr-only",
             )}
           >
-            Ressources
+            {space === "admin" ? "Configuration" : "Ressources"}
           </h2>
           <NavList
-            entries={entriesFor(space, "resources")}
+            entries={entriesFor(space, "settings")}
             collapsed={collapsed}
             onNavigate={onNavigate}
           />

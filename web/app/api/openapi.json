@@ -395,6 +395,208 @@
         ],
         "type": "object"
       },
+      "Season": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/SeasonActions"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endsOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "endsOnMax": {
+            "description": "Date de fin la plus lointaine autorisée",
+            "format": "date",
+            "type": "string"
+          },
+          "endsOnMin": {
+            "description": "Date de fin la plus proche autorisée",
+            "format": "date",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isCurrent": {
+            "description": "La saison contient la date du jour",
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "openedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shiftsSeasonLabel": {
+            "description": "Saison suivante dont le début suivra une modification de la fin",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startsOn": {
+            "format": "date",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "startsOn",
+          "endsOn",
+          "status",
+          "isCurrent",
+          "openedAt",
+          "createdAt",
+          "endsOnMin",
+          "endsOnMax",
+          "shiftsSeasonLabel",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "SeasonActions": {
+        "additionalProperties": false,
+        "properties": {
+          "delete": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean"
+          },
+          "editEndsOn": {
+            "type": "boolean"
+          },
+          "editStartsOn": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "openBlockedReason": {
+            "description": "Raison pour laquelle l'ouverture n'est pas proposée",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "editStartsOn",
+          "editEndsOn",
+          "open",
+          "duplicate",
+          "delete",
+          "openBlockedReason"
+        ],
+        "type": "object"
+      },
+      "SeasonDatesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "endsOn": {
+            "description": "Dernier jour, inclus",
+            "format": "date",
+            "type": "string"
+          },
+          "startsOn": {
+            "description": "Premier jour, inclus",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startsOn",
+          "endsOn"
+        ],
+        "type": "object"
+      },
+      "SeasonList": {
+        "additionalProperties": false,
+        "properties": {
+          "currentId": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "items": {
+            "description": "De la plus récente à la plus ancienne",
+            "items": {
+              "$ref": "#/components/schemas/Season"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nextEndsOnMax": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextEndsOnMin": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextStartsOn": {
+            "description": "Début imposé de la prochaine saison ; null s'il n'en existe aucune",
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "setup": {
+            "enum": [
+              "missing",
+              "no-current",
+              "current-draft",
+              "ready"
+            ],
+            "type": "string"
+          },
+          "today": {
+            "description": "Date du jour à Paris",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "today",
+          "currentId",
+          "nextStartsOn",
+          "nextEndsOnMin",
+          "nextEndsOnMax",
+          "setup"
+        ],
+        "type": "object"
+      },
       "Session": {
         "additionalProperties": false,
         "properties": {
@@ -439,6 +641,25 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "UpdateSeasonInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "endsOn": {
+            "description": "Nouveau dernier jour, inclus",
+            "format": "date",
+            "type": "string"
+          },
+          "startsOn": {
+            "description": "Nouveau premier jour (première saison en brouillon uniquement) ; absent = inchangé",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "endsOn"
         ],
         "type": "object"
       }
@@ -1017,6 +1238,330 @@
         "summary": "Renvoyer une invitation",
         "tags": [
           "Invitations"
+        ]
+      }
+    },
+    "/admin/seasons": {
+      "get": {
+        "operationId": "list-seasons",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Saisons de l'association",
+        "tags": [
+          "Saisons"
+        ]
+      },
+      "post": {
+        "operationId": "create-season",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeasonDatesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Season"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Créer une saison",
+        "tags": [
+          "Saisons"
+        ]
+      }
+    },
+    "/admin/seasons/{id}": {
+      "delete": {
+        "operationId": "delete-season",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer une saison en brouillon",
+        "tags": [
+          "Saisons"
+        ]
+      },
+      "get": {
+        "operationId": "get-season",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Season"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Fiche d'une saison",
+        "tags": [
+          "Saisons"
+        ]
+      },
+      "patch": {
+        "operationId": "update-season",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSeasonInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Season"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les dates d'une saison",
+        "tags": [
+          "Saisons"
+        ]
+      }
+    },
+    "/admin/seasons/{id}/duplicate": {
+      "post": {
+        "operationId": "duplicate-season",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Season"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Créer la saison suivante à partir d'une saison",
+        "tags": [
+          "Saisons"
+        ]
+      }
+    },
+    "/admin/seasons/{id}/open": {
+      "post": {
+        "operationId": "open-season",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Season"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ouvrir une saison",
+        "tags": [
+          "Saisons"
         ]
       }
     },

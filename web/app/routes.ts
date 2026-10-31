@@ -41,6 +41,11 @@ export default [
           index("routes/app/admin/accounts.tsx"),
           route(":id", "routes/app/admin/account-detail.tsx"),
         ]),
+        route("saisons", "routes/app/admin/seasons-layout.tsx", [
+          index("routes/app/admin/seasons.tsx"),
+          route("nouvelle", "routes/app/admin/season-new.tsx"),
+          route(":id", "routes/app/admin/season-detail.tsx"),
+        ]),
         ...adminComingSoon.map((p) =>
           route(p, "routes/app/coming-soon.tsx", { id: `bientot-admin-${p}` }),
         ),
