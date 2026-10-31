@@ -194,7 +194,7 @@ Project Structure). Helpers de test existants : `internal/api/apitest`
 - [X] T046 [P] Mettre à jour le commentaire d'en-tête de `internal/api/apitest/apitest.go` (« Constitution 1.3.2 » → « Constitution 1.4.0 »)
 - [X] T047 [P] Comparer `specs/002-admin-account-management/contracts/api.md` au schéma OpenAPI généré `web/app/api/openapi.json` (chemins, méthodes, paramètres, statuts) et corriger le contrat en cas d'écart ; ne pas modifier les documents de 001
 - [X] T048 Lancer `go tool task check` (build `CGO_ENABLED=0`, vet, tests Go, `sqlc generate` et `gen:api` sans diff, typecheck, Biome, Vitest, build, Playwright + axe) et corriger jusqu'au vert
-- [ ] T049 Dérouler manuellement les scénarios 1 à 12 de `specs/002-admin-account-management/quickstart.md` (dont 11 : journaux sans adresse, et 12 : clavier seul, 320 px, lecteur d'écran)
+- [X] T049 Dérouler manuellement les scénarios 1 à 12 de `specs/002-admin-account-management/quickstart.md` (dont 11 : journaux sans adresse, et 12 : clavier seul, 320 px, lecteur d'écran)
 - [X] T050 Retirer le rapport d'impact (commentaire HTML en tête) de `.specify/memory/constitution.md` avant le commit de l'amendement 1.4.0
 
 ---
