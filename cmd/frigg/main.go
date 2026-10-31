@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	// Base des fuseaux embarquée : la date du jour des saisons est celle
+	// d'Europe/Paris, même sur un système sans tzdata (research.md 003 › R3).
+	_ "time/tzdata"
 
 	"github.com/balsakup/frigg/internal/cli"
 )

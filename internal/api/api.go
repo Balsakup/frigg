@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/danielgtaylor/huma/v2"
@@ -17,6 +18,7 @@ import (
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/season"
 )
 
 // Deps regroupe les dépendances des handlers. Elles peuvent être vides pour
@@ -27,10 +29,22 @@ type Deps struct {
 	Limits   *auth.Limits
 	Config   config.Config
 	Logger   *slog.Logger
+	// Horloge injectable ; time.Now si nil (research.md 003 › R3).
+	Now func() time.Time
 }
 
 type server struct {
 	Deps
+}
+
+// today renvoie la date du jour à Paris, seule source de « aujourd'hui » pour
+// les saisons.
+func (s *server) today() season.Date {
+	now := time.Now
+	if s.Now != nil {
+		now = s.Now
+	}
+	return season.Today(now())
 }
 
 // New enregistre toutes les opérations sous le préfixe /api.
@@ -55,6 +69,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerMe(api)
 	s.registerInvitations(api)
 	s.registerAccounts(api)
+	s.registerSeasons(api)
 	s.mountDocs(mux, api)
 	return api
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/mail"
 	"github.com/balsakup/frigg/internal/mail/mailtest"
+	"github.com/balsakup/frigg/internal/season"
 	"github.com/balsakup/frigg/internal/server"
 )
 
@@ -46,6 +47,7 @@ type Env struct {
 	Logs   *LogBuffer
 	worker *mail.Worker
 	seq    atomic.Int64
+	clock  atomic.Pointer[time.Time]
 }
 
 // LogBuffer capture les journaux pour vérifier qu'aucune donnée sensible n'y figure.
@@ -96,6 +98,7 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 		Limits:   auth.NewLimits(),
 		Config:   cfg,
 		Logger:   logger,
+		Now:      env.now,
 	}, fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Frigg</title>")}})
 	if err != nil {
 		t.Fatal(err)
@@ -106,6 +109,25 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 	env.URL = srv.URL
 	env.API = h.API
 	return env
+}
+
+func (e *Env) now() time.Time {
+	if t := e.clock.Load(); t != nil {
+		return *t
+	}
+	return time.Now()
+}
+
+// SetToday fixe l'horloge du serveur à midi (Paris) du jour donné, au format
+// AAAA-MM-JJ.
+func (e *Env) SetToday(day string) {
+	e.t.Helper()
+	d, err := time.ParseInLocation("2006-01-02", day, season.Paris)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	noon := d.Add(12 * time.Hour)
+	e.clock.Store(&noon)
 }
 
 // Seed crée un compte avec le mot de passe Password et renvoie son adresse.

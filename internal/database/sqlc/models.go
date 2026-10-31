@@ -66,6 +66,14 @@ type OutboundEmail struct {
 	SentAt        sql.NullString
 }
 
+type Season struct {
+	ID        int64
+	StartsOn  string
+	EndsOn    string
+	OpenedAt  sql.NullString
+	CreatedAt string
+}
+
 type Session struct {
 	Token  string
 	Data   []byte

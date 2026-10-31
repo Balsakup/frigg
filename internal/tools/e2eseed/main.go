@@ -54,6 +54,9 @@ var accounts = []struct {
 	{"admin-a-supprimer@exemple.fr", auth.RoleAdmin, true},
 	{"membre-lien@exemple.fr", auth.RoleMember, true},
 	{"hélène.lefèvre@exemple.fr", auth.RoleMember, true},
+	// Gestion des saisons (003) : aucune saison n'est créée, les tests partent
+	// d'une base sans saison.
+	{"admin-saisons@exemple.fr", auth.RoleAdmin, true},
 }
 
 // listAccounts est le nombre de comptes membre-liste-NN (pagination).

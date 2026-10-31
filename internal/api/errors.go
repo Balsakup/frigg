@@ -83,7 +83,7 @@ func translateValidation() {
 	validation.MsgUnexpectedProperty = "propriété inattendue"
 	validation.MsgExpectedRFC3339DateTime = "date et heure attendues au format RFC 3339"
 	validation.MsgExpectedRFC1123DateTime = "date et heure attendues au format RFC 1123"
-	validation.MsgExpectedRFC3339Date = "date attendue au format RFC 3339"
+	validation.MsgExpectedRFC3339Date = "Saisissez une date valide."
 	validation.MsgExpectedRFC3339Time = "heure attendue au format RFC 3339"
 	validation.MsgExpectedRFC5322Email = "adresse électronique invalide : %v"
 	validation.MsgExpectedRFC5322EmailBare = "adresse électronique invalide"
