@@ -136,16 +136,27 @@ mettre à jour et sauvegarder Frigg doit rester trivial.
   régénérer ne doit produire aucun diff.
 - **Recherche insensible à la casse et aux accents** :
   - côté base, la recherche textuelle MUST utiliser des tables **FTS5 à contenu
-    externe** (`content='<table>'`, `content_rowid='id'`,
-    `tokenize="unicode61 remove_diacritics 2"`) synchronisées par des triggers
-    définis dans les migrations. Aucune colonne « repliée » dupliquée n'est
-    ajoutée aux tables métier ;
+    externe** (`content='<table>'`, `content_rowid='id'`) synchronisées par des
+    triggers définis dans les migrations. Aucune colonne « repliée » dupliquée
+    n'est ajoutée aux tables métier ;
+  - le tokenizer dépend de la nature du champ indexé :
+    - **champs d'identité courts** (adresses électroniques, noms, prénoms,
+      téléphones, identifiants) : `tokenize="trigram remove_diacritics 1"`,
+      qui trouve toute sous-chaîne d'au moins 3 caractères ; en dessous de
+      3 caractères, l'interface MUST indiquer le minimum requis plutôt que
+      d'afficher une liste vide ;
+    - **texte long en langage naturel** (descriptions, messages, contenus) :
+      `tokenize="unicode61 remove_diacritics 2"`, recherche par mots et
+      préfixes ;
+    - une table FTS5 n'indexe que des champs d'une même catégorie ;
   - côté Go, les comparaisons de texte saisi (unicité, tri, rapprochement)
     MUST passer par le package `internal/textfold`.
 
 **Rationale** : le typage de bout en bout (SQL → Go → OpenAPI → frontend) fait
 échouer les incohérences à la compilation plutôt qu'en production ; FTS5 offre
-la recherche sans accents sans dénormaliser le schéma.
+la recherche sans accents sans dénormaliser le schéma. Sur une adresse ou un
+nom, on tape un fragment (« pont », « lefe ») : trigram le trouve, alors que
+unicode61, adapté au texte long, ne trouve que des débuts de mots.
 
 ### VII. Sécurité des comptes et des données personnelles
 
@@ -308,7 +319,10 @@ internationalisation n'est prévue.
   membre est refusé lorsque l'opération est réservée aux administrateurs, et un
   administrateur est accepté pour toute opération accessible aux membres.
 - Les migrations sont append-only : une migration déjà publiée n'est jamais
-  modifiée ; on en ajoute une nouvelle.
+  modifiée ; on en ajoute une nouvelle. « Publiée » signifie déployée sur au
+  moins une instance (y compris de recette) ; tant que le projet n'a jamais été
+  déployé, les migrations existantes peuvent être modifiées plutôt que
+  complétées. Le premier déploiement met fin à cette exception.
 - Toute complexité qui s'écarte de ces principes est documentée dans la section
   « Complexity Tracking » du plan, avec l'alternative plus simple écartée et la
   raison.
@@ -331,4 +345,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.3.2 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-30
+**Version**: 1.4.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-31
