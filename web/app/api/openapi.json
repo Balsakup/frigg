@@ -375,6 +375,129 @@
         ],
         "type": "object"
       },
+      "MembershipFee": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "description": "Montant en centimes d'euro",
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "renewalAmountCents": {
+            "description": "Montant de renouvellement en centimes ; null : même montant pour toute adhésion",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "amountCents",
+          "renewalAmountCents",
+          "description",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "MembershipFeeActions": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "type": "boolean"
+          },
+          "delete": {
+            "type": "boolean"
+          },
+          "edit": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "add",
+          "edit",
+          "delete"
+        ],
+        "type": "object"
+      },
+      "MembershipFeeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "description": "Montant en euros, par exemple « 15,50 »",
+            "type": "string"
+          },
+          "description": {
+            "description": "Absente ou vide : aucune description",
+            "maxLength": 500,
+            "type": "string"
+          },
+          "hasRenewalAmount": {
+            "description": "Case « Tarif de renouvellement différent » ; absente : faux",
+            "type": "boolean"
+          },
+          "label": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "renewalAmount": {
+            "description": "Montant du renouvellement en euros ; obligatoire si hasRenewalAmount, ignoré sinon",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "amount"
+        ],
+        "type": "object"
+      },
+      "MembershipFeeList": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MembershipFeeActions"
+          },
+          "items": {
+            "description": "Du montant le plus élevé au plus faible, puis par libellé",
+            "items": {
+              "$ref": "#/components/schemas/MembershipFee"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "actions"
+        ],
+        "type": "object"
+      },
       "PasswordTokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1513,6 +1636,233 @@
         "summary": "Créer la saison suivante à partir d'une saison",
         "tags": [
           "Saisons"
+        ]
+      }
+    },
+    "/admin/seasons/{id}/fees": {
+      "get": {
+        "operationId": "list-membership-fees",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipFeeList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Tarifs de l'adhésion d'une saison",
+        "tags": [
+          "Tarifs"
+        ]
+      },
+      "post": {
+        "operationId": "create-membership-fee",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipFeeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipFee"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ajouter un tarif à une saison",
+        "tags": [
+          "Tarifs"
+        ]
+      }
+    },
+    "/admin/seasons/{id}/fees/{feeId}": {
+      "delete": {
+        "operationId": "delete-membership-fee",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Identifiant du tarif",
+            "in": "path",
+            "name": "feeId",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du tarif",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer un tarif",
+        "tags": [
+          "Tarifs"
+        ]
+      },
+      "put": {
+        "operationId": "update-membership-fee",
+        "parameters": [
+          {
+            "description": "Identifiant de la saison",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la saison",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Identifiant du tarif",
+            "in": "path",
+            "name": "feeId",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du tarif",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipFeeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipFee"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier un tarif",
+        "tags": [
+          "Tarifs"
         ]
       }
     },

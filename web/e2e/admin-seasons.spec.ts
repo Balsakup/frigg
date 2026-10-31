@@ -190,4 +190,132 @@ test.describe("saisons (003)", () => {
       }
     });
   });
+
+  // Suite du parcours précédent : la 2e saison, ouverte et dernière, n'a pas
+  // de tarif (quickstart.md 004 › Jeu de données).
+  test("tarifs de l'adhésion (004)", async ({ page }) => {
+    await login(page, "admin-saisons@exemple.fr");
+    const main = page.locator("#contenu");
+    const fees = main.getByRole("region", { name: "Tarifs de l'adhésion" });
+    const table = fees.getByRole("table");
+    const edit = page.getByRole("dialog");
+    const confirm = page.getByRole("alertdialog");
+    const notice = "Cette saison ne sera pas proposée à l'adhésion tant qu'elle n'a aucun tarif.";
+
+    const addFee = async (label: string, amount: string, description = "", renewal = "") => {
+      await fees.getByRole("button", { name: "Ajouter un tarif" }).click();
+      await edit.getByLabel(/^Libellé/).fill(label);
+      await edit.getByLabel(/^Montant/).fill(amount);
+      if (renewal) {
+        await edit.getByLabel("Tarif de renouvellement différent").check();
+        await expect(edit.getByLabel(/^Montant de première adhésion/)).toBeVisible();
+        await edit.getByLabel(/^Montant du renouvellement/).fill(renewal);
+      }
+      if (description) await edit.getByLabel(/^Description/).fill(description);
+      await edit.getByRole("button", { name: "Ajouter" }).click();
+    };
+
+    let secondURL = "";
+    await test.step("US4 et US1 — saison sans tarif", async () => {
+      await page.goto("/admin/saisons");
+      await main.getByRole("table").getByRole("row").nth(1).getByRole("link").click();
+      await expect(page.getByRole("heading", { level: 1, name: /^Saison / })).toBeVisible();
+      secondURL = page.url();
+      await expect(fees.getByText(notice)).toBeVisible();
+      await expect(fees.getByRole("button", { name: "Ajouter un tarif" })).toHaveCount(1);
+      await expectNoBlockingA11yViolations(page);
+    });
+
+    await test.step("US1 — ajout des tarifs", async () => {
+      await addFee("Plein tarif", "30");
+      await expect(main.getByText("Tarif Plein tarif ajouté.").first()).toBeVisible();
+      await expect(fees.getByText(notice)).toHaveCount(0);
+      await addFee("Tarif réduit", "15,50", "Étudiants et demandeurs d'emploi");
+      await expect(main.getByText("Tarif Tarif réduit ajouté.").first()).toBeVisible();
+      await addFee("Membre d'honneur", "0");
+      await expect(main.getByText("Tarif Membre d'honneur ajouté.").first()).toBeVisible();
+      await addFee("Adulte compétition", "85", "", "55");
+      await expect(main.getByText("Tarif Adulte compétition ajouté.").first()).toBeVisible();
+
+      const rows = table.getByRole("row");
+      await expect(rows).toHaveCount(5);
+      await expect(rows.nth(1)).toContainText("Adulte compétition");
+      await expect(rows.nth(1)).toContainText(/85,00\s€/);
+      await expect(rows.nth(1)).toContainText(/Renouvellement 55,00\s€/);
+      await expect(rows.nth(2)).toContainText("Plein tarif");
+      await expect(rows.nth(2)).toContainText(/30,00\s€/);
+      await expect(rows.nth(2)).not.toContainText("Renouvellement");
+      await expect(rows.nth(3)).toContainText("Tarif réduit");
+      await expect(rows.nth(3)).toContainText("Étudiants et demandeurs d'emploi");
+      await expect(rows.nth(3)).toContainText(/15,50\s€/);
+      await expect(rows.nth(4)).toContainText("Membre d'honneur");
+      await expect(rows.nth(4)).toContainText("Gratuit");
+    });
+
+    await test.step("US1 — erreurs de saisie", async () => {
+      await fees.getByRole("button", { name: "Ajouter un tarif" }).click();
+      await edit.getByLabel(/^Libellé/).fill("plein TARIF");
+      await edit.getByLabel(/^Montant/).fill("12,345");
+      await edit.getByRole("button", { name: "Ajouter" }).click();
+      await expect(edit.getByText("Un tarif porte déjà ce nom dans cette saison.")).toBeVisible();
+      await expect(edit.getByText(/Saisissez un montant en euros/)).toBeVisible();
+      await expect(edit.getByLabel(/^Libellé/)).toHaveAttribute("aria-invalid", "true");
+      await expect(edit.getByLabel(/^Montant/)).toHaveAttribute("aria-invalid", "true");
+      await edit.getByLabel("Tarif de renouvellement différent").check();
+      await edit.getByRole("button", { name: "Ajouter" }).click();
+      await expect(edit.getByText("Saisissez le montant du renouvellement.")).toBeVisible();
+      await expectNoBlockingA11yViolations(page);
+      await edit.getByRole("button", { name: "Annuler" }).click();
+      await expect(table.getByRole("row")).toHaveCount(5);
+    });
+
+    await test.step("US2 — duplication des tarifs", async () => {
+      await main.getByRole("button", { name: "Dupliquer" }).click();
+      await expect(main.getByText(/créée en brouillon\.$/).first()).toBeVisible();
+      const rows = table.getByRole("row");
+      await expect(rows).toHaveCount(5);
+      await expect(rows.nth(1)).toContainText(/Renouvellement 55,00\s€/);
+      await expect(rows.nth(2)).toContainText("Plein tarif");
+      await expect(rows.nth(3)).toContainText("Tarif réduit");
+      await expect(rows.nth(4)).toContainText("Membre d'honneur");
+    });
+
+    await test.step("US3 — modification et suppression", async () => {
+      await fees.getByRole("button", { name: "Modifier le tarif Plein tarif" }).click();
+      await expect(edit.getByLabel(/^Montant/)).toHaveValue("30");
+      await edit.getByLabel(/^Montant/).fill("32");
+      await edit.getByRole("button", { name: "Enregistrer" }).click();
+      await expect(main.getByText("Tarif Plein tarif modifié.").first()).toBeVisible();
+      await expect(table.getByRole("row").nth(2)).toContainText(/32,00\s€/);
+      const dupURL = page.url();
+
+      await fees.getByRole("button", { name: "Supprimer le tarif Membre d'honneur" }).click();
+      await expectNoBlockingA11yViolations(page);
+      await confirm.getByRole("button", { name: "Supprimer" }).click();
+      await expect(main.getByText("Tarif Membre d'honneur supprimé.").first()).toBeVisible();
+      await expect(table.getByRole("row")).toHaveCount(4);
+      await expect(fees.getByRole("button", { name: "Ajouter un tarif" })).toBeFocused();
+
+      // Copies indépendantes : la saison d'origine garde ses tarifs.
+      await page.goto(secondURL);
+      await expect(table.getByRole("row")).toHaveCount(5);
+      await expect(table.getByRole("row").nth(2)).toContainText(/30,00\s€/);
+      await page.goto(dupURL);
+      await expect(table.getByRole("row")).toHaveCount(4);
+    });
+
+    await test.step("320 px : aucun défilement horizontal de la page", async () => {
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.goto(secondURL);
+      await expect(table).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+      ).toBeLessThanOrEqual(0);
+      await fees.getByRole("button", { name: "Ajouter un tarif" }).click();
+      await expect(edit).toBeVisible();
+      await expectNoBlockingA11yViolations(page);
+    });
+  });
 });

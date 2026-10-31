@@ -4,6 +4,7 @@ import { CalendarCheck, Copy, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router";
+import { membershipFeesQuery } from "~/api/membership-fees";
 import { applyProblemToForm, isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
@@ -18,6 +19,7 @@ import { Icon } from "~/ui/Icon";
 import NotFound from "../not-found";
 import type { Route } from "./+types/season-detail";
 import { SeasonDatesFields, type SeasonDatesForm } from "./SeasonDatesFields";
+import { SeasonFees } from "./SeasonFees";
 
 // Fil d'Ariane : Tableau de bord › Saisons › Saison 2026-2027.
 export const handle = {
@@ -37,6 +39,9 @@ function parseID(value: string | undefined) {
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const id = parseID(params.id);
   if (id === null) return null;
+  // Les tarifs sont préchargés en parallèle ; leur erreur est affichée par la
+  // section.
+  queryClient.ensureQueryData(membershipFeesQuery(id)).catch(() => null);
   return queryClient.ensureQueryData(seasonQuery(id)).catch(() => null);
 }
 
@@ -226,6 +231,8 @@ function SeasonView({ season }: { season: Season }) {
           <dd>{formatDate(season.createdAt)}</dd>
         </dl>
       </section>
+
+      <SeasonFees season={season} onStatus={setStatus} onError={setError} />
     </Page>
   );
 }

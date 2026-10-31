@@ -23,3 +23,18 @@ export const seasonStatusTone = { draft: "warning", open: "success", closed: "mu
 export function seasonStatusLabel(status: "draft" | "open" | "closed") {
   return { draft: "Brouillon", open: "Ouverte", closed: "Close" }[status];
 }
+
+const amountFormat = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+
+// Montant d'un tarif en centimes → « 15,50 € », ou « Gratuit » (FR-002).
+export function formatAmount(cents: number) {
+  return cents === 0 ? "Gratuit" : amountFormat.format(cents / 100);
+}
+
+// Valeur de préremplissage du champ Montant : « 30 », « 15,50 ». Le serveur
+// analyse la saisie (research.md 004 › R3).
+export function amountInput(cents: number) {
+  const euros = Math.trunc(cents / 100);
+  const rest = cents % 100;
+  return rest === 0 ? String(euros) : `${euros},${String(rest).padStart(2, "0")}`;
+}

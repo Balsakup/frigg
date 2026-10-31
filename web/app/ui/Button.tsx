@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import { cn } from "~/lib/cn";
 
 export type ButtonVariant =
@@ -49,7 +49,7 @@ export function buttonClasses({
   );
 }
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & ButtonStyle;
+type ButtonProps = ComponentProps<"button"> & ButtonStyle;
 
 // Un bouton occupé reste focalisable (aria-disabled) au lieu d'être désactivé.
 export function Button({

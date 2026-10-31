@@ -213,6 +213,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/seasons/{id}/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tarifs de l'adhésion d'une saison */
+        get: operations["list-membership-fees"];
+        put?: never;
+        /** Ajouter un tarif à une saison */
+        post: operations["create-membership-fee"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/seasons/{id}/fees/{feeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifier un tarif */
+        put: operations["update-membership-fee"];
+        post?: never;
+        /** Supprimer un tarif */
+        delete: operations["delete-membership-fee"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/seasons/{id}/open": {
         parameters: {
             query?: never;
@@ -545,6 +581,47 @@ export interface components {
             email: string;
             /** @description Mot de passe */
             password: string;
+        };
+        MembershipFee: {
+            /**
+             * Format: int64
+             * @description Montant en centimes d'euro
+             */
+            amountCents: number;
+            /** Format: date-time */
+            createdAt: string;
+            description: string | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /**
+             * Format: int64
+             * @description Montant de renouvellement en centimes ; null : même montant pour toute adhésion
+             */
+            renewalAmountCents: number | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MembershipFeeActions: {
+            add: boolean;
+            delete: boolean;
+            edit: boolean;
+        };
+        MembershipFeeBody: {
+            /** @description Montant en euros, par exemple « 15,50 » */
+            amount: string;
+            /** @description Absente ou vide : aucune description */
+            description?: string;
+            /** @description Case « Tarif de renouvellement différent » ; absente : faux */
+            hasRenewalAmount?: boolean;
+            label: string;
+            /** @description Montant du renouvellement en euros ; obligatoire si hasRenewalAmount, ignoré sinon */
+            renewalAmount?: string;
+        };
+        MembershipFeeList: {
+            actions: components["schemas"]["MembershipFeeActions"];
+            /** @description Du montant le plus élevé au plus faible, puis par libellé */
+            items: components["schemas"]["MembershipFee"][] | null;
         };
         PasswordTokenInputBody: {
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
@@ -1197,6 +1274,144 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Season"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-membership-fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipFeeList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-membership-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipFeeBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipFee"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-membership-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+                /** @description Identifiant du tarif */
+                feeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipFeeBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipFee"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-membership-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la saison */
+                id: number;
+                /** @description Identifiant du tarif */
+                feeId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

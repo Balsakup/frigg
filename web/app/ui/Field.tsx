@@ -46,3 +46,56 @@ export function Field({ label, hint, error, required, className, id, ...input }:
     </div>
   );
 }
+
+interface TextAreaFieldProps extends ComponentProps<"textarea"> {
+  label: string;
+  hint?: string;
+  error?: string;
+}
+
+// Zone de texte accessible, sur le modèle de Field.
+export function TextAreaField({
+  label,
+  hint,
+  error,
+  required,
+  className,
+  id,
+  ...textarea
+}: TextAreaFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
+  const hintId = hint ? `${fieldId}-aide` : undefined;
+  const errorId = error ? `${fieldId}-erreur` : undefined;
+  return (
+    <div className={cn("min-w-0", className)}>
+      <label htmlFor={fieldId} className="mb-1 block font-bold">
+        {label}
+        {required ? <span className="font-normal text-muted"> (obligatoire)</span> : null}
+      </label>
+      {hint ? (
+        <p id={hintId} className="mb-1.5 text-sm text-muted">
+          {hint}
+        </p>
+      ) : null}
+      <textarea
+        id={fieldId}
+        required={required}
+        rows={3}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={[hintId, errorId].filter(Boolean).join(" ") || undefined}
+        className={cn(
+          "w-full min-w-0 rounded-md border bg-surface px-3 py-2",
+          error ? "border-danger" : "border-line-strong",
+        )}
+        {...textarea}
+      />
+      {error ? (
+        <p id={errorId} className="mt-1.5 flex items-start gap-1.5 text-sm font-bold text-danger">
+          <Icon icon={CircleAlert} className="mt-0.5 h-4 w-4" />
+          <span>{error}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}

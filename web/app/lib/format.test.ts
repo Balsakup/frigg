@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDay, seasonStatusLabel } from "./format";
+import { amountInput, formatAmount, formatDay, seasonStatusLabel } from "./format";
 
 describe("formatDay", () => {
   it("affiche la date civile sans décalage de fuseau", () => {
@@ -21,5 +21,24 @@ describe("seasonStatusLabel", () => {
     expect(seasonStatusLabel("draft")).toBe("Brouillon");
     expect(seasonStatusLabel("open")).toBe("Ouverte");
     expect(seasonStatusLabel("closed")).toBe("Close");
+  });
+});
+
+describe("formatAmount", () => {
+  it("affiche les euros au format français", () => {
+    expect(formatAmount(1550)).toMatch(/^15,50\s€$/);
+    expect(formatAmount(100000)).toMatch(/^1\s000,00\s€$/);
+  });
+
+  it("affiche « Gratuit » pour 0", () => {
+    expect(formatAmount(0)).toBe("Gratuit");
+  });
+});
+
+describe("amountInput", () => {
+  it("préremplit le champ sans décimales inutiles", () => {
+    expect(amountInput(3000)).toBe("30");
+    expect(amountInput(1550)).toBe("15,50");
+    expect(amountInput(5)).toBe("0,05");
   });
 });
