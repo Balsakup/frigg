@@ -72,6 +72,16 @@ func FieldErrors(location string, messages ...string) error {
 	return huma.Error422UnprocessableEntity("Les données envoyées sont invalides.", errs...)
 }
 
+// FieldErrorDetails renvoie une erreur 422 avec une entrée par détail, chacun
+// à son propre emplacement (erreurs de plusieurs champs renvoyées ensemble).
+func FieldErrorDetails(details ...*huma.ErrorDetail) error {
+	errs := make([]error, len(details))
+	for i, d := range details {
+		errs[i] = d
+	}
+	return huma.Error422UnprocessableEntity("Les données envoyées sont invalides.", errs...)
+}
+
 // TooManyAttempts renvoie l'erreur 429 neutre avec l'en-tête Retry-After.
 func TooManyAttempts() error {
 	h := http.Header{}

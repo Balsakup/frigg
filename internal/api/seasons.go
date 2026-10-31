@@ -455,19 +455,27 @@ func (s *server) openSeason(ctx context.Context, in *SeasonIDInput) (*SeasonOutp
 func (s *server) duplicateSeason(ctx context.Context, in *SeasonIDInput) (*SeasonOutput, error) {
 	var id int64
 	var start, end season.Date
+	var copied int64
 	err := s.seasonWrite(ctx, in.ID, func(q *sqlc.Queries, seasons []season.Season, i int, _ season.Date) error {
 		var err error
 		if start, end, err = season.ValidateDuplicate(seasons, i); err != nil {
 			return err
 		}
-		row, err := q.CreateSeason(ctx, sqlc.CreateSeasonParams{StartsOn: start.String(), EndsOn: end.String(), CreatedAt: nowString()})
+		now := nowString()
+		row, err := q.CreateSeason(ctx, sqlc.CreateSeasonParams{StartsOn: start.String(), EndsOn: end.String(), CreatedAt: now})
+		if err != nil {
+			return err
+		}
 		id = row.ID
+		// Les tarifs suivent la saison dans la même transaction (research.md
+		// 004 › R7).
+		copied, err = q.CopyMembershipFees(ctx, sqlc.CopyMembershipFeesParams{TargetID: id, SourceID: in.ID, Now: now})
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.logSeasonAction(ctx, "season.duplicate", id, "source_id", in.ID, "starts_on", start.String(), "ends_on", end.String())
+	s.logSeasonAction(ctx, "season.duplicate", id, "source_id", in.ID, "starts_on", start.String(), "ends_on", end.String(), "fees_copied", copied)
 	return s.seasonOutput(ctx, id)
 }
 

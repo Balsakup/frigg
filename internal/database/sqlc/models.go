@@ -42,6 +42,17 @@ type Invitation struct {
 	UpdatedAt string
 }
 
+type MembershipFee struct {
+	ID                 int64
+	SeasonID           int64
+	Label              string
+	AmountCents        int64
+	Description        sql.NullString
+	CreatedAt          string
+	UpdatedAt          string
+	RenewalAmountCents sql.NullInt64
+}
+
 type OneTimeToken struct {
 	ID        int64
 	AccountID int64
