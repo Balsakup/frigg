@@ -11,7 +11,7 @@ export function Breadcrumbs() {
     <nav aria-label="Fil d'Ariane" className="mb-2">
       <ol className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
         {matches.map((m, i) => {
-          const label = m.handle.crumb;
+          const label = m.label;
           const last = i === matches.length - 1;
           return (
             <li key={m.id} className="flex items-center gap-1.5">

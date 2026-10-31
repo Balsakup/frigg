@@ -37,7 +37,10 @@ export default [
     ...prefix("admin", [
       layout("routes/app/admin/layout.tsx", [
         index("routes/app/admin/home.tsx"),
-        route("comptes", "routes/app/admin/accounts.tsx"),
+        route("comptes", "routes/app/admin/accounts-layout.tsx", [
+          index("routes/app/admin/accounts.tsx"),
+          route(":id", "routes/app/admin/account-detail.tsx"),
+        ]),
         ...adminComingSoon.map((p) =>
           route(p, "routes/app/coming-soon.tsx", { id: `bientot-admin-${p}` }),
         ),

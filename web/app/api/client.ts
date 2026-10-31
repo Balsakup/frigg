@@ -28,6 +28,17 @@ const sessionExpired: Middleware = {
   },
 };
 
+// Droits d'administration retirés en cours de navigation : la session est
+// relue pour que le shell reflète le nouveau rôle (research.md 002 › R4).
+const rightsRevoked: Middleware = {
+  onResponse({ request, response }) {
+    if (response.status !== 403) return;
+    if (!new URL(request.url).pathname.startsWith("/api/admin/")) return;
+    void queryClient.invalidateQueries({ queryKey: ["get", "/session"] });
+  },
+};
+
 // Seul point d'accès HTTP du SPA (constitution, Frontend : aucun fetch direct).
 export const client = createFetchClient<paths>({ baseUrl: "/api" });
 client.use(sessionExpired);
+client.use(rightsRevoked);

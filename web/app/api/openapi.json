@@ -30,6 +30,102 @@
         ],
         "type": "object"
       },
+      "AdminAccount": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "disabledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSelf": {
+            "description": "Compte de l'administrateur connecté",
+            "type": "boolean"
+          },
+          "lastLoginAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "enum": [
+              "member",
+              "admin"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status",
+          "emailVerified",
+          "createdAt",
+          "lastLoginAt",
+          "disabledAt",
+          "isSelf"
+        ],
+        "type": "object"
+      },
+      "AdminAccountPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAccount"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object"
+      },
       "Association": {
         "additionalProperties": false,
         "properties": {
@@ -315,6 +411,23 @@
         ],
         "type": "object"
       },
+      "SetAccountRoleInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "description": "Nouveau rôle",
+            "enum": [
+              "member",
+              "admin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "type": "object"
+      },
       "TokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -344,6 +457,398 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/accounts": {
+      "get": {
+        "operationId": "list-accounts",
+        "parameters": [
+          {
+            "description": "Fragments d'adresse d'au moins 3 caractères, séparés par des espaces, tous requis",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Fragments d'adresse d'au moins 3 caractères, séparés par des espaces, tous requis",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filtre sur le rôle",
+            "explode": false,
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "description": "Filtre sur le rôle",
+              "enum": [
+                "member",
+                "admin"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filtre sur l'état",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "Filtre sur l'état",
+              "enum": [
+                "active",
+                "disabled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Numéro de page",
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Numéro de page",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Nombre de comptes par page",
+            "explode": false,
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 25,
+              "description": "Nombre de comptes par page",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccountPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Comptes de l'association",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
+    "/admin/accounts/{id}": {
+      "delete": {
+        "operationId": "delete-account",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer définitivement un compte",
+        "tags": [
+          "Comptes"
+        ]
+      },
+      "get": {
+        "operationId": "get-account",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Fiche d'un compte",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
+    "/admin/accounts/{id}/disable": {
+      "post": {
+        "operationId": "disable-account",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Désactiver un compte",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
+    "/admin/accounts/{id}/enable": {
+      "post": {
+        "operationId": "enable-account",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Réactiver un compte",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
+    "/admin/accounts/{id}/password-reset": {
+      "post": {
+        "operationId": "send-account-password-reset",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Envoyer un lien de réinitialisation du mot de passe",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
+    "/admin/accounts/{id}/role": {
+      "put": {
+        "operationId": "set-account-role",
+        "parameters": [
+          {
+            "description": "Identifiant du compte",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du compte",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAccountRoleInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAccount"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Changer le rôle d'un compte",
+        "tags": [
+          "Comptes"
+        ]
+      }
+    },
     "/admin/invitations": {
       "get": {
         "operationId": "list-invitations",

@@ -11,7 +11,7 @@ test.describe("invitations (US4)", () => {
 
     const since = new Date();
     await page.getByLabel(/^Adresse électronique/).fill(email);
-    await page.getByRole("button", { name: "Envoyer l'invitation" }).click();
+    await page.getByRole("button", { name: "Envoyer l'invitation", exact: true }).click();
     await expect(page.getByText(`Invitation envoyée à ${email}.`).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: email, exact: true })).toBeVisible();
     await expectNoBlockingA11yViolations(page);
@@ -51,7 +51,7 @@ test.describe("invitations (US4)", () => {
     await login(page, "admin@exemple.fr");
     await page.goto("/admin/comptes");
     await page.getByLabel(/^Adresse électronique/).fill(email);
-    await page.getByRole("button", { name: "Envoyer l'invitation" }).click();
+    await page.getByRole("button", { name: "Envoyer l'invitation", exact: true }).click();
     await expect(page.getByRole("cell", { name: email, exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: `Annuler l'invitation de ${email}` }).click();
