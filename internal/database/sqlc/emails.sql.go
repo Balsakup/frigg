@@ -10,6 +10,15 @@ import (
 	"database/sql"
 )
 
+const deleteEmailsByRecipient = `-- name: DeleteEmailsByRecipient :exec
+DELETE FROM outbound_emails WHERE recipient = ?1
+`
+
+func (q *Queries) DeleteEmailsByRecipient(ctx context.Context, recipient string) error {
+	_, err := q.db.ExecContext(ctx, deleteEmailsByRecipient, recipient)
+	return err
+}
+
 const enqueueEmail = `-- name: EnqueueEmail :exec
 INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at)
 VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5)

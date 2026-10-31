@@ -31,3 +31,6 @@ WHERE id = sqlc.arg(id) AND status = 'pending';
 
 -- name: MarkInvitationAccepted :exec
 UPDATE invitations SET status = 'accepted', updated_at = sqlc.arg(now) WHERE id = sqlc.arg(id);
+
+-- name: DeleteInvitationsByEmail :exec
+DELETE FROM invitations WHERE email = sqlc.arg(email);

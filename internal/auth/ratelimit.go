@@ -70,6 +70,7 @@ type Limits struct {
 	VerifyIP      *KeyedLimiter
 	TokenIP       *KeyedLimiter
 	InviteAdmin   *KeyedLimiter
+	AdminReset    *KeyedLimiter
 }
 
 // NewLimits crée les limiteurs avec les valeurs de research.md › R7.
@@ -83,6 +84,7 @@ func NewLimits() *Limits {
 		VerifyIP:      NewKeyedLimiter(10, time.Hour),
 		TokenIP:       NewKeyedLimiter(10, time.Minute),
 		InviteAdmin:   NewKeyedLimiter(30, time.Hour),
+		AdminReset:    NewKeyedLimiter(30, time.Hour), // research.md 002 › R9
 	}
 }
 
@@ -95,7 +97,7 @@ func (l *Limits) RunPurge(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin} {
+			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset} {
 				k.purge(2 * time.Hour)
 			}
 		}

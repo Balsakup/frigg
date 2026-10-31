@@ -106,7 +106,9 @@ func (s *server) login(ctx context.Context, in *LoginInput) (*SessionOutput, err
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture du compte impossible", err)
 	}
-	if !auth.VerifyPassword(in.Body.Password, account.PasswordHash) {
+	// Compte désactivé : même réponse que des identifiants incorrects, après la
+	// vérification du mot de passe pour garder un temps constant (principe VII).
+	if !auth.VerifyPassword(in.Body.Password, account.PasswordHash) || account.DisabledAt.Valid {
 		return nil, huma.Error401Unauthorized(MsgBadCredentials)
 	}
 	return s.openSession(ctx, account)
@@ -247,6 +249,9 @@ func (s *server) requestPasswordReset(ctx context.Context, in *EmailInput) (*str
 		}
 		if err != nil {
 			return err
+		}
+		if account.DisabledAt.Valid {
+			return nil // compte désactivé : même réponse qu'une adresse inconnue
 		}
 		raw, err := issueToken(ctx, q, account.ID, purposePasswordReset, passwordResetLifetime)
 		if err != nil {

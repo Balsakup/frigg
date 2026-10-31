@@ -22,3 +22,6 @@ WHERE id = sqlc.arg(id);
 
 -- name: PurgeSentEmails :exec
 DELETE FROM outbound_emails WHERE status = 'sent' AND sent_at < sqlc.arg(before);
+
+-- name: DeleteEmailsByRecipient :exec
+DELETE FROM outbound_emails WHERE recipient = sqlc.arg(recipient);

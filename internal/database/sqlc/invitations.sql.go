@@ -67,6 +67,15 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 	return i, err
 }
 
+const deleteInvitationsByEmail = `-- name: DeleteInvitationsByEmail :exec
+DELETE FROM invitations WHERE email = ?1
+`
+
+func (q *Queries) DeleteInvitationsByEmail(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationsByEmail, email)
+	return err
+}
+
 const getInvitationByID = `-- name: GetInvitationByID :one
 SELECT id, email, role, token_hash, invited_by, status, expires_at, created_at, updated_at FROM invitations WHERE id = ?1
 `

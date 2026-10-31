@@ -17,6 +17,11 @@ type Account struct {
 	AuthEpoch       int64
 	CreatedAt       string
 	LastLoginAt     sql.NullString
+	DisabledAt      sql.NullString
+}
+
+type AccountsFt struct {
+	Email string
 }
 
 type Association struct {

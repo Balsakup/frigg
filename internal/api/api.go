@@ -54,6 +54,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerAuth(api)
 	s.registerMe(api)
 	s.registerInvitations(api)
+	s.registerAccounts(api)
 	s.mountDocs(mux, api)
 	return api
 }
@@ -109,8 +110,9 @@ func (s *server) accessMiddleware(api huma.API) func(huma.Context, func(huma.Con
 			return
 		}
 		account, err := s.Store.Read.GetAccountByID(reqCtx, id)
-		if errors.Is(err, sql.ErrNoRows) || (err == nil && account.AuthEpoch != epoch) {
-			// Compte supprimé, mot de passe changé ailleurs, etc. : session révoquée.
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && (account.AuthEpoch != epoch || account.DisabledAt.Valid)) {
+			// Compte supprimé ou désactivé, mot de passe changé ailleurs, etc. :
+			// session révoquée (research.md 002 › R2).
 			_ = auth.Logout(reqCtx, s.Sessions)
 			_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "Votre session a expiré.")
 			return

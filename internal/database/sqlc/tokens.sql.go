@@ -34,6 +34,15 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error 
 	return err
 }
 
+const deleteAllUnusedTokens = `-- name: DeleteAllUnusedTokens :exec
+DELETE FROM one_time_tokens WHERE account_id = ?1 AND used_at IS NULL
+`
+
+func (q *Queries) DeleteAllUnusedTokens(ctx context.Context, accountID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteAllUnusedTokens, accountID)
+	return err
+}
+
 const deleteUnusedTokens = `-- name: DeleteUnusedTokens :exec
 DELETE FROM one_time_tokens
 WHERE account_id = ?1 AND purpose = ?2 AND used_at IS NULL
@@ -50,11 +59,13 @@ func (q *Queries) DeleteUnusedTokens(ctx context.Context, arg DeleteUnusedTokens
 }
 
 const getValidToken = `-- name: GetValidToken :one
-SELECT id, account_id, purpose, token_hash, expires_at, used_at, created_at FROM one_time_tokens
-WHERE token_hash = ?1
-  AND purpose = ?2
-  AND used_at IS NULL
-  AND expires_at > ?3
+SELECT t.id, t.account_id, t.purpose, t.token_hash, t.expires_at, t.used_at, t.created_at FROM one_time_tokens t
+JOIN accounts a ON a.id = t.account_id
+WHERE t.token_hash = ?1
+  AND t.purpose = ?2
+  AND t.used_at IS NULL
+  AND t.expires_at > ?3
+  AND a.disabled_at IS NULL
 `
 
 type GetValidTokenParams struct {

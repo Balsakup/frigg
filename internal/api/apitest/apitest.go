@@ -1,6 +1,6 @@
 // Package apitest monte l'API complète (sessions et protection CSRF comprises)
 // sur un serveur httptest, avec une base temporaire et un faux expéditeur.
-// Constitution 1.3.2 : httptest sur la chaîne complète dès que sessions, cookies
+// Constitution 1.4.0 : httptest sur la chaîne complète dès que sessions, cookies
 // ou CSRF sont en jeu ; humatest reste réservé aux vérifications de schéma.
 package apitest
 

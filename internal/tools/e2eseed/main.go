@@ -41,7 +41,23 @@ var accounts = []struct {
 	{"membre-non-confirme@exemple.fr", auth.RoleMember, false},
 	{"membre-clavier@exemple.fr", auth.RoleMember, true},
 	{"admin-clavier@exemple.fr", auth.RoleAdmin, true},
+	// Gestion des comptes (002) : un administrateur par fichier e2e.
+	{"admin-comptes@exemple.fr", auth.RoleAdmin, true},
+	{"admin-desactivation@exemple.fr", auth.RoleAdmin, true},
+	{"admin-role@exemple.fr", auth.RoleAdmin, true},
+	{"admin-suppression@exemple.fr", auth.RoleAdmin, true},
+	{"admin-lien@exemple.fr", auth.RoleAdmin, true},
+	{"membre-a-desactiver@exemple.fr", auth.RoleMember, true},
+	{"membre-desactive@exemple.fr", auth.RoleMember, true},
+	{"membre-a-promouvoir@exemple.fr", auth.RoleMember, true},
+	{"admin-a-retrograder@exemple.fr", auth.RoleAdmin, true},
+	{"admin-a-supprimer@exemple.fr", auth.RoleAdmin, true},
+	{"membre-lien@exemple.fr", auth.RoleMember, true},
+	{"hélène.lefèvre@exemple.fr", auth.RoleMember, true},
 }
+
+// listAccounts est le nombre de comptes membre-liste-NN (pagination).
+const listAccounts = 30
 
 func main() {
 	if len(os.Args) != 2 {
@@ -91,6 +107,35 @@ func run(path string) error {
 				return fmt.Errorf("compte %s : %w", a.email, err)
 			}
 		}
-		return nil
+		for i := 1; i <= listAccounts; i++ {
+			email := fmt.Sprintf("membre-liste-%02d@exemple.fr", i)
+			if _, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{Email: email, PasswordHash: hash, Role: auth.RoleMember, CreatedAt: now}); err != nil {
+				return fmt.Errorf("compte %s : %w", email, err)
+			}
+		}
+
+		disabled, err := q.GetAccountByEmail(ctx, "membre-desactive@exemple.fr")
+		if err != nil {
+			return err
+		}
+		if _, err := q.DisableAccount(ctx, sqlc.DisableAccountParams{ID: disabled.ID, Now: sql.NullString{String: now, Valid: true}}); err != nil {
+			return err
+		}
+
+		// Invitation en attente envoyée par le compte que le test de suppression efface.
+		author, err := q.GetAccountByEmail(ctx, "admin-a-supprimer@exemple.fr")
+		if err != nil {
+			return err
+		}
+		_, tokenHash := auth.NewToken()
+		_, err = q.CreateInvitation(ctx, sqlc.CreateInvitationParams{
+			Email:     "invite-par-supprime@exemple.fr",
+			Role:      auth.RoleMember,
+			TokenHash: tokenHash,
+			InvitedBy: sql.NullInt64{Int64: author.ID, Valid: true},
+			ExpiresAt: time.Now().UTC().Add(7 * 24 * time.Hour).Format("2006-01-02T15:04:05Z"),
+			Now:       now,
+		})
+		return err
 	})
 }

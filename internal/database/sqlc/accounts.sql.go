@@ -10,10 +10,33 @@ import (
 	"database/sql"
 )
 
+const countAccounts = `-- name: CountAccounts :one
+SELECT count(*)
+FROM accounts a
+WHERE (CAST(?1 AS TEXT) IS NULL
+       OR a.id IN (SELECT rowid FROM accounts_fts WHERE accounts_fts MATCH CAST(?1 AS TEXT)))
+  AND (CAST(?2 AS TEXT) IS NULL OR a.role = CAST(?2 AS TEXT))
+  AND (CAST(?3 AS INTEGER) IS NULL
+       OR (a.disabled_at IS NOT NULL) = CAST(?3 AS INTEGER))
+`
+
+type CountAccountsParams struct {
+	Query    sql.NullString
+	Role     sql.NullString
+	Disabled sql.NullInt64
+}
+
+func (q *Queries) CountAccounts(ctx context.Context, arg CountAccountsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAccounts, arg.Query, arg.Role, arg.Disabled)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (email, password_hash, role, email_verified_at, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5)
-RETURNING id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at
+RETURNING id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at, disabled_at
 `
 
 type CreateAccountParams struct {
@@ -42,12 +65,64 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 		&i.AuthEpoch,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
+const deleteAccount = `-- name: DeleteAccount :execrows
+DELETE FROM accounts
+WHERE accounts.id = ?1
+  AND (accounts.role <> 'admin'
+       OR accounts.disabled_at IS NOT NULL
+       OR EXISTS (SELECT 1 FROM accounts o WHERE o.role = 'admin' AND o.disabled_at IS NULL AND o.id <> ?1))
+`
+
+func (q *Queries) DeleteAccount(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAccount, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const disableAccount = `-- name: DisableAccount :execrows
+UPDATE accounts
+SET disabled_at = ?1, auth_epoch = auth_epoch + 1
+WHERE accounts.id = ?2
+  AND accounts.disabled_at IS NULL
+  AND (accounts.role <> 'admin'
+       OR EXISTS (SELECT 1 FROM accounts o WHERE o.role = 'admin' AND o.disabled_at IS NULL AND o.id <> ?2))
+`
+
+type DisableAccountParams struct {
+	Now sql.NullString
+	ID  int64
+}
+
+func (q *Queries) DisableAccount(ctx context.Context, arg DisableAccountParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, disableAccount, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const enableAccount = `-- name: EnableAccount :execrows
+UPDATE accounts SET disabled_at = NULL
+WHERE id = ?1 AND disabled_at IS NOT NULL
+`
+
+func (q *Queries) EnableAccount(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, enableAccount, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAccountByEmail = `-- name: GetAccountByEmail :one
-SELECT id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at FROM accounts WHERE email = ?1
+SELECT id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at, disabled_at FROM accounts WHERE email = ?1
 `
 
 func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (Account, error) {
@@ -62,12 +137,13 @@ func (q *Queries) GetAccountByEmail(ctx context.Context, email string) (Account,
 		&i.AuthEpoch,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getAccountByID = `-- name: GetAccountByID :one
-SELECT id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at FROM accounts WHERE id = ?1
+SELECT id, email, password_hash, role, email_verified_at, auth_epoch, created_at, last_login_at, disabled_at FROM accounts WHERE id = ?1
 `
 
 func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error) {
@@ -82,8 +158,76 @@ func (q *Queries) GetAccountByID(ctx context.Context, id int64) (Account, error)
 		&i.AuthEpoch,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
+}
+
+const listAccounts = `-- name: ListAccounts :many
+SELECT a.id, a.email, a.role, a.email_verified_at, a.disabled_at, a.created_at, a.last_login_at
+FROM accounts a
+WHERE (CAST(?1 AS TEXT) IS NULL
+       OR a.id IN (SELECT rowid FROM accounts_fts WHERE accounts_fts MATCH CAST(?1 AS TEXT)))
+  AND (CAST(?2 AS TEXT) IS NULL OR a.role = CAST(?2 AS TEXT))
+  AND (CAST(?3 AS INTEGER) IS NULL
+       OR (a.disabled_at IS NOT NULL) = CAST(?3 AS INTEGER))
+ORDER BY a.email, a.id
+LIMIT ?5 OFFSET ?4
+`
+
+type ListAccountsParams struct {
+	Query    sql.NullString
+	Role     sql.NullString
+	Disabled sql.NullInt64
+	Offset   int64
+	Limit    int64
+}
+
+type ListAccountsRow struct {
+	ID              int64
+	Email           string
+	Role            string
+	EmailVerifiedAt sql.NullString
+	DisabledAt      sql.NullString
+	CreatedAt       string
+	LastLoginAt     sql.NullString
+}
+
+func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]ListAccountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAccounts,
+		arg.Query,
+		arg.Role,
+		arg.Disabled,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAccountsRow{}
+	for rows.Next() {
+		var i ListAccountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Role,
+			&i.EmailVerifiedAt,
+			&i.DisabledAt,
+			&i.CreatedAt,
+			&i.LastLoginAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markEmailVerified = `-- name: MarkEmailVerified :exec
@@ -99,6 +243,28 @@ type MarkEmailVerifiedParams struct {
 func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) error {
 	_, err := q.db.ExecContext(ctx, markEmailVerified, arg.VerifiedAt, arg.ID)
 	return err
+}
+
+const setAccountRole = `-- name: SetAccountRole :execrows
+UPDATE accounts SET role = ?1
+WHERE accounts.id = ?2
+  AND accounts.role <> ?1
+  AND (?1 = 'admin'
+       OR accounts.disabled_at IS NOT NULL
+       OR EXISTS (SELECT 1 FROM accounts o WHERE o.role = 'admin' AND o.disabled_at IS NULL AND o.id <> ?2))
+`
+
+type SetAccountRoleParams struct {
+	Role string
+	ID   int64
+}
+
+func (q *Queries) SetAccountRole(ctx context.Context, arg SetAccountRoleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setAccountRole, arg.Role, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateLastLogin = `-- name: UpdateLastLogin :exec

@@ -27,6 +27,10 @@ var pathParamRe = regexp.MustCompile(`\{[^}]+\}`)
 // publiques), membre → 403 sur les opérations admin, administrateur jamais refusé.
 func TestAccessMatrix(t *testing.T) {
 	env := apitest.New(t)
+	// Les chemins sont appelés avec l'identifiant 1 : ce compte sert de cible
+	// aux actions d'administration (désactivation, suppression…) pour que les
+	// clients membre et administrateur restent connectés.
+	env.Seed(auth.RoleMember, true)
 	anonymous := env.Client()
 	member := env.LoggedIn(env.Seed(auth.RoleMember, true))
 	admin := env.LoggedIn(env.Seed(auth.RoleAdmin, true))
