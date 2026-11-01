@@ -19,11 +19,13 @@ export function DuplicateConfirm<T extends MemberFormValues & FieldValues>({
   const error = errors.confirmDuplicate?.message as string | undefined;
   const [message, setMessage] = useState("");
   useEffect(() => {
-    if (!error) return;
-    setMessage(error);
-    // Après le rendu de la case.
-    requestAnimationFrame(() => document.getElementById("confirmer-doublon")?.focus());
+    if (error) setMessage(error);
   }, [error]);
+  // Focus une fois la case rendue : programmé dans l'effet précédent, il
+  // pouvait partir avant le rendu qui affiche la case.
+  useEffect(() => {
+    if (message) document.getElementById("confirmer-doublon")?.focus();
+  }, [message]);
 
   if (!message) return null;
   return (
