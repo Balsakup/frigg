@@ -28,3 +28,25 @@ func (s *server) enqueueMail(ctx context.Context, q *sqlc.Queries, template, to,
 	}
 	return mail.Enqueue(ctx, q, to, msg)
 }
+
+// enqueueNotice rend un gabarit d'information et le met en file avec les
+// requêtes de la transaction courante. path, s'il n'est pas vide, est le chemin
+// du SPA vers lequel pointe le lien (sans jeton : la page exige une session).
+func (s *server) enqueueNotice(ctx context.Context, q *sqlc.Queries, template, to string, data mail.Data, path string) error {
+	name, err := q.GetAssociation(ctx)
+	if err != nil {
+		return err
+	}
+	data.Association = defaultAssociationName
+	if name.Valid {
+		data.Association = name.String
+	}
+	if path != "" {
+		data.Link = s.Config.BaseURL + path
+	}
+	msg, err := mail.Render(template, data)
+	if err != nil {
+		return err
+	}
+	return mail.Enqueue(ctx, q, to, msg)
+}

@@ -66,6 +66,34 @@ type MembersFt struct {
 	Phone     string
 }
 
+type Membership struct {
+	ID               int64
+	MemberID         int64
+	SeasonID         int64
+	FeeID            int64
+	Status           string
+	DeclaredKind     sql.NullString
+	Kind             sql.NullString
+	AmountCents      sql.NullInt64
+	Reason           sql.NullString
+	RequestedBy      sql.NullInt64
+	CreatedBy        sql.NullInt64
+	RequestedAt      string
+	DecidedBy        sql.NullInt64
+	DecidedAt        sql.NullString
+	CancelledBy      sql.NullInt64
+	CancelledAt      sql.NullString
+	PaymentReference sql.NullString
+	PaymentStatus    sql.NullString
+	AnnouncedMethod  sql.NullString
+	PaidMethod       sql.NullString
+	PaidOn           sql.NullString
+	PaidBy           sql.NullInt64
+	PaidAt           sql.NullString
+	PaymentNote      sql.NullString
+	UpdatedAt        string
+}
+
 type MembershipFee struct {
 	ID                 int64
 	SeasonID           int64
@@ -75,6 +103,10 @@ type MembershipFee struct {
 	CreatedAt          string
 	UpdatedAt          string
 	RenewalAmountCents sql.NullInt64
+}
+
+type MembershipsFt struct {
+	PaymentReference string
 }
 
 type OneTimeToken struct {
@@ -99,6 +131,22 @@ type OutboundEmail struct {
 	LastError     sql.NullString
 	CreatedAt     string
 	SentAt        sql.NullString
+}
+
+type PaymentSetting struct {
+	ID                   int64
+	CashEnabled          int64
+	CashInstructions     sql.NullString
+	ChequeEnabled        int64
+	ChequePayee          sql.NullString
+	ChequeAddress        sql.NullString
+	ChequeInstructions   sql.NullString
+	TransferEnabled      int64
+	TransferHolder       sql.NullString
+	TransferIban         sql.NullString
+	TransferBic          sql.NullString
+	TransferInstructions sql.NullString
+	UpdatedAt            string
 }
 
 type Season struct {

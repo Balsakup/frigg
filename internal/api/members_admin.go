@@ -1,10 +1,12 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -158,7 +160,13 @@ func (s *server) memberOutput(ctx context.Context, id int64) (*AdminMemberOutput
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de la fiche impossible", err)
 	}
-	return &AdminMemberOutput{Body: toAdminMember(fromGetRow(r), s.today())}, nil
+	out := toAdminMember(fromGetRow(r), s.today())
+	ms, err := s.memberMemberships(ctx, id)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	out.Memberships = ms
+	return &AdminMemberOutput{Body: out}, nil
 }
 
 func (s *server) getMember(ctx context.Context, in *MemberIDInput) (*AdminMemberOutput, error) {
@@ -283,6 +291,7 @@ func (s *server) updateMember(ctx context.Context, in *UpdateMemberInput) (*Admi
 
 func (s *server) deleteMember(ctx context.Context, in *MemberIDInput) (*struct{}, error) {
 	var account sql.NullInt64
+	var memberships int
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetMember(ctx, in.ID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -292,12 +301,44 @@ func (s *server) deleteMember(ctx context.Context, in *MemberIDInput) (*struct{}
 			return err
 		}
 		account = row.AccountID
+		// Les adhésions de la fiche sont supprimées avec elle (FR-021).
+		ms, err := q.ListMembershipsOfMember(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		memberships = len(ms)
 		_, err = q.DeleteMember(ctx, in.ID)
 		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "suppression de la fiche impossible", err)
 	}
-	s.logMemberAction(ctx, "member.delete", in.ID, account, "admin")
+	s.logMemberAction(ctx, "member.delete", in.ID, account, "admin", "memberships_deleted", memberships)
 	return nil, nil
+}
+
+// memberMemberships liste les adhésions d'une fiche, la saison la plus récente
+// d'abord (FR-010).
+func (s *server) memberMemberships(ctx context.Context, memberID int64) ([]MemberMembership, error) {
+	q := s.Store.Read
+	rows, err := q.ListMembershipsOfMember(ctx, memberID)
+	if err != nil {
+		return nil, err
+	}
+	seasons, order, err := seasonIndex(ctx, q, s.today())
+	if err != nil {
+		return nil, err
+	}
+	rank := make(map[int64]int, len(order))
+	for i, id := range order {
+		rank[id] = i
+	}
+	slices.SortFunc(rows, func(a, b sqlc.Membership) int {
+		return cmp.Or(cmp.Compare(rank[b.SeasonID], rank[a.SeasonID]), cmp.Compare(b.ID, a.ID))
+	})
+	out := make([]MemberMembership, len(rows))
+	for i, r := range rows {
+		out[i] = MemberMembership{ID: r.ID, Season: seasons[r.SeasonID].ref, Status: r.Status, Payment: paymentOf(r)}
+	}
+	return out, nil
 }

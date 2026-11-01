@@ -21,10 +21,18 @@ type Message struct {
 	HTML    string
 }
 
-// Data est commune à tous les gabarits ; Link est le lien à jeton éventuel.
+// Data est commune à tous les gabarits ; Link est le lien éventuel (à jeton
+// pour l'authentification). Les autres champs servent aux e-mails d'adhésion
+// (research.md 006 › R8) : ils sont déjà formatés.
 type Data struct {
 	Association string
 	Link        string
+	Member      string
+	Season      string
+	Amount      string
+	Reference   string
+	Reason      string
+	Method      string
 }
 
 // Render rend le gabarit name : name.txt.tmpl définit "subject" et "body",

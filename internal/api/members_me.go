@@ -249,6 +249,19 @@ func (s *server) updateMyMember(ctx context.Context, in *UpdateMyMemberInput) (*
 func (s *server) deleteMyMember(ctx context.Context, in *MemberIDInput) (*struct{}, error) {
 	account := ownAccount(ctx)
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		if _, err := q.GetMemberOfAccount(ctx, sqlc.GetMemberOfAccountParams{ID: in.ID, AccountID: account}); errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound(MsgMemberGone)
+		} else if err != nil {
+			return err
+		}
+		// Une fiche dont l'adhésion est en cours reste (research.md 006 › R9).
+		active, err := q.CountActiveMembershipsOfMember(ctx, in.ID)
+		if err != nil {
+			return err
+		}
+		if active > 0 {
+			return huma.Error409Conflict(MsgMemberHasMembership)
+		}
 		n, err := q.DeleteMemberOfAccount(ctx, sqlc.DeleteMemberOfAccountParams{ID: in.ID, AccountID: account})
 		if err == nil && n == 0 {
 			return huma.Error404NotFound(MsgMemberGone)

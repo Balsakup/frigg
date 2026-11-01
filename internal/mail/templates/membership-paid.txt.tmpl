@@ -1,0 +1,10 @@
+{{define "subject"}}Paiement de l'adhésion de {{.Member}} reçu{{end}}
+{{define "body"}}Bonjour,
+
+Le bureau de {{.Association}} a bien reçu le paiement de l'adhésion de {{.Member}} pour la saison {{.Season}}.
+
+Montant : {{.Amount}}
+Moyen de paiement : {{.Method}}
+Référence : {{.Reference}}
+
+Merci !{{end}}

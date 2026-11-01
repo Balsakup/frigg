@@ -1,0 +1,11 @@
+{{define "subject"}}Adhésion de {{.Member}} validée{{end}}
+{{define "body"}}Bonjour,
+
+L'adhésion de {{.Member}} à {{.Association}} pour la saison {{.Season}} a été validée.
+{{if .Link}}
+Montant : {{.Amount}}
+Référence de paiement : {{.Reference}}
+
+Pour choisir votre moyen de paiement et obtenir les informations nécessaires, ouvrez ce lien :
+{{.Link}}{{else}}
+Aucun paiement n'est demandé pour cette adhésion.{{end}}{{end}}

@@ -1,0 +1,738 @@
+package api
+
+import (
+	"cmp"
+	"context"
+	"database/sql"
+	"errors"
+	"net/http"
+	"slices"
+	"strconv"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/database"
+	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/membership"
+	"github.com/balsakup/frigg/internal/season"
+	"github.com/balsakup/frigg/internal/textfold"
+)
+
+// Administration (« Adhésions ») : liste, chiffres, décisions, création
+// directe, corrections et constatation des paiements.
+
+func (s *server) registerAdminMemberships(api huma.API) {
+	op := func(id, method, path, summary string, status int) huma.Operation {
+		return huma.Operation{OperationID: id, Method: method, Path: path, Summary: summary, Tags: []string{tagMemberships}, DefaultStatus: status}
+	}
+	register(api, auth.Admin, op("list-memberships", http.MethodGet, "/admin/memberships", "Lister les adhésions", 0), s.listMemberships)
+	register(api, auth.Admin, op("get-membership-stats", http.MethodGet, "/admin/memberships/stats", "Chiffres de l'adhésion d'une saison", 0), s.getMembershipStats)
+	register(api, auth.Admin, op("get-membership-dashboard", http.MethodGet, "/admin/memberships/dashboard", "Indicateurs d'adhésion du tableau de bord", 0), s.getMembershipDashboard)
+	register(api, auth.Admin, op("get-membership", http.MethodGet, "/admin/memberships/{id}", "Une adhésion", 0), s.getMembership)
+	register(api, auth.Admin, op("create-membership", http.MethodPost, "/admin/memberships", "Enregistrer une adhésion validée", http.StatusCreated), s.createMembership)
+	register(api, auth.Admin, op("validate-membership", http.MethodPost, "/admin/memberships/{id}/validate", "Valider une demande d'adhésion", 0), s.validateMembership)
+	register(api, auth.Admin, op("refuse-membership", http.MethodPost, "/admin/memberships/{id}/refuse", "Refuser une demande d'adhésion", 0), s.refuseMembership)
+	register(api, auth.Admin, op("update-membership", http.MethodPut, "/admin/memberships/{id}", "Corriger une adhésion validée", 0), s.updateMembership)
+	register(api, auth.Admin, op("cancel-membership", http.MethodPost, "/admin/memberships/{id}/cancel", "Annuler une adhésion validée", 0), s.cancelMembership)
+	register(api, auth.Admin, op("record-membership-payment", http.MethodPost, "/admin/memberships/{id}/payment", "Constater le paiement d'une adhésion", 0), s.recordMembershipPayment)
+	register(api, auth.Admin, op("cancel-membership-payment", http.MethodDelete, "/admin/memberships/{id}/payment", "Annuler la constatation du paiement", 0), s.cancelMembershipPayment)
+}
+
+// AdminMembershipActions sont les actions proposées à un administrateur.
+type AdminMembershipActions struct {
+	Validate      bool `json:"validate"`
+	Refuse        bool `json:"refuse"`
+	Update        bool `json:"update"`
+	Cancel        bool `json:"cancel"`
+	RecordPayment bool `json:"recordPayment"`
+	CancelPayment bool `json:"cancelPayment"`
+}
+
+// AdminMembership est une adhésion vue par l'administration.
+type AdminMembership struct {
+	Membership
+	Account        *MemberAccount         `json:"account" doc:"Compte qui gère la fiche ; null : sans compte"`
+	RequestedBy    *AccountRef            `json:"requestedBy"`
+	CreatedBy      *AccountRef            `json:"createdBy"`
+	DecidedBy      *AccountRef            `json:"decidedBy"`
+	CancelledBy    *AccountRef            `json:"cancelledBy"`
+	PaidBy         *AccountRef            `json:"paidBy"`
+	PaymentNote    *string                `json:"paymentNote"`
+	PreviousSeason string                 `json:"previousSeason" enum:"yes,no,unknown" doc:"Adhérent la saison précédente dans Frigg"`
+	SeasonFees     []MembershipFeeRef     `json:"seasonFees" doc:"Tarifs de la saison, pour valider ou corriger"`
+	Actions        AdminMembershipActions `json:"actions"`
+}
+
+// AdminMembershipFee est le tarif d'une ligne de la liste.
+type AdminMembershipFee struct {
+	ID    int64  `json:"id"`
+	Label string `json:"label"`
+}
+
+// AdminMembershipRow est une ligne de la liste des adhésions.
+type AdminMembershipRow struct {
+	ID           int64              `json:"id"`
+	Member       MemberRef          `json:"member"`
+	Season       SeasonRef          `json:"season"`
+	Fee          AdminMembershipFee `json:"fee"`
+	Status       string             `json:"status" enum:"pending,validated,refused,cancelled"`
+	Kind         *string            `json:"kind" enum:"first,renewal"`
+	DeclaredKind *string            `json:"declaredKind" enum:"first,renewal"`
+	AmountCents  *int64             `json:"amountCents" doc:"Montant appliqué ; null tant que l'adhésion n'est pas validée"`
+	Payment      *Payment           `json:"payment"`
+	RequestedAt  string             `json:"requestedAt" format:"date-time"`
+}
+
+// AdminMembershipPage est une page de la liste des adhésions.
+type AdminMembershipPage struct {
+	SeasonID *int64               `json:"seasonId" doc:"Saison retenue ; null : toutes"`
+	Items    []AdminMembershipRow `json:"items" doc:"Demandes en attente d'abord, puis par nom et prénom"`
+	Total    int64                `json:"total"`
+	Page     int64                `json:"page"`
+	PageSize int64                `json:"pageSize"`
+}
+
+// MembershipFeeStat est la répartition d'un tarif.
+type MembershipFeeStat struct {
+	FeeID       int64  `json:"feeId"`
+	Label       string `json:"label"`
+	Count       int    `json:"count"`
+	AmountCents int64  `json:"amountCents"`
+}
+
+// MembershipDueByMethod détaille le restant à percevoir par moyen annoncé.
+type MembershipDueByMethod struct {
+	None     int64 `json:"none" doc:"Aucun moyen choisi"`
+	Cash     int64 `json:"cash"`
+	Cheque   int64 `json:"cheque"`
+	Transfer int64 `json:"transfer"`
+}
+
+// MembershipStats sont les chiffres d'une saison (FR-018).
+type MembershipStats struct {
+	SeasonID    int64                 `json:"seasonId"`
+	Validated   int                   `json:"validated"`
+	First       int                   `json:"first"`
+	Renewal     int                   `json:"renewal"`
+	Pending     int                   `json:"pending"`
+	ByFee       []MembershipFeeStat   `json:"byFee"`
+	TotalCents  int64                 `json:"totalCents"`
+	PaidCents   int64                 `json:"paidCents"`
+	DueCents    int64                 `json:"dueCents"`
+	DueByMethod MembershipDueByMethod `json:"dueByMethod"`
+}
+
+// MembershipDashboard sont les indicateurs du tableau de bord.
+type MembershipDashboard struct {
+	PendingCount       int64 `json:"pendingCount" doc:"Demandes en attente, toutes saisons"`
+	PaymentSetupNeeded bool  `json:"paymentSetupNeeded" doc:"Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion"`
+}
+
+// DecisionBody est le tarif et le type retenus.
+type DecisionBody struct {
+	FeeID int64  `json:"feeId"`
+	Kind  string `json:"kind" enum:"first,renewal"`
+}
+
+// ReasonBody est un motif de refus ou d'annulation.
+type ReasonBody struct {
+	Reason string `json:"reason" maxLength:"500"`
+}
+
+// RecordPaymentBody est un paiement constaté.
+type RecordPaymentBody struct {
+	Method     string `json:"method" enum:"cash,cheque,transfer"`
+	ReceivedOn string `json:"receivedOn" format:"date"`
+	Note       string `json:"note,omitempty" required:"false" maxLength:"200"`
+}
+
+// AdminCreateBody est une adhésion enregistrée directement.
+type AdminCreateBody struct {
+	MemberID int64              `json:"memberId"`
+	SeasonID int64              `json:"seasonId"`
+	FeeID    int64              `json:"feeId"`
+	Kind     string             `json:"kind" enum:"first,renewal"`
+	Paid     *RecordPaymentBody `json:"paid,omitempty" required:"false" doc:"Règlement déjà reçu"`
+}
+
+type ListMembershipsInput struct {
+	Season   string `query:"season" pattern:"^(all|[0-9]+)$" doc:"Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente"`
+	Status   string `query:"status" enum:"pending,validated,refused,cancelled"`
+	Payment  string `query:"payment" enum:"due,announced,paid,free"`
+	Member   int64  `query:"member" minimum:"0" doc:"Adhésions d'une fiche"`
+	Q        string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche"`
+	Page     int64  `query:"page" minimum:"1" default:"1"`
+	PageSize int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
+}
+
+type StatsInput struct {
+	Season int64 `query:"season" required:"true" minimum:"1"`
+}
+
+type AdminMembershipPageOutput struct{ Body AdminMembershipPage }
+type MembershipStatsOutput struct{ Body MembershipStats }
+type MembershipDashboardOutput struct{ Body MembershipDashboard }
+type AdminMembershipOutput struct{ Body AdminMembership }
+
+type CreateMembershipInput struct{ Body AdminCreateBody }
+
+type DecisionInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body DecisionBody
+}
+
+type ReasonInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body ReasonBody
+}
+
+type RecordPaymentInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body RecordPaymentBody
+}
+
+func ns(v string) sql.NullString { return sql.NullString{String: v, Valid: v != ""} }
+
+func nid(v int64) sql.NullInt64 { return sql.NullInt64{Int64: v, Valid: true} }
+
+// defaultSeason : saison courante, sinon la plus récente ouverte, sinon la plus
+// récente (research.md 006 › R10).
+func defaultSeason(seasons map[int64]seasonInfo, order []int64) *int64 {
+	for _, id := range order {
+		if seasons[id].current {
+			return &id
+		}
+	}
+	for i := len(order) - 1; i >= 0; i-- {
+		if seasons[order[i]].ref.State == string(season.Open) {
+			return &order[i]
+		}
+	}
+	if len(order) > 0 {
+		return &order[len(order)-1]
+	}
+	return nil
+}
+
+func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) (*AdminMembershipPageOutput, error) {
+	q, today := s.Store.Read, s.today()
+	seasons, order, err := seasonIndex(ctx, q, today)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
+	}
+	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment)}
+	var seasonID *int64
+	switch in.Season {
+	case "all":
+	case "":
+		seasonID = defaultSeason(seasons, order)
+	default:
+		id, _ := strconv.ParseInt(in.Season, 10, 64)
+		seasonID = &id
+	}
+	if seasonID != nil {
+		params.SeasonID = nid(*seasonID)
+	}
+	if in.Member != 0 {
+		params.MemberID = nid(in.Member)
+	}
+	if in.Q != "" {
+		fts, ok := database.FTSTrigramQuery(in.Q)
+		if !ok {
+			return nil, FieldErrors("query.q", MsgSearchTooShort)
+		}
+		params.Query = ns(fts)
+	}
+	rows, err := q.ListMemberships(ctx, params)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	slices.SortFunc(rows, func(a, b sqlc.ListMembershipsRow) int {
+		ap, bp := a.Membership.Status == string(membership.Pending), b.Membership.Status == string(membership.Pending)
+		switch {
+		case ap && !bp:
+			return -1
+		case bp && !ap:
+			return 1
+		case ap && bp:
+			// Des plus anciennes aux plus récentes ; à date égale, ordre de dépôt.
+			return cmp.Or(
+				cmp.Compare(a.Membership.RequestedAt, b.Membership.RequestedAt),
+				cmp.Compare(a.Membership.ID, b.Membership.ID),
+			)
+		}
+		return cmp.Or(
+			cmp.Compare(textfold.Fold(a.LastName), textfold.Fold(b.LastName)),
+			cmp.Compare(textfold.Fold(a.FirstName), textfold.Fold(b.FirstName)),
+			cmp.Compare(a.Membership.ID, b.Membership.ID),
+		)
+	})
+	total := int64(len(rows))
+	start := min((in.Page-1)*in.PageSize, total)
+	end := min(start+in.PageSize, total)
+	items := make([]AdminMembershipRow, 0, end-start)
+	for _, r := range rows[start:end] {
+		m := r.Membership
+		row := AdminMembershipRow{
+			ID:           m.ID,
+			Member:       memberRef(m.MemberID, r.FirstName, r.LastName, r.BirthDate, today),
+			Season:       seasons[m.SeasonID].ref,
+			Fee:          AdminMembershipFee{ID: m.FeeID, Label: r.FeeLabel},
+			Status:       m.Status,
+			Kind:         optionalValue(m.Kind),
+			DeclaredKind: optionalValue(m.DeclaredKind),
+			Payment:      paymentOf(m),
+			RequestedAt:  m.RequestedAt,
+		}
+		if m.AmountCents.Valid {
+			row.AmountCents = &m.AmountCents.Int64
+		}
+		items = append(items, row)
+	}
+	return &AdminMembershipPageOutput{Body: AdminMembershipPage{SeasonID: seasonID, Items: items, Total: total, Page: in.Page, PageSize: in.PageSize}}, nil
+}
+
+func (s *server) getMembershipStats(ctx context.Context, in *StatsInput) (*MembershipStatsOutput, error) {
+	q := s.Store.Read
+	seasons, _, err := seasonIndex(ctx, q, s.today())
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
+	}
+	if _, ok := seasons[in.Season]; !ok {
+		return nil, huma.Error404NotFound(MsgSeasonGone)
+	}
+	rows, err := q.ListSeasonMembershipsForStats(ctx, in.Season)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	stat := make([]membership.StatRow, len(rows))
+	for i, r := range rows {
+		stat[i] = membership.StatRow{
+			Status:          membership.Status(r.Status),
+			Kind:            membership.Kind(r.Kind.String),
+			AmountCents:     r.AmountCents.Int64,
+			FeeID:           r.FeeID,
+			FeeLabel:        r.FeeLabel,
+			PaymentStatus:   membership.PaymentStatus(r.PaymentStatus.String),
+			AnnouncedMethod: membership.Method(r.AnnouncedMethod.String),
+		}
+	}
+	st := membership.ComputeStats(stat)
+	out := MembershipStats{
+		SeasonID: in.Season, Validated: st.Validated, First: st.First, Renewal: st.Renewal, Pending: st.Pending,
+		ByFee:      make([]MembershipFeeStat, len(st.ByFee)),
+		TotalCents: st.TotalCents, PaidCents: st.PaidCents, DueCents: st.DueCents,
+		DueByMethod: MembershipDueByMethod{
+			None: st.DueByMethod.None, Cash: st.DueByMethod.Cash, Cheque: st.DueByMethod.Cheque, Transfer: st.DueByMethod.Transfer,
+		},
+	}
+	for i, f := range st.ByFee {
+		out.ByFee[i] = MembershipFeeStat{FeeID: f.FeeID, Label: f.Label, Count: f.Count, AmountCents: f.AmountCents}
+	}
+	return &MembershipStatsOutput{Body: out}, nil
+}
+
+func (s *server) getMembershipDashboard(ctx context.Context, _ *struct{}) (*MembershipDashboardOutput, error) {
+	q := s.Store.Read
+	pending, err := q.CountPendingMemberships(ctx)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	settings, err := s.paymentSettings(ctx, q)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
+	}
+	out := MembershipDashboard{PendingCount: pending}
+	if len(settings.EnabledMethods()) == 0 {
+		seasons, _, err := seasonIndex(ctx, q, s.today())
+		if err != nil {
+			return nil, s.internalError(ctx, "lecture des saisons impossible", err)
+		}
+		for id, info := range seasons {
+			if info.ref.State != string(season.Open) {
+				continue
+			}
+			fees, err := q.ListMembershipFees(ctx, id)
+			if err != nil {
+				return nil, s.internalError(ctx, "lecture des tarifs impossible", err)
+			}
+			if len(fees) > 0 {
+				out.PaymentSetupNeeded = true
+				break
+			}
+		}
+	}
+	return &MembershipDashboardOutput{Body: out}, nil
+}
+
+func accountRef(id sql.NullInt64, email sql.NullString) *AccountRef {
+	if !id.Valid || !email.Valid {
+		return nil
+	}
+	return &AccountRef{ID: id.Int64, Email: email.String}
+}
+
+// adminMembership relit une adhésion complète pour l'administration.
+func (s *server) adminMembership(ctx context.Context, q *sqlc.Queries, id int64) (*AdminMembershipOutput, error) {
+	r, err := q.GetMembership(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error404NotFound(MsgMembershipGone)
+	}
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture de l'adhésion impossible", err)
+	}
+	today := s.today()
+	seasons, order, err := seasonIndex(ctx, q, today)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
+	}
+	fees, err := q.ListMembershipFees(ctx, r.Membership.SeasonID)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des tarifs impossible", err)
+	}
+	hint, err := previousSeasonHint(ctx, q, seasons, order, r.Membership)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	m := r.Membership
+	a := membership.AdminActionsFor(snapshotOf(m, seasons))
+	out := AdminMembership{
+		Membership:     toMembership(m, r.MembershipFee, r.FirstName, r.LastName, r.BirthDate, seasons, today),
+		RequestedBy:    accountRef(m.RequestedBy, r.RequestedByEmail),
+		CreatedBy:      accountRef(m.CreatedBy, r.CreatedByEmail),
+		DecidedBy:      accountRef(m.DecidedBy, r.DecidedByEmail),
+		CancelledBy:    accountRef(m.CancelledBy, r.CancelledByEmail),
+		PaidBy:         accountRef(m.PaidBy, r.PaidByEmail),
+		PaymentNote:    optionalValue(m.PaymentNote),
+		PreviousSeason: string(hint),
+		SeasonFees:     toFeeRefs(fees),
+		Actions: AdminMembershipActions{
+			Validate: a.Validate, Refuse: a.Refuse, Update: a.Update, Cancel: a.Cancel,
+			RecordPayment: a.RecordPayment, CancelPayment: a.CancelPayment,
+		},
+	}
+	if r.MemberAccountID.Valid {
+		out.Account = &MemberAccount{ID: r.MemberAccountID.Int64, Email: r.AccountEmail.String, Disabled: r.AccountDisabledAt.Valid}
+	}
+	return &AdminMembershipOutput{Body: out}, nil
+}
+
+// previousSeasonHint calcule l'aide « Adhérent la saison précédente dans
+// Frigg » (research.md 006 › R6).
+func previousSeasonHint(ctx context.Context, q *sqlc.Queries, seasons map[int64]seasonInfo, order []int64, m sqlc.Membership) (membership.Hint, error) {
+	current := seasons[m.SeasonID]
+	var previous int64
+	for _, id := range order {
+		if seasons[id].endsOn.Equal(current.startsOn.AddDays(-1)) {
+			previous = id
+		}
+	}
+	if previous == 0 {
+		return membership.PreviousSeasonHint(false, 0, false), nil
+	}
+	count, err := q.CountValidatedInSeason(ctx, previous)
+	if err != nil {
+		return "", err
+	}
+	mine, err := q.HasValidatedMembership(ctx, sqlc.HasValidatedMembershipParams{MemberID: m.MemberID, SeasonID: previous})
+	if err != nil {
+		return "", err
+	}
+	return membership.PreviousSeasonHint(true, count, mine > 0), nil
+}
+
+func (s *server) getMembership(ctx context.Context, in *MembershipIDInput) (*AdminMembershipOutput, error) {
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+// adminWriteContext est l'adhésion relue dans la transaction.
+type adminWriteContext struct {
+	q       *sqlc.Queries
+	m       sqlc.Membership
+	snap    membership.Snapshot
+	seasons map[int64]seasonInfo
+}
+
+// membershipWrite exécute fn sur une adhésion relue dans une transaction
+// d'écriture, puis renvoie l'adhésion à jour.
+func (s *server) membershipWrite(ctx context.Context, id int64, fn func(w adminWriteContext) error) (sqlc.Membership, error) {
+	var current sqlc.Membership
+	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		r, err := q.GetMembership(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound(MsgMembershipGone)
+		}
+		if err != nil {
+			return err
+		}
+		seasons, _, err := seasonIndex(ctx, q, s.today())
+		if err != nil {
+			return err
+		}
+		current = r.Membership
+		return fn(adminWriteContext{q: q, m: r.Membership, snap: snapshotOf(r.Membership, seasons), seasons: seasons})
+	})
+	if err != nil {
+		return current, s.txError(ctx, "écriture de l'adhésion impossible", err)
+	}
+	return current, nil
+}
+
+// decide calcule le tarif, le type et le montant retenus.
+func decide(ctx context.Context, w adminWriteContext, body DecisionBody) (sqlc.MembershipFee, int64, error) {
+	fees, err := w.q.ListMembershipFees(ctx, w.m.SeasonID)
+	if err != nil {
+		return sqlc.MembershipFee{}, 0, err
+	}
+	fee, err := feeOfSeason(fees, body.FeeID, "body.feeId")
+	if err != nil {
+		return fee, 0, err
+	}
+	return fee, membership.AppliedAmount(toFee(fee), membership.Kind(body.Kind)), nil
+}
+
+func (s *server) validateMembership(ctx context.Context, in *DecisionInput) (*AdminMembershipOutput, error) {
+	var amount int64
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if !membership.CanDecide(w.snap) {
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		fee, a, err := decide(ctx, w, in.Body)
+		if err != nil {
+			return err
+		}
+		amount = a
+		ref, status, _, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], amount, w.m)
+		if err != nil {
+			return err
+		}
+		now := s.timestamp()
+		if err := changed(w.q.ValidateMembership(ctx, sqlc.ValidateMembershipParams{
+			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(amount),
+			PaymentReference: ref, PaymentStatus: status,
+			ActorID: nid(CurrentAccount(ctx).ID), Now: ns(now), ID: w.m.ID,
+		})); err != nil {
+			return err
+		}
+		return s.notifyMembership(ctx, w.q, "membership-validated", w.m.ID, true)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.validate", m, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+func (s *server) refuseMembership(ctx context.Context, in *ReasonInput) (*AdminMembershipOutput, error) {
+	reason, err := membership.CleanReason(in.Body.Reason)
+	if err != nil {
+		return nil, reasonError(err)
+	}
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if !membership.CanDecide(w.snap) {
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		if err := changed(w.q.RefuseMembership(ctx, sqlc.RefuseMembershipParams{
+			Reason: ns(reason), ActorID: nid(CurrentAccount(ctx).ID), Now: ns(s.timestamp()), ID: w.m.ID,
+		})); err != nil {
+			return err
+		}
+		return s.notifyMembership(ctx, w.q, "membership-refused", w.m.ID, false)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.refuse", m, "admin")
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+func (s *server) updateMembership(ctx context.Context, in *DecisionInput) (*AdminMembershipOutput, error) {
+	var amount int64
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		switch {
+		case w.snap.Status == membership.Validated && w.snap.PaymentStatus == membership.Paid:
+			return huma.Error409Conflict(MsgPaidCorrection)
+		case w.snap.Status == membership.Validated && w.snap.SeasonClosed:
+			return huma.Error409Conflict(MsgSeasonClosedAction)
+		case !membership.CanUpdate(w.snap):
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		fee, a, err := decide(ctx, w, in.Body)
+		if err != nil {
+			return err
+		}
+		amount = a
+		ref, status, announced, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], amount, w.m)
+		if err != nil {
+			return err
+		}
+		return changed(w.q.UpdateValidatedMembership(ctx, sqlc.UpdateValidatedMembershipParams{
+			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(amount),
+			PaymentReference: ref, PaymentStatus: status, AnnouncedMethod: announced,
+			Now: s.timestamp(), ID: w.m.ID,
+		}))
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.update", m, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+func (s *server) cancelMembership(ctx context.Context, in *ReasonInput) (*AdminMembershipOutput, error) {
+	reason, err := membership.CleanReason(in.Body.Reason)
+	if err != nil {
+		return nil, reasonError(err)
+	}
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		switch {
+		case w.snap.Status == membership.Validated && w.snap.SeasonClosed:
+			return huma.Error409Conflict(MsgSeasonClosedAction)
+		case !membership.CanCancel(w.snap):
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		if err := changed(w.q.CancelMembership(ctx, sqlc.CancelMembershipParams{
+			Reason: ns(reason), ActorID: nid(CurrentAccount(ctx).ID), Now: ns(s.timestamp()), ID: w.m.ID,
+		})); err != nil {
+			return err
+		}
+		return s.notifyMembership(ctx, w.q, "membership-cancelled", w.m.ID, false)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.cancel", m, "admin")
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+// checkPayment valide un paiement saisi : date de réception entre notBefore
+// et aujourd'hui, commentaire facultatif.
+func (s *server) checkPayment(body RecordPaymentBody, location string, notBefore season.Date, beforeMsg string) (string, string, error) {
+	received, err := season.ParseDate(body.ReceivedOn)
+	if err != nil {
+		return "", "", FieldErrors(location+".receivedOn", MsgInvalidDate)
+	}
+	if received.After(s.today()) {
+		return "", "", FieldErrors(location+".receivedOn", MsgReceivedFuture)
+	}
+	if received.Before(notBefore) {
+		return "", "", FieldErrors(location+".receivedOn", beforeMsg)
+	}
+	note, err := membership.CleanNote(body.Note)
+	if err != nil {
+		return "", "", FieldErrors(location+".note", MsgNoteTooLong)
+	}
+	return received.String(), note, nil
+}
+
+func (s *server) recordMembershipPayment(ctx context.Context, in *RecordPaymentInput) (*AdminMembershipOutput, error) {
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if !membership.CanRecordPayment(w.snap) {
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		paidOn, note, err := s.checkPayment(in.Body, "body", dateOfTimestamp(w.m.DecidedAt.String), MsgReceivedBeforeValidation)
+		if err != nil {
+			return err
+		}
+		if err := changed(w.q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
+			Method: ns(in.Body.Method), PaidOn: ns(paidOn), ActorID: nid(CurrentAccount(ctx).ID),
+			Now: ns(s.timestamp()), Note: ns(note), ID: w.m.ID,
+		})); err != nil {
+			return err
+		}
+		return s.notifyMembership(ctx, w.q, "membership-paid", w.m.ID, false)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.payment_record", m, "admin", "method", in.Body.Method)
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+func (s *server) cancelMembershipPayment(ctx context.Context, in *MembershipIDInput) (*AdminMembershipOutput, error) {
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if !membership.CanCancelPayment(w.snap) {
+			return huma.Error409Conflict(MsgMembershipChanged)
+		}
+		return changed(w.q.CancelMembershipPayment(ctx, sqlc.CancelMembershipPaymentParams{Now: s.timestamp(), ID: w.m.ID}))
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.payment_cancel", m, "admin")
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput) (*AdminMembershipOutput, error) {
+	var created sqlc.Membership
+	var amount int64
+	paid := false
+	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		if _, err := q.GetMember(ctx, in.Body.MemberID); errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound(MsgMemberGone)
+		} else if err != nil {
+			return err
+		}
+		seasons, _, err := seasonIndex(ctx, q, s.today())
+		if err != nil {
+			return err
+		}
+		fees, err := offeredSeason(ctx, q, seasons, in.Body.SeasonID)
+		if err != nil {
+			return err
+		}
+		fee, err := feeOfSeason(fees, in.Body.FeeID, "body.feeId")
+		if err != nil {
+			return err
+		}
+		info := seasons[in.Body.SeasonID]
+		amount = membership.AppliedAmount(toFee(fee), membership.Kind(in.Body.Kind))
+		var paidOn, note string
+		if in.Body.Paid != nil && amount > 0 {
+			// Règlement d'un bulletin papier : reçu au plus tôt au début de la
+			// saison, éventuellement avant la saisie (FR-022d).
+			paidOn, note, err = s.checkPayment(*in.Body.Paid, "body.paid", info.startsOn, MsgReceivedBeforeSeason)
+			if err != nil {
+				return err
+			}
+		}
+		ref, status, _, err := paymentColumns(ctx, q, info, amount, sqlc.Membership{})
+		if err != nil {
+			return err
+		}
+		now := s.timestamp()
+		actor := nid(CurrentAccount(ctx).ID)
+		id, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+			MemberID: in.Body.MemberID, SeasonID: in.Body.SeasonID, FeeID: fee.ID,
+			Status: string(membership.Validated), Kind: ns(in.Body.Kind), AmountCents: nid(amount),
+			CreatedBy: actor, Now: now, DecidedBy: actor, DecidedAt: ns(now),
+			PaymentReference: ref, PaymentStatus: status,
+		})
+		if err != nil {
+			return activeConflict(err)
+		}
+		created = sqlc.Membership{ID: id, MemberID: in.Body.MemberID, SeasonID: in.Body.SeasonID}
+		if paidOn != "" {
+			paid = true
+			if err := changed(q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
+				Method: ns(in.Body.Paid.Method), PaidOn: ns(paidOn), ActorID: actor, Now: ns(now), Note: ns(note), ID: id,
+			})); err != nil {
+				return err
+			}
+		}
+		return s.notifyMembership(ctx, q, "membership-validated", id, true)
+	})
+	if err != nil {
+		return nil, s.txError(ctx, "création de l'adhésion impossible", err)
+	}
+	s.logMembershipAction(ctx, "membership.create", created, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	if paid {
+		s.logMembershipAction(ctx, "membership.payment_record", created, "admin", "method", in.Body.Paid.Method)
+	}
+	out, err := s.adminMembership(ctx, s.Store.Read, created.ID)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

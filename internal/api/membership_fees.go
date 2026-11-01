@@ -30,13 +30,15 @@ const (
 
 // MembershipFee est un tarif de l'adhésion d'une saison.
 type MembershipFee struct {
-	ID                 int64     `json:"id"`
-	Label              string    `json:"label"`
-	AmountCents        int64     `json:"amountCents" doc:"Montant en centimes d'euro"`
-	RenewalAmountCents *int64    `json:"renewalAmountCents" doc:"Montant de renouvellement en centimes ; null : même montant pour toute adhésion"`
-	Description        *string   `json:"description"`
-	CreatedAt          time.Time `json:"createdAt"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	ID                 int64      `json:"id"`
+	Label              string     `json:"label"`
+	AmountCents        int64      `json:"amountCents" doc:"Montant en centimes d'euro"`
+	RenewalAmountCents *int64     `json:"renewalAmountCents" doc:"Montant de renouvellement en centimes ; null : même montant pour toute adhésion"`
+	Description        *string    `json:"description"`
+	Amounts            FeeAmounts `json:"amounts" doc:"Montant appliqué selon le type d'adhésion"`
+	InUse              bool       `json:"inUse" doc:"Utilisé par au moins une adhésion : ne peut pas être supprimé"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
 }
 
 // MembershipFeeActions liste les actions autorisées sur les tarifs d'une
@@ -93,6 +95,7 @@ func toFeeOutput(r sqlc.MembershipFee) MembershipFee {
 		AmountCents:        r.AmountCents,
 		RenewalAmountCents: f.RenewalAmountCents,
 		Description:        f.Description,
+		Amounts:            feeAmounts(f),
 		CreatedAt:          created,
 		UpdatedAt:          updated,
 	}
@@ -237,6 +240,10 @@ func (s *server) listMembershipFees(ctx context.Context, in *SeasonIDInput) (*Me
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des tarifs impossible", err)
 	}
+	used, err := s.Store.Read.ListUsedFeeIDs(ctx, in.ID)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
 	byID := make(map[int64]sqlc.MembershipFee, len(feeRows))
 	for _, r := range feeRows {
 		byID[r.ID] = r
@@ -246,6 +253,7 @@ func (s *server) listMembershipFees(ctx context.Context, in *SeasonIDInput) (*Me
 	items := make([]MembershipFee, len(fees))
 	for i, f := range fees {
 		items[i] = toFeeOutput(byID[f.ID])
+		items[i].InUse = slices.Contains(used, f.ID)
 	}
 	a := season.FeeActionsFor(state, len(fees))
 	return &MembershipFeeListOutput{Body: MembershipFeeList{
@@ -344,11 +352,25 @@ func (s *server) updateMembershipFee(ctx context.Context, in *UpdateMembershipFe
 	if i < 0 {
 		return nil, huma.Error404NotFound(MsgFeeGone)
 	}
-	return &MembershipFeeOutput{Body: toFeeOutput(rows[i])}, nil
+	out := toFeeOutput(rows[i])
+	n, err := s.Store.Read.CountMembershipsOfFee(ctx, in.FeeID)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
+	}
+	out.InUse = n > 0
+	return &MembershipFeeOutput{Body: out}, nil
 }
 
 func (s *server) deleteMembershipFee(ctx context.Context, in *MembershipFeeIDInput) (*struct{}, error) {
 	err := s.feeWrite(ctx, in.ID, func(q *sqlc.Queries, _ []season.Fee) error {
+		// Un tarif utilisé par une adhésion reste (research.md 006 › R9).
+		used, err := q.CountMembershipsOfFee(ctx, in.FeeID)
+		if err != nil {
+			return err
+		}
+		if used > 0 {
+			return huma.Error409Conflict(MsgFeeInUse)
+		}
 		n, err := q.DeleteMembershipFee(ctx, sqlc.DeleteMembershipFeeParams{ID: in.FeeID, SeasonID: in.ID})
 		if err == nil && n == 0 {
 			return huma.Error404NotFound(MsgFeeGone)

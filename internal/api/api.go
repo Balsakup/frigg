@@ -72,6 +72,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerSeasons(api)
 	s.registerMembershipFees(api)
 	s.registerMembers(api)
+	s.registerMemberships(api)
 	s.mountDocs(mux, api)
 	return api
 }

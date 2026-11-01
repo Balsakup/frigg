@@ -69,6 +69,16 @@ type MemberAccount struct {
 type AdminMember struct {
 	Member
 	Account *MemberAccount `json:"account" doc:"Compte qui gère la fiche ; null : sans compte"`
+	// Memberships n'est renseigné que sur la fiche (get-member), pas dans la liste.
+	Memberships []MemberMembership `json:"memberships,omitempty" required:"false" doc:"Adhésions de la fiche, la saison la plus récente d'abord"`
+}
+
+// MemberMembership est une adhésion vue depuis la fiche d'un membre.
+type MemberMembership struct {
+	ID      int64     `json:"id"`
+	Season  SeasonRef `json:"season"`
+	Status  string    `json:"status" enum:"pending,validated,refused,cancelled"`
+	Payment *Payment  `json:"payment"`
 }
 
 // MemberBody regroupe les champs saisis dans les deux espaces.
@@ -270,12 +280,13 @@ func selfTaken(err error) error {
 
 // logMemberAction trace une écriture réussie sur une fiche, sans aucune de ses
 // données personnelles (FR-017, R13).
-func (s *server) logMemberAction(ctx context.Context, action string, memberID int64, accountID sql.NullInt64, space string) {
+func (s *server) logMemberAction(ctx context.Context, action string, memberID int64, accountID sql.NullInt64, space string, extra ...any) {
 	attrs := []any{"action", action, "actor_id", CurrentAccount(ctx).ID, "member_id", memberID}
 	if accountID.Valid {
 		attrs = append(attrs, "account_id", accountID.Int64)
 	}
 	attrs = append(attrs, "space", space)
+	attrs = append(attrs, extra...)
 	s.Logger.InfoContext(ctx, "écriture sur une fiche membre", attrs...)
 }
 
