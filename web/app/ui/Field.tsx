@@ -9,7 +9,8 @@ interface FieldProps extends ComponentProps<"input"> {
   error?: string;
 }
 
-// Champ de formulaire accessible : libellé, aide et erreur reliés au champ.
+// Champ de formulaire accessible (artefact › Champs de formulaire) : libellé
+// au-dessus, aide sous le champ, erreur sous l'aide, reliées au champ.
 export function Field({ label, hint, error, required, className, id, ...input }: FieldProps) {
   const autoId = useId();
   const fieldId = id ?? autoId;
@@ -21,11 +22,6 @@ export function Field({ label, hint, error, required, className, id, ...input }:
         {label}
         {required ? <span className="font-normal text-muted"> (obligatoire)</span> : null}
       </label>
-      {hint ? (
-        <p id={hintId} className="mb-1.5 text-sm text-muted">
-          {hint}
-        </p>
-      ) : null}
       <input
         id={fieldId}
         required={required}
@@ -37,8 +33,13 @@ export function Field({ label, hint, error, required, className, id, ...input }:
         )}
         {...input}
       />
+      {hint ? (
+        <p id={hintId} className="mt-1 text-sm text-muted">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
-        <p id={errorId} className="mt-1.5 flex items-start gap-1.5 text-sm font-bold text-danger">
+        <p id={errorId} className="mt-1 flex items-start gap-1.5 text-sm font-bold text-danger">
           <Icon icon={CircleAlert} className="mt-0.5 h-4 w-4" />
           <span>{error}</span>
         </p>
@@ -73,11 +74,6 @@ export function TextAreaField({
         {label}
         {required ? <span className="font-normal text-muted"> (obligatoire)</span> : null}
       </label>
-      {hint ? (
-        <p id={hintId} className="mb-1.5 text-sm text-muted">
-          {hint}
-        </p>
-      ) : null}
       <textarea
         id={fieldId}
         required={required}
@@ -90,8 +86,13 @@ export function TextAreaField({
         )}
         {...textarea}
       />
+      {hint ? (
+        <p id={hintId} className="mt-1 text-sm text-muted">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
-        <p id={errorId} className="mt-1.5 flex items-start gap-1.5 text-sm font-bold text-danger">
+        <p id={errorId} className="mt-1 flex items-start gap-1.5 text-sm font-bold text-danger">
           <Icon icon={CircleAlert} className="mt-0.5 h-4 w-4" />
           <span>{error}</span>
         </p>

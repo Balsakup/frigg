@@ -42,7 +42,28 @@ test.describe("accessibilité transverse (SC-005, SC-007)", () => {
       ).toBeLessThanOrEqual(320);
     }
     await login(page, "membre-clavier@exemple.fr");
-    for (const path of ["/", "/mon-compte", "/mes-membres", "/admin", "/page-inconnue"]) {
+    for (const path of [
+      "/",
+      "/mon-compte",
+      "/mes-membres",
+      "/mes-membres/nouveau",
+      "/admin",
+      "/page-inconnue",
+    ]) {
+      await page.goto(path);
+      await expect(page.locator("#contenu h1")).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+        path,
+      ).toBeLessThanOrEqual(320);
+      await expectNoBlockingA11yViolations(page);
+    }
+  });
+
+  test("aucun défilement horizontal à 320 px dans la rubrique Membres (005)", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await login(page, "admin-clavier@exemple.fr");
+    for (const path of ["/admin/membres", "/admin/membres/nouveau"]) {
       await page.goto(path);
       await expect(page.locator("#contenu h1")).toBeVisible();
       expect(

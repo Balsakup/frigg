@@ -1,13 +1,17 @@
+import { Radio } from "@base-ui/react/radio";
+import { RadioGroup } from "@base-ui/react/radio-group";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, KeyRound, RotateCcw, Trash2, UserCog } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { accountListKey, accountQuery, invitationListKey } from "~/api/accounts";
+import { accountMembersQuery, invalidateMembers } from "~/api/members";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
 import type { components } from "~/api/schema";
 import { formatDate, roleLabel } from "~/lib/format";
+import { fullName } from "~/members/form";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
@@ -95,13 +99,49 @@ function AccountView({ account }: { account: AdminAccount }) {
     }
   };
 
+  // Fiches gérées par le compte, chargées à l'ouverture du dialogue de
+  // suppression (005, US5).
+  const members = useQuery({ ...accountMembersQuery(account.id), enabled: deleteOpen });
+  const managed = members.data?.items ?? [];
+  const [membersChoice, setMembersChoice] = useState<"" | "delete" | "keep">("");
+  const [membersError, setMembersError] = useState("");
+  const [deleteAlert, setDeleteAlert] = useState("");
+
   const onDelete = async () => {
     setStatus("");
     setError("");
+    setMembersError("");
+    setDeleteAlert("");
+    // Le choix est validé par le serveur (422 query.members), jamais ici
+    // (constitution, principe VI).
+    const query =
+      managed.length > 0
+        ? {
+            memberIds: managed.map((m) => m.id),
+            ...(membersChoice ? { members: membersChoice } : {}),
+          }
+        : {};
     try {
-      await remove.mutateAsync(path);
+      await remove.mutateAsync({
+        params: { path: { id: account.id }, query },
+        querySerializer: { array: { style: "form", explode: false } },
+      });
     } catch (e) {
-      setError(isProblem(e) && e.detail ? e.detail : "Une erreur inattendue s'est produite.");
+      const problem = isProblem(e) ? e : null;
+      const choice = problem?.errors?.find((x) => x.location === "query.members");
+      if (choice) {
+        setMembersError(choice.message ?? "");
+        setDeleteOpen(true);
+        return;
+      }
+      if (problem?.status === 409 && managed.length > 0) {
+        // Liste des fiches changée entre-temps : dialogue rouvert et rechargé.
+        setDeleteAlert(problem.detail ?? "");
+        await members.refetch();
+        setDeleteOpen(true);
+        return;
+      }
+      setError(problem?.detail ?? "Une erreur inattendue s'est produite.");
       await qc.invalidateQueries({ queryKey: accountQuery(account.id).queryKey });
       return;
     }
@@ -109,6 +149,7 @@ function AccountView({ account }: { account: AdminAccount }) {
     await Promise.all([
       qc.invalidateQueries({ queryKey: accountListKey }),
       qc.invalidateQueries({ queryKey: invitationListKey }),
+      invalidateMembers(qc),
     ]);
     navigate("/admin/comptes", { state: { flash: `Le compte ${account.email} a été supprimé.` } });
   };
@@ -207,8 +248,26 @@ function AccountView({ account }: { account: AdminAccount }) {
         title={`Supprimer définitivement ${account.email} ?`}
         confirmLabel="Supprimer"
         open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (open) {
+            setMembersChoice("");
+            setMembersError("");
+            setDeleteAlert("");
+          }
+        }}
         onConfirm={onDelete}
+        content={
+          managed.length > 0 ? (
+            <ManagedMembers
+              members={managed}
+              choice={membersChoice}
+              onChoice={setMembersChoice}
+              error={membersError}
+              alert={deleteAlert}
+            />
+          ) : null
+        }
         extraActions={
           active ? (
             <Button
@@ -302,5 +361,74 @@ function AccountView({ account }: { account: AdminAccount }) {
         </dl>
       </section>
     </Page>
+  );
+}
+
+interface ManagedMembersProps {
+  members: { id: number; firstName: string; lastName: string }[];
+  choice: "" | "delete" | "keep";
+  onChoice: (choice: "delete" | "keep") => void;
+  error: string;
+  alert: string;
+}
+
+// Fiches gérées par le compte à supprimer et choix de leur sort (005, US5,
+// FR-012b) : aucun choix par défaut, l'erreur vient du serveur.
+function ManagedMembers({ members, choice, onChoice, error, alert }: ManagedMembersProps) {
+  const n = members.length;
+  return (
+    <div className="flex flex-col gap-3">
+      {alert ? (
+        <Alert kind="danger" role="alert">
+          {alert}
+        </Alert>
+      ) : null}
+      <p>
+        Ce compte gère {n} fiche{n > 1 ? "s" : ""} de membre :
+      </p>
+      <ul className="list-disc pl-6">
+        {members.map((m) => (
+          <li key={m.id} className="[overflow-wrap:anywhere]">
+            {fullName(m)}
+          </li>
+        ))}
+      </ul>
+      <div>
+        <p id="sort-fiches" className="mb-2 font-bold">
+          Que faire de {n > 1 ? "ces fiches" : "cette fiche"} ?
+        </p>
+        <RadioGroup
+          value={choice}
+          onValueChange={(v) => onChoice(v as "delete" | "keep")}
+          aria-labelledby="sort-fiches"
+          aria-describedby={error ? "sort-fiches-erreur" : undefined}
+          aria-invalid={error ? true : undefined}
+          className="flex flex-col gap-2"
+        >
+          {(
+            [
+              ["delete", "Supprimer aussi ces fiches"],
+              ["keep", "Conserver ces fiches sans compte"],
+            ] as const
+          ).map(([value, label]) => (
+            // biome-ignore lint/a11y/noLabelWithoutControl: le contrôle est le bouton radio base-ui imbriqué.
+            <label key={value} className="flex cursor-pointer items-center gap-2">
+              <Radio.Root
+                value={value}
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong bg-surface data-[checked]:border-brand"
+              >
+                <Radio.Indicator className="h-2.5 w-2.5 rounded-full bg-brand" />
+              </Radio.Root>
+              {label}
+            </label>
+          ))}
+        </RadioGroup>
+        {error ? (
+          <p id="sort-fiches-erreur" className="mt-1.5 text-sm font-bold text-danger">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }

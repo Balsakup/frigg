@@ -36,7 +36,6 @@ export const navigation: NavEntry[] = [
     path: "/mes-membres",
     space: "member",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "mes-inscriptions",
@@ -108,7 +107,6 @@ export const navigation: NavEntry[] = [
     path: "/admin/membres",
     space: "admin",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "gestion-adhesions",

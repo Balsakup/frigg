@@ -38,3 +38,15 @@ export function amountInput(cents: number) {
   const rest = cents % 100;
   return rest === 0 ? String(euros) : `${euros},${String(rest).padStart(2, "0")}`;
 }
+
+// Téléphone normalisé par l'API → « 06 12 34 56 78 » ; un numéro
+// international reste tel qu'enregistré (research.md 005 › R3).
+export function formatPhone(phone: string) {
+  return /^0\d{9}$/.test(phone) ? phone.replace(/(\d{2})(?=\d)/g, "$1 ") : phone;
+}
+
+// Âge calculé par l'API → « 11 ans », « 1 an », « moins d'un an ».
+export function formatAge(age: number) {
+  if (age < 1) return "moins d'un an";
+  return age === 1 ? "1 an" : `${age} ans`;
+}

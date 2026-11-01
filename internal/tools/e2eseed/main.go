@@ -57,6 +57,14 @@ var accounts = []struct {
 	// Gestion des saisons (003) : aucune saison n'est créée, les tests partent
 	// d'une base sans saison.
 	{"admin-saisons@exemple.fr", auth.RoleAdmin, true},
+	// Gestion des membres (005) : chaque test part de comptes sans fiche.
+	{"membre-fiches@exemple.fr", auth.RoleMember, true},
+	{"membre-fiches-voisin@exemple.fr", auth.RoleMember, true},
+	{"admin-membres@exemple.fr", auth.RoleAdmin, true},
+	{"membre-rattachement@exemple.fr", auth.RoleMember, true},
+	{"admin-suppression-fiches@exemple.fr", auth.RoleAdmin, true},
+	{"membre-fiches-conservees@exemple.fr", auth.RoleMember, true},
+	{"membre-fiches-effacees@exemple.fr", auth.RoleMember, true},
 }
 
 // listAccounts est le nombre de comptes membre-liste-NN (pagination).

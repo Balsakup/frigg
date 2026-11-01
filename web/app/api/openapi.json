@@ -126,6 +126,244 @@
         ],
         "type": "object"
       },
+      "AdminMember": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/MemberAccount",
+            "description": "Compte qui gère la fiche ; null : sans compte"
+          },
+          "address": {
+            "$ref": "#/components/schemas/PostalAddress"
+          },
+          "age": {
+            "description": "Âge en années révolues à la date du jour (Paris)",
+            "format": "int64",
+            "type": "integer"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSelf": {
+            "description": "Fiche du titulaire du compte (« Vous »)",
+            "type": "boolean"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phone": {
+            "description": "Normalisé : 0612345678 ou +32470123456",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "id",
+          "firstName",
+          "lastName",
+          "birthDate",
+          "age",
+          "email",
+          "phone",
+          "address",
+          "isSelf",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AdminMemberBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "description": "Compte qui gère la fiche ; null : sans compte",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "addressLine1": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "addressLine2": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "confirmDuplicate": {
+            "description": "Vrai : enregistrer malgré un doublon probable",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Absente ou vide : aucune",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "phone": {
+            "description": "Absent ou vide : aucun",
+            "maxLength": 30,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "firstName",
+          "lastName",
+          "birthDate"
+        ],
+        "type": "object"
+      },
+      "AdminMemberPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Par nom, puis prénom (sans casse ni accents)",
+            "items": {
+              "$ref": "#/components/schemas/AdminMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object"
+      },
+      "AdminMemberUpdateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "description": "Compte qui gère la fiche ; null : sans compte",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "addressLine1": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "addressLine2": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "confirmDuplicate": {
+            "description": "Vrai : enregistrer malgré un doublon probable",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Absente ou vide : aucune",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "expectedAccountId": {
+            "description": "Rattachement affiché à l'ouverture de la fiche ; null : sans compte",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "firstName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "phone": {
+            "description": "Absent ou vide : aucun",
+            "maxLength": 30,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedAccountId",
+          "accountId",
+          "firstName",
+          "lastName",
+          "birthDate"
+        ],
+        "type": "object"
+      },
       "Association": {
         "additionalProperties": false,
         "properties": {
@@ -375,6 +613,93 @@
         ],
         "type": "object"
       },
+      "Member": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/PostalAddress"
+          },
+          "age": {
+            "description": "Âge en années révolues à la date du jour (Paris)",
+            "format": "int64",
+            "type": "integer"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSelf": {
+            "description": "Fiche du titulaire du compte (« Vous »)",
+            "type": "boolean"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "phone": {
+            "description": "Normalisé : 0612345678 ou +32470123456",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "birthDate",
+          "age",
+          "email",
+          "phone",
+          "address",
+          "isSelf",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "MemberAccount": {
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "disabled"
+        ],
+        "type": "object"
+      },
       "MembershipFee": {
         "additionalProperties": false,
         "properties": {
@@ -498,6 +823,104 @@
         ],
         "type": "object"
       },
+      "MyMemberActions": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "description": "Moins de 20 fiches",
+            "type": "boolean"
+          },
+          "markSelf": {
+            "description": "Aucune fiche ne désigne encore le titulaire",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "add",
+          "markSelf"
+        ],
+        "type": "object"
+      },
+      "MyMemberBody": {
+        "additionalProperties": false,
+        "properties": {
+          "addressLine1": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "addressLine2": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "confirmDuplicate": {
+            "description": "Vrai : enregistrer malgré un doublon probable",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Absente ou vide : aucune",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "isSelf": {
+            "description": "Case « Il s'agit de moi »",
+            "type": "boolean"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "phone": {
+            "description": "Absent ou vide : aucun",
+            "maxLength": 30,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "birthDate"
+        ],
+        "type": "object"
+      },
+      "MyMemberList": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyMemberActions"
+          },
+          "items": {
+            "description": "La fiche « Vous » d'abord, puis par prénom et nom",
+            "items": {
+              "$ref": "#/components/schemas/Member"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "actions"
+        ],
+        "type": "object"
+      },
       "PasswordTokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -515,6 +938,33 @@
         "required": [
           "token",
           "password"
+        ],
+        "type": "object"
+      },
+      "PostalAddress": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "line1",
+          "line2",
+          "postalCode",
+          "city"
         ],
         "type": "object"
       },
@@ -918,6 +1368,37 @@
               "description": "Identifiant du compte",
               "format": "int64",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Sort des fiches gérées par le compte : delete (effacées) ou keep (conservées sans compte) ; obligatoire s'il en gère",
+            "explode": false,
+            "in": "query",
+            "name": "members",
+            "schema": {
+              "description": "Sort des fiches gérées par le compte : delete (effacées) ou keep (conservées sans compte) ; obligatoire s'il en gère",
+              "enum": [
+                "delete",
+                "keep"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identifiants des fiches affichées dans le dialogue de confirmation",
+            "explode": false,
+            "in": "query",
+            "name": "memberIds",
+            "schema": {
+              "description": "Identifiants des fiches affichées dans le dialogue de confirmation",
+              "items": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
             }
           }
         ],
@@ -1361,6 +1842,283 @@
         "summary": "Renvoyer une invitation",
         "tags": [
           "Invitations"
+        ]
+      }
+    },
+    "/admin/members": {
+      "get": {
+        "operationId": "list-members",
+        "parameters": [
+          {
+            "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "description": "none : fiches sans compte ; identifiant : fiches de ce compte",
+            "explode": false,
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "description": "none : fiches sans compte ; identifiant : fiches de ce compte",
+              "pattern": "^(none|[0-9]+)$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Numéro de page",
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "description": "Numéro de page",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Nombre de fiches par page",
+            "explode": false,
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 25,
+              "description": "Nombre de fiches par page",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMemberPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lister les membres",
+        "tags": [
+          "Membres"
+        ]
+      },
+      "post": {
+        "operationId": "create-member",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminMemberBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMember"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Créer un membre",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/{id}": {
+      "delete": {
+        "operationId": "delete-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer un membre",
+        "tags": [
+          "Membres"
+        ]
+      },
+      "get": {
+        "operationId": "get-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMember"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Fiche d'un membre",
+        "tags": [
+          "Membres"
+        ]
+      },
+      "put": {
+        "operationId": "update-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminMemberUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMember"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier un membre",
+        "tags": [
+          "Membres"
         ]
       }
     },
@@ -2198,6 +2956,232 @@
         "summary": "Renvoyer le lien de confirmation d'adresse",
         "tags": [
           "Mon compte"
+        ]
+      }
+    },
+    "/me/members": {
+      "get": {
+        "operationId": "list-my-members",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMemberList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Mes membres",
+        "tags": [
+          "Mes membres"
+        ]
+      },
+      "post": {
+        "operationId": "create-my-member",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyMemberBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Member"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ajouter un membre à mon compte",
+        "tags": [
+          "Mes membres"
+        ]
+      }
+    },
+    "/me/members/{id}": {
+      "delete": {
+        "operationId": "delete-my-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer une fiche de mes membres",
+        "tags": [
+          "Mes membres"
+        ]
+      },
+      "get": {
+        "operationId": "get-my-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Member"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une fiche de mes membres",
+        "tags": [
+          "Mes membres"
+        ]
+      },
+      "put": {
+        "operationId": "update-my-member",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyMemberBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Member"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier une fiche de mes membres",
+        "tags": [
+          "Mes membres"
         ]
       }
     },

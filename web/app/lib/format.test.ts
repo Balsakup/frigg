@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { amountInput, formatAmount, formatDay, seasonStatusLabel } from "./format";
+import {
+  amountInput,
+  formatAge,
+  formatAmount,
+  formatDay,
+  formatPhone,
+  seasonStatusLabel,
+} from "./format";
 
 describe("formatDay", () => {
   it("affiche la date civile sans décalage de fuseau", () => {
@@ -40,5 +47,23 @@ describe("amountInput", () => {
     expect(amountInput(3000)).toBe("30");
     expect(amountInput(1550)).toBe("15,50");
     expect(amountInput(5)).toBe("0,05");
+  });
+});
+
+describe("formatPhone", () => {
+  it("groupe un numéro français par paires", () => {
+    expect(formatPhone("0612345678")).toBe("06 12 34 56 78");
+  });
+
+  it("laisse un numéro international tel quel", () => {
+    expect(formatPhone("+32470123456")).toBe("+32470123456");
+  });
+});
+
+describe("formatAge", () => {
+  it("accorde l'âge", () => {
+    expect(formatAge(0)).toBe("moins d'un an");
+    expect(formatAge(1)).toBe("1 an");
+    expect(formatAge(11)).toBe("11 ans");
   });
 });

@@ -2,7 +2,6 @@ import { index, layout, prefix, type RouteConfig, route } from "@react-router/de
 
 // Rubriques livrées par des fonctionnalités ultérieures (app/shell/navigation.ts).
 const memberComingSoon = [
-  "mes-membres",
   "mes-inscriptions",
   "a-regler",
   "evenements",
@@ -11,7 +10,6 @@ const memberComingSoon = [
   "aide",
 ];
 const adminComingSoon = [
-  "membres",
   "adhesions",
   "evenements",
   "inscriptions",
@@ -33,6 +31,11 @@ export default [
   layout("routes/app/layout.tsx", [
     index("routes/app/member/home.tsx"),
     route("mon-compte", "routes/app/account.tsx"),
+    route("mes-membres", "routes/app/member/my-members-layout.tsx", [
+      index("routes/app/member/my-members.tsx"),
+      route("nouveau", "routes/app/member/my-member-new.tsx"),
+      route(":id", "routes/app/member/my-member-detail.tsx"),
+    ]),
     ...memberComingSoon.map((p) => route(p, "routes/app/coming-soon.tsx", { id: `bientot-${p}` })),
     ...prefix("admin", [
       layout("routes/app/admin/layout.tsx", [
@@ -45,6 +48,11 @@ export default [
           index("routes/app/admin/seasons.tsx"),
           route("nouvelle", "routes/app/admin/season-new.tsx"),
           route(":id", "routes/app/admin/season-detail.tsx"),
+        ]),
+        route("membres", "routes/app/admin/members-layout.tsx", [
+          index("routes/app/admin/members.tsx"),
+          route("nouveau", "routes/app/admin/member-new.tsx"),
+          route(":id", "routes/app/admin/member-detail.tsx"),
         ]),
         ...adminComingSoon.map((p) =>
           route(p, "routes/app/coming-soon.tsx", { id: `bientot-admin-${p}` }),

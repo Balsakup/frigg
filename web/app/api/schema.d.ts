@@ -159,6 +159,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lister les membres */
+        get: operations["list-members"];
+        put?: never;
+        /** Créer un membre */
+        post: operations["create-member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fiche d'un membre */
+        get: operations["get-member"];
+        /** Modifier un membre */
+        put: operations["update-member"];
+        post?: never;
+        /** Supprimer un membre */
+        delete: operations["delete-member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/seasons": {
         parameters: {
             query?: never;
@@ -411,6 +448,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mes membres */
+        get: operations["list-my-members"];
+        put?: never;
+        /** Ajouter un membre à mon compte */
+        post: operations["create-my-member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une fiche de mes membres */
+        get: operations["get-my-member"];
+        /** Modifier une fiche de mes membres */
+        put: operations["update-my-member"];
+        post?: never;
+        /** Supprimer une fiche de mes membres */
+        delete: operations["delete-my-member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -489,6 +563,88 @@ export interface components {
             pageSize: number;
             /** Format: int64 */
             total: number;
+        };
+        AdminMember: {
+            /** @description Compte qui gère la fiche ; null : sans compte */
+            account: components["schemas"]["MemberAccount"];
+            address: components["schemas"]["PostalAddress"];
+            /**
+             * Format: int64
+             * @description Âge en années révolues à la date du jour (Paris)
+             */
+            age: number;
+            /** Format: date */
+            birthDate: string;
+            /** Format: date-time */
+            createdAt: string;
+            email: string | null;
+            firstName: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Fiche du titulaire du compte (« Vous ») */
+            isSelf: boolean;
+            lastName: string;
+            /** @description Normalisé : 0612345678 ou +32470123456 */
+            phone: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminMemberBody: {
+            /**
+             * Format: int64
+             * @description Compte qui gère la fiche ; null : sans compte
+             */
+            accountId: number | null;
+            addressLine1?: string;
+            addressLine2?: string;
+            /** Format: date */
+            birthDate: string;
+            city?: string;
+            /** @description Vrai : enregistrer malgré un doublon probable */
+            confirmDuplicate?: boolean;
+            /** @description Absente ou vide : aucune */
+            email?: string;
+            firstName: string;
+            lastName: string;
+            /** @description Absent ou vide : aucun */
+            phone?: string;
+            postalCode?: string;
+        };
+        AdminMemberPage: {
+            /** @description Par nom, puis prénom (sans casse ni accents) */
+            items: components["schemas"]["AdminMember"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        AdminMemberUpdateBody: {
+            /**
+             * Format: int64
+             * @description Compte qui gère la fiche ; null : sans compte
+             */
+            accountId: number | null;
+            addressLine1?: string;
+            addressLine2?: string;
+            /** Format: date */
+            birthDate: string;
+            city?: string;
+            /** @description Vrai : enregistrer malgré un doublon probable */
+            confirmDuplicate?: boolean;
+            /** @description Absente ou vide : aucune */
+            email?: string;
+            /**
+             * Format: int64
+             * @description Rattachement affiché à l'ouverture de la fiche ; null : sans compte
+             */
+            expectedAccountId: number | null;
+            firstName: string;
+            lastName: string;
+            /** @description Absent ou vide : aucun */
+            phone?: string;
+            postalCode?: string;
         };
         Association: {
             name: string;
@@ -582,6 +738,35 @@ export interface components {
             /** @description Mot de passe */
             password: string;
         };
+        Member: {
+            address: components["schemas"]["PostalAddress"];
+            /**
+             * Format: int64
+             * @description Âge en années révolues à la date du jour (Paris)
+             */
+            age: number;
+            /** Format: date */
+            birthDate: string;
+            /** Format: date-time */
+            createdAt: string;
+            email: string | null;
+            firstName: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Fiche du titulaire du compte (« Vous ») */
+            isSelf: boolean;
+            lastName: string;
+            /** @description Normalisé : 0612345678 ou +32470123456 */
+            phone: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MemberAccount: {
+            disabled: boolean;
+            email: string;
+            /** Format: int64 */
+            id: number;
+        };
         MembershipFee: {
             /**
              * Format: int64
@@ -623,11 +808,46 @@ export interface components {
             /** @description Du montant le plus élevé au plus faible, puis par libellé */
             items: components["schemas"]["MembershipFee"][] | null;
         };
+        MyMemberActions: {
+            /** @description Moins de 20 fiches */
+            add: boolean;
+            /** @description Aucune fiche ne désigne encore le titulaire */
+            markSelf: boolean;
+        };
+        MyMemberBody: {
+            addressLine1?: string;
+            addressLine2?: string;
+            /** Format: date */
+            birthDate: string;
+            city?: string;
+            /** @description Vrai : enregistrer malgré un doublon probable */
+            confirmDuplicate?: boolean;
+            /** @description Absente ou vide : aucune */
+            email?: string;
+            firstName: string;
+            /** @description Case « Il s'agit de moi » */
+            isSelf?: boolean;
+            lastName: string;
+            /** @description Absent ou vide : aucun */
+            phone?: string;
+            postalCode?: string;
+        };
+        MyMemberList: {
+            actions: components["schemas"]["MyMemberActions"];
+            /** @description La fiche « Vous » d'abord, puis par prénom et nom */
+            items: components["schemas"]["Member"][] | null;
+        };
         PasswordTokenInputBody: {
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
             password: string;
             /** @description Jeton reçu par e-mail */
             token: string;
+        };
+        PostalAddress: {
+            city: string;
+            line1: string;
+            line2: string | null;
+            postalCode: string;
         };
         Season: {
             actions: components["schemas"]["SeasonActions"];
@@ -812,7 +1032,12 @@ export interface operations {
     };
     "delete-account": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Sort des fiches gérées par le compte : delete (effacées) ou keep (conservées sans compte) ; obligatoire s'il en gère */
+                members?: "delete" | "keep";
+                /** @description Identifiants des fiches affichées dans le dialogue de confirmation */
+                memberIds?: number[] | null;
+            };
             header?: never;
             path: {
                 /** @description Identifiant du compte */
@@ -1082,6 +1307,175 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Invitation"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-members": {
+        parameters: {
+            query?: {
+                /** @description Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis */
+                q?: string;
+                /** @description none : fiches sans compte ; identifiant : fiches de ce compte */
+                account?: string;
+                /** @description Numéro de page */
+                page?: number;
+                /** @description Nombre de fiches par page */
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMemberPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMemberBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMember"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMember"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMemberUpdateBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMember"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -1686,6 +2080,166 @@ export interface operations {
         responses: {
             /** @description Accepted */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-my-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMemberList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-my-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyMemberBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-my-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-my-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyMemberBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-my-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
