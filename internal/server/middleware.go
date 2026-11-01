@@ -57,6 +57,7 @@ func securityHeaders(csp string, next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
+		h.Set("X-Robots-Tag", "noindex, nofollow")
 		if h.Get("Content-Security-Policy") == "" {
 			h.Set("Content-Security-Policy", csp)
 		}

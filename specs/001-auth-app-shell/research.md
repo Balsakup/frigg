@@ -202,7 +202,8 @@ godotenv v1.5.1, x/time v0.16.0, modernc.org/sqlite v1.61.0, sqlc v1.31.1
   `http.CrossOriginProtection`, puis `scs.LoadAndSave`, puis le middleware de
   journalisation. En-têtes ajoutés à toute réponse :
   `Referrer-Policy: same-origin`, `X-Content-Type-Options: nosniff`,
-  `X-Frame-Options: DENY`, et une `Content-Security-Policy` restrictive
+  `X-Frame-Options: DENY`, `X-Robots-Tag: noindex, nofollow` (application
+  non indexable, doublé d'une balise `<meta name="robots">` dans le SPA), et une `Content-Security-Policy` restrictive
   (`default-src 'self'`, `style-src 'self' 'unsafe-inline'`, `img-src 'self' data:`).
   Seule exception : `/api/docs`, quand `FRIGG_API_DOCS=true` (voir R18).
 - **Rationale** : principe II (les fichiers statiques ne contiennent aucune
