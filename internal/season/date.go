@@ -45,6 +45,10 @@ func (d Date) AddDays(n int) Date { return Date{d.t.AddDate(0, 0, n)} }
 // 1er du mois.
 func (d Date) AddMonths(n int) Date { return Date{d.t.AddDate(0, n, 0)} }
 
+// AddYears ajoute n années (un 29 février devient le 1er mars d'une année non
+// bissextile, comme time.AddDate).
+func (d Date) AddYears(n int) Date { return Date{d.t.AddDate(n, 0, 0)} }
+
 func (d Date) Before(o Date) bool   { return d.t.Before(o.t) }
 func (d Date) After(o Date) bool    { return d.t.After(o.t) }
 func (d Date) Equal(o Date) bool    { return d.t.Equal(o.t) }

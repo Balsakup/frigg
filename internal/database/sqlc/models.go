@@ -42,6 +42,30 @@ type Invitation struct {
 	UpdatedAt string
 }
 
+type Member struct {
+	ID           int64
+	AccountID    sql.NullInt64
+	IsSelf       int64
+	FirstName    string
+	LastName     string
+	BirthDate    string
+	Email        sql.NullString
+	Phone        sql.NullString
+	AddressLine1 sql.NullString
+	AddressLine2 sql.NullString
+	PostalCode   sql.NullString
+	City         sql.NullString
+	CreatedAt    string
+	UpdatedAt    string
+}
+
+type MembersFt struct {
+	FirstName string
+	LastName  string
+	Email     string
+	Phone     string
+}
+
 type MembershipFee struct {
 	ID                 int64
 	SeasonID           int64

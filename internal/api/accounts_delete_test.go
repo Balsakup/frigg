@@ -3,7 +3,9 @@ package api_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/balsakup/frigg/internal/api"
@@ -78,5 +80,73 @@ func TestDeleteAccount(t *testing.T) {
 	}
 	if _, err := env.Store.Read.GetAccountByEmail(ctx, adminEmail); err == sql.ErrNoRows {
 		t.Fatal("dernier administrateur supprimé")
+	}
+}
+
+// TestDeleteAccountWithMembers vérifie le sort des fiches gérées par un compte
+// supprimé (fonctionnalité 005, US5, FR-012b).
+func TestDeleteAccountWithMembers(t *testing.T) {
+	env := apitest.New(t)
+	env.SetToday(membersToday)
+	admin := env.LoggedIn(env.Seed(auth.RoleAdmin, true))
+
+	// Compte sans fiche : comportement de 002 inchangé.
+	empty := accountID(t, env, env.Seed(auth.RoleMember, true))
+	if res := admin.Do("DELETE", accountPath(empty, ""), nil); res.Status != http.StatusNoContent {
+		t.Fatalf("compte sans fiche : %d %s", res.Status, res.Body)
+	}
+
+	setup := func() (int64, []int64) {
+		email := env.Seed(auth.RoleMember, true)
+		c := env.LoggedIn(email)
+		self := createMine(t, c, memberBody("Claire", "Martin", "1980-01-01", "isSelf", true, "confirmDuplicate", true))
+		child := createMine(t, c, memberBody("Léo", "Martin", "2015-04-12", "confirmDuplicate", true))
+		return accountID(t, env, email), []int64{self.ID, child.ID}
+	}
+	ids := func(v ...int64) string {
+		s := ""
+		for i, id := range v {
+			if i > 0 {
+				s += ","
+			}
+			s += fmt.Sprint(id)
+		}
+		return s
+	}
+
+	// Choix absent, liste périmée : refus, rien ne change.
+	id, members := setup()
+	expectFieldError(t, admin.Do("DELETE", accountPath(id, ""), nil), "query.members", api.MsgMembersChoiceRequired)
+	expectProblem(t, admin.Do("DELETE", accountPath(id, "?members=keep&memberIds="+ids(members[0])), nil),
+		http.StatusConflict, api.MsgMembersChanged)
+	expectProblem(t, admin.Do("DELETE", accountPath(id, "?members=keep&memberIds="+ids(members[0], members[1], 99999)), nil),
+		http.StatusConflict, api.MsgMembersChanged)
+	if _, err := env.Store.Read.GetAccountByID(context.Background(), id); err != nil {
+		t.Fatalf("compte supprimé malgré le refus : %v", err)
+	}
+
+	// Conserver : fiches sans compte, signalement « Vous » retiré.
+	if res := admin.Do("DELETE", accountPath(id, "?members=keep&memberIds="+ids(members[1], members[0])), nil); res.Status != http.StatusNoContent {
+		t.Fatalf("suppression avec conservation : %d %s", res.Status, res.Body)
+	}
+	for _, mid := range members {
+		m := expectMember(t, admin.Do("GET", adminMemberPath(mid), nil), http.StatusOK)
+		if m.Account != nil || m.IsSelf {
+			t.Fatalf("fiche conservée : %+v", m)
+		}
+	}
+
+	// Supprimer : fiches effacées.
+	id, members = setup()
+	if res := admin.Do("DELETE", accountPath(id, "?members=delete&memberIds="+ids(members...)), nil); res.Status != http.StatusNoContent {
+		t.Fatalf("suppression avec effacement : %d %s", res.Status, res.Body)
+	}
+	for _, mid := range members {
+		expectProblem(t, admin.Do("GET", adminMemberPath(mid), nil), http.StatusNotFound, api.MsgMemberGone)
+	}
+
+	logs := env.Logs.String()
+	if !strings.Contains(logs, `"members_kept":2`) || !strings.Contains(logs, `"members_deleted":2`) {
+		t.Fatalf("journal account.delete sans le sort des fiches : %s", logs)
 	}
 }

@@ -346,8 +346,66 @@ func (s *server) setAccountRole(ctx context.Context, in *SetAccountRoleInput) (*
 	return s.accountOutput(ctx, in.ID)
 }
 
-func (s *server) deleteAccount(ctx context.Context, in *AccountIDInput) (*struct{}, error) {
+// DeleteAccountInput précise le sort des fiches gérées par le compte
+// (research.md 005 › R9).
+type DeleteAccountInput struct {
+	AccountIDInput
+	Members   string  `query:"members" enum:"delete,keep" doc:"Sort des fiches gérées par le compte : delete (effacées) ou keep (conservées sans compte) ; obligatoire s'il en gère"`
+	MemberIDs []int64 `query:"memberIds" explode:"false" doc:"Identifiants des fiches affichées dans le dialogue de confirmation"`
+}
+
+const (
+	MsgMembersChoiceRequired = "Choisissez le sort des fiches gérées par ce compte."
+	MsgMembersChanged        = "La liste des fiches de ce compte a changé."
+)
+
+// sameIDs compare deux ensembles d'identifiants.
+func sameIDs(a, b []int64) bool {
+	set := make(map[int64]bool, len(a))
+	for _, id := range a {
+		set[id] = true
+	}
+	seen := make(map[int64]bool, len(b))
+	for _, id := range b {
+		if !set[id] {
+			return false
+		}
+		seen[id] = true
+	}
+	return len(seen) == len(set)
+}
+
+func (s *server) deleteAccount(ctx context.Context, in *DeleteAccountInput) (*struct{}, error) {
+	var membersAttr []any
 	err := s.adminWrite(ctx, in.ID, false, func(q *sqlc.Queries, target sqlc.Account) error {
+		// Fiches gérées par le compte : effacées ou détachées avant lui, dans la
+		// même transaction (FR-012b).
+		account := sql.NullInt64{Int64: target.ID, Valid: true}
+		ids, err := q.ListMemberIDsOfAccount(ctx, account)
+		if err != nil {
+			return err
+		}
+		if len(ids) > 0 {
+			if in.Members == "" {
+				return FieldErrors("query.members", MsgMembersChoiceRequired)
+			}
+			if !sameIDs(ids, in.MemberIDs) {
+				return huma.Error409Conflict(MsgMembersChanged)
+			}
+			if in.Members == "delete" {
+				n, err := q.DeleteMembersOfAccount(ctx, account)
+				if err != nil {
+					return err
+				}
+				membersAttr = []any{"members_deleted", n}
+			} else {
+				n, err := q.DetachMembersOfAccount(ctx, sqlc.DetachMembersOfAccountParams{Now: nowString(), AccountID: account})
+				if err != nil {
+					return err
+				}
+				membersAttr = []any{"members_kept", n}
+			}
+		}
 		// Jetons supprimés en cascade, invitations envoyées conservées sans auteur.
 		n, err := q.DeleteAccount(ctx, target.ID)
 		if err != nil {
@@ -366,7 +424,7 @@ func (s *server) deleteAccount(ctx context.Context, in *AccountIDInput) (*struct
 	if err != nil {
 		return nil, err
 	}
-	s.logAccountAction(ctx, "account.delete", in.ID)
+	s.logAccountAction(ctx, "account.delete", in.ID, membersAttr...)
 	return nil, nil
 }
 
