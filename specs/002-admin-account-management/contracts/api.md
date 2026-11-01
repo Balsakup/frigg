@@ -27,7 +27,7 @@ Aucune opération publique ni `member` n'est ajoutée.
 | `disable-account` | `POST /api/admin/accounts/{id}/disable` | — | `200 AdminAccount` (déjà désactivé : inchangé) · `404` · `409` soi-même · `409` dernier administrateur actif |
 | `enable-account` | `POST /api/admin/accounts/{id}/enable` | — | `200 AdminAccount` (déjà actif : inchangé) · `404` |
 | `set-account-role` | `PUT /api/admin/accounts/{id}/role` | `{ role: "member"\|"admin" }` | `200 AdminAccount` (même rôle : inchangé) · `404` · `409` soi-même · `409` dernier administrateur actif · `422` |
-| `delete-account` | `DELETE /api/admin/accounts/{id}` | — | `204` · `404` · `409` soi-même · `409` dernier administrateur actif |
+| `delete-account` | `DELETE /api/admin/accounts/{id}` | `members`, `memberIds` (005) | `204` · `404` · `409` soi-même · `409` dernier administrateur actif · `422`/`409` fiches gérées, voir [005 › api.md](../../005-member-management/contracts/api.md#opération-modifiée--delete-account-002) |
 | `send-account-password-reset` | `POST /api/admin/accounts/{id}/password-reset` | — | `202` (e-mail mis en file) · `404` · `409` soi-même · `409` compte désactivé · `429` |
 
 `enable-account` n'a pas de garde-fou « soi-même » : un compte désactivé ne
