@@ -196,6 +196,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lister les adhésions */
+        get: operations["list-memberships"];
+        put?: never;
+        /** Enregistrer une adhésion validée */
+        post: operations["create-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indicateurs d'adhésion du tableau de bord */
+        get: operations["get-membership-dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chiffres de l'adhésion d'une saison */
+        get: operations["get-membership-stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une adhésion */
+        get: operations["get-membership"];
+        /** Corriger une adhésion validée */
+        put: operations["update-membership"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler une adhésion validée */
+        post: operations["cancel-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Constater le paiement d'une adhésion */
+        post: operations["record-membership-payment"];
+        /** Annuler la constatation du paiement */
+        delete: operations["cancel-membership-payment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/refuse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refuser une demande d'adhésion */
+        post: operations["refuse-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Valider une demande d'adhésion */
+        post: operations["validate-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/seasons": {
         parameters: {
             query?: never;
@@ -297,6 +436,24 @@ export interface paths {
         put?: never;
         /** Ouvrir une saison */
         post: operations["open-season"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Moyens de paiement proposés aux adhérents */
+        get: operations["get-payment-settings"];
+        /** Modifier les moyens de paiement */
+        put: operations["update-payment-settings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -485,6 +642,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Adhésions de mes membres */
+        get: operations["list-my-memberships"];
+        put?: never;
+        /** Demander l'adhésion d'un de mes membres */
+        post: operations["create-my-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/memberships/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saisons et tarifs ouverts à l'adhésion pour mes membres */
+        get: operations["get-membership-offer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/memberships/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une adhésion de mes membres */
+        get: operations["get-my-membership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/memberships/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler une demande d'adhésion en attente */
+        post: operations["cancel-my-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/memberships/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choisir le moyen de paiement d'une adhésion */
+        put: operations["announce-my-payment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -537,6 +780,11 @@ export interface components {
             /** @enum {string} */
             role: "member" | "admin";
         };
+        AccountRef: {
+            email: string;
+            /** Format: int64 */
+            id: number;
+        };
         AdminAccount: {
             /** Format: date-time */
             createdAt: string;
@@ -564,6 +812,18 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        AdminCreateBody: {
+            /** Format: int64 */
+            feeId: number;
+            /** @enum {string} */
+            kind: "first" | "renewal";
+            /** Format: int64 */
+            memberId: number;
+            /** @description Règlement déjà reçu */
+            paid?: components["schemas"]["RecordPaymentBody"];
+            /** Format: int64 */
+            seasonId: number;
+        };
         AdminMember: {
             /** @description Compte qui gère la fiche ; null : sans compte */
             account: components["schemas"]["MemberAccount"];
@@ -584,6 +844,8 @@ export interface components {
             /** @description Fiche du titulaire du compte (« Vous ») */
             isSelf: boolean;
             lastName: string;
+            /** @description Adhésions de la fiche, la saison la plus récente d'abord */
+            memberships?: components["schemas"]["MemberMembership"][] | null;
             /** @description Normalisé : 0612345678 ou +32470123456 */
             phone: string | null;
             /** Format: date-time */
@@ -646,14 +908,130 @@ export interface components {
             phone?: string;
             postalCode?: string;
         };
+        AdminMembership: {
+            /** @description Compte qui gère la fiche ; null : sans compte */
+            account: components["schemas"]["MemberAccount"];
+            actions: components["schemas"]["AdminMembershipActions"];
+            /**
+             * Format: int64
+             * @description Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré
+             */
+            amountCents: number;
+            /** @description Le montant a été figé à la validation */
+            amountFixed: boolean;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            cancelledBy: components["schemas"]["AccountRef"];
+            createdBy: components["schemas"]["AccountRef"];
+            /** Format: date-time */
+            decidedAt: string | null;
+            decidedBy: components["schemas"]["AccountRef"];
+            /**
+             * @description Type déclaré par le compte ; null si créée par un administrateur
+             * @enum {string|null}
+             */
+            declaredKind: "first" | "renewal" | null;
+            /** @description Tarif actuel */
+            fee: components["schemas"]["MembershipFeeRef"];
+            /** Format: int64 */
+            id: number;
+            /**
+             * @description Type retenu à la validation
+             * @enum {string|null}
+             */
+            kind: "first" | "renewal" | null;
+            member: components["schemas"]["MemberRef"];
+            paidBy: components["schemas"]["AccountRef"];
+            /** @description null : adhésion non validée ou gratuite */
+            payment: components["schemas"]["Payment"];
+            paymentNote: string | null;
+            /**
+             * @description Adhérent la saison précédente dans Frigg
+             * @enum {string}
+             */
+            previousSeason: "yes" | "no" | "unknown";
+            /** @description Motif d'un refus ou d'une annulation */
+            reason: string | null;
+            /** Format: date-time */
+            requestedAt: string;
+            requestedBy: components["schemas"]["AccountRef"];
+            season: components["schemas"]["SeasonRef"];
+            /** @description Tarifs de la saison, pour valider ou corriger */
+            seasonFees: components["schemas"]["MembershipFeeRef"][] | null;
+            /** @enum {string} */
+            status: "pending" | "validated" | "refused" | "cancelled";
+        };
+        AdminMembershipActions: {
+            cancel: boolean;
+            cancelPayment: boolean;
+            recordPayment: boolean;
+            refuse: boolean;
+            update: boolean;
+            validate: boolean;
+        };
+        AdminMembershipFee: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
+        AdminMembershipPage: {
+            /** @description Demandes en attente d'abord, puis par nom et prénom */
+            items: components["schemas"]["AdminMembershipRow"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /**
+             * Format: int64
+             * @description Saison retenue ; null : toutes
+             */
+            seasonId: number | null;
+            /** Format: int64 */
+            total: number;
+        };
+        AdminMembershipRow: {
+            /**
+             * Format: int64
+             * @description Montant appliqué ; null tant que l'adhésion n'est pas validée
+             */
+            amountCents: number | null;
+            /** @enum {string|null} */
+            declaredKind: "first" | "renewal" | null;
+            fee: components["schemas"]["AdminMembershipFee"];
+            /** Format: int64 */
+            id: number;
+            /** @enum {string|null} */
+            kind: "first" | "renewal" | null;
+            member: components["schemas"]["MemberRef"];
+            payment: components["schemas"]["Payment"];
+            /** Format: date-time */
+            requestedAt: string;
+            season: components["schemas"]["SeasonRef"];
+            /** @enum {string} */
+            status: "pending" | "validated" | "refused" | "cancelled";
+        };
+        AnnounceBody: {
+            /** @enum {string} */
+            method: "cash" | "cheque" | "transfer";
+        };
         Association: {
             name: string;
+        };
+        CashSettings: {
+            enabled: boolean;
+            instructions: string | null;
         };
         ChangePasswordInputBody: {
             /** @description Mot de passe actuel */
             currentPassword: string;
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
             newPassword: string;
+        };
+        ChequeSettings: {
+            address: string | null;
+            enabled: boolean;
+            instructions: string | null;
+            payee: string | null;
         };
         CreateInvitationInputBody: {
             /** @description Adresse électronique de la personne invitée */
@@ -664,6 +1042,12 @@ export interface components {
              * @enum {string}
              */
             role: "member" | "admin";
+        };
+        DecisionBody: {
+            /** Format: int64 */
+            feeId: number;
+            /** @enum {string} */
+            kind: "first" | "renewal";
         };
         EmailInputBody: {
             /** @description Adresse électronique */
@@ -709,6 +1093,18 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        FeeAmounts: {
+            /**
+             * Format: int64
+             * @description Montant d'une première adhésion, en centimes
+             */
+            first: number;
+            /**
+             * Format: int64
+             * @description Montant d'un renouvellement, en centimes
+             */
+            renewal: number;
         };
         Invitation: {
             /** Format: date-time */
@@ -767,17 +1163,59 @@ export interface components {
             /** Format: int64 */
             id: number;
         };
+        MemberMembership: {
+            /** Format: int64 */
+            id: number;
+            payment: components["schemas"]["Payment"];
+            season: components["schemas"]["SeasonRef"];
+            /** @enum {string} */
+            status: "pending" | "validated" | "refused" | "cancelled";
+        };
+        MemberRef: {
+            /** Format: int64 */
+            age: number;
+            firstName: string;
+            /** Format: int64 */
+            id: number;
+            lastName: string;
+        };
+        MembershipDashboard: {
+            /** @description Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion */
+            paymentSetupNeeded: boolean;
+            /**
+             * Format: int64
+             * @description Demandes en attente, toutes saisons
+             */
+            pendingCount: number;
+        };
+        MembershipDueByMethod: {
+            /** Format: int64 */
+            cash: number;
+            /** Format: int64 */
+            cheque: number;
+            /**
+             * Format: int64
+             * @description Aucun moyen choisi
+             */
+            none: number;
+            /** Format: int64 */
+            transfer: number;
+        };
         MembershipFee: {
             /**
              * Format: int64
              * @description Montant en centimes d'euro
              */
             amountCents: number;
+            /** @description Montant appliqué selon le type d'adhésion */
+            amounts: components["schemas"]["FeeAmounts"];
             /** Format: date-time */
             createdAt: string;
             description: string | null;
             /** Format: int64 */
             id: number;
+            /** @description Utilisé par au moins une adhésion : ne peut pas être supprimé */
+            inUse: boolean;
             label: string;
             /**
              * Format: int64
@@ -808,6 +1246,54 @@ export interface components {
             /** @description Du montant le plus élevé au plus faible, puis par libellé */
             items: components["schemas"]["MembershipFee"][] | null;
         };
+        MembershipFeeRef: {
+            /** Format: int64 */
+            amountCents: number;
+            amounts: components["schemas"]["FeeAmounts"];
+            description: string | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /** Format: int64 */
+            renewalAmountCents: number | null;
+        };
+        MembershipFeeStat: {
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: int64 */
+            count: number;
+            /** Format: int64 */
+            feeId: number;
+            label: string;
+        };
+        MembershipOffer: {
+            /** @description Au moins une fiche peut adhérer à au moins une saison */
+            canRequest: boolean;
+            /** @description Fiches du compte, « Vous » d'abord */
+            members: components["schemas"]["OfferMember"][] | null;
+            /** @description Saisons ouvertes, non closes, avec au moins un tarif ; la plus récente d'abord */
+            seasons: components["schemas"]["OfferSeason"][] | null;
+        };
+        MembershipStats: {
+            byFee: components["schemas"]["MembershipFeeStat"][] | null;
+            dueByMethod: components["schemas"]["MembershipDueByMethod"];
+            /** Format: int64 */
+            dueCents: number;
+            /** Format: int64 */
+            first: number;
+            /** Format: int64 */
+            paidCents: number;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            renewal: number;
+            /** Format: int64 */
+            seasonId: number;
+            /** Format: int64 */
+            totalCents: number;
+            /** Format: int64 */
+            validated: number;
+        };
         MyMemberActions: {
             /** @description Moins de 20 fiches */
             add: boolean;
@@ -837,17 +1323,163 @@ export interface components {
             /** @description La fiche « Vous » d'abord, puis par prénom et nom */
             items: components["schemas"]["Member"][] | null;
         };
+        MyMembership: {
+            actions: components["schemas"]["MyMembershipActions"];
+            /**
+             * Format: int64
+             * @description Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré
+             */
+            amountCents: number;
+            /** @description Le montant a été figé à la validation */
+            amountFixed: boolean;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** Format: date-time */
+            decidedAt: string | null;
+            /**
+             * @description Type déclaré par le compte ; null si créée par un administrateur
+             * @enum {string|null}
+             */
+            declaredKind: "first" | "renewal" | null;
+            /** @description Tarif actuel */
+            fee: components["schemas"]["MembershipFeeRef"];
+            /** Format: int64 */
+            id: number;
+            /**
+             * @description Type retenu à la validation
+             * @enum {string|null}
+             */
+            kind: "first" | "renewal" | null;
+            member: components["schemas"]["MemberRef"];
+            /** @description null : adhésion non validée ou gratuite */
+            payment: components["schemas"]["Payment"];
+            /** @description Moyens activés ; vide s'il n'y a rien à payer */
+            paymentMethods: components["schemas"]["PaymentMethodInfo"][] | null;
+            /** @description Motif d'un refus ou d'une annulation */
+            reason: string | null;
+            /** Format: date-time */
+            requestedAt: string;
+            season: components["schemas"]["SeasonRef"];
+            /** @enum {string} */
+            status: "pending" | "validated" | "refused" | "cancelled";
+        };
+        MyMembershipActions: {
+            /** @description Annuler la demande en attente */
+            cancel: boolean;
+            /** @description Choisir ou changer le moyen de paiement */
+            pay: boolean;
+        };
+        MyMembershipBody: {
+            /** @enum {string} */
+            declaredKind: "first" | "renewal";
+            /** Format: int64 */
+            feeId: number;
+            /** Format: int64 */
+            memberId: number;
+            /** Format: int64 */
+            seasonId: number;
+        };
+        MyMembershipList: {
+            /** @description La saison la plus récente d'abord */
+            seasons: components["schemas"]["MyMembershipSeason"][] | null;
+        };
+        MyMembershipSeason: {
+            /** @description Par prénom */
+            items: components["schemas"]["MyMembership"][] | null;
+            season: components["schemas"]["SeasonRef"];
+        };
+        OfferMember: {
+            /** @description Saisons où la fiche n'a ni demande en attente ni adhésion validée */
+            availableSeasonIds: number[] | null;
+            firstName: string;
+            /** Format: int64 */
+            id: number;
+            isSelf: boolean;
+            lastName: string;
+        };
+        OfferSeason: {
+            /** @description Du montant le plus élevé au plus faible */
+            fees: components["schemas"]["MembershipFeeRef"][] | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
         PasswordTokenInputBody: {
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
             password: string;
             /** @description Jeton reçu par e-mail */
             token: string;
         };
+        Payment: {
+            /** @enum {string|null} */
+            announcedMethod: "cash" | "cheque" | "transfer" | null;
+            /** @enum {string|null} */
+            paidMethod: "cash" | "cheque" | "transfer" | null;
+            /** Format: date */
+            paidOn: string | null;
+            reference: string;
+            /** @enum {string} */
+            status: "due" | "announced" | "paid";
+        };
+        PaymentMethodInfo: {
+            /** @description Chèque : adresse d'envoi */
+            address: string | null;
+            /** @description Virement : BIC */
+            bic: string | null;
+            /** @description Virement : titulaire du compte */
+            holder: string | null;
+            /** @description Virement : IBAN normalisé */
+            iban: string | null;
+            instructions: string | null;
+            /** @enum {string} */
+            method: "cash" | "cheque" | "transfer";
+            /** @description Chèque : ordre */
+            payee: string | null;
+        };
+        PaymentSettings: {
+            cash: components["schemas"]["CashSettings"];
+            cheque: components["schemas"]["ChequeSettings"];
+            transfer: components["schemas"]["TransferSettings"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaymentSettingsBody: {
+            cash: components["schemas"]["PaymentSettingsBodyCashStruct"];
+            cheque: components["schemas"]["PaymentSettingsBodyChequeStruct"];
+            transfer: components["schemas"]["PaymentSettingsBodyTransferStruct"];
+        };
+        PaymentSettingsBodyCashStruct: {
+            enabled: boolean;
+            instructions?: string;
+        };
+        PaymentSettingsBodyChequeStruct: {
+            address?: string;
+            enabled: boolean;
+            instructions?: string;
+            payee?: string;
+        };
+        PaymentSettingsBodyTransferStruct: {
+            bic?: string;
+            enabled: boolean;
+            holder?: string;
+            iban?: string;
+            instructions?: string;
+        };
         PostalAddress: {
             city: string;
             line1: string;
             line2: string | null;
             postalCode: string;
+        };
+        ReasonBody: {
+            reason: string;
+        };
+        RecordPaymentBody: {
+            /** @enum {string} */
+            method: "cash" | "cheque" | "transfer";
+            note?: string;
+            /** Format: date */
+            receivedOn: string;
         };
         Season: {
             actions: components["schemas"]["SeasonActions"];
@@ -922,6 +1554,13 @@ export interface components {
              */
             today: string;
         };
+        SeasonRef: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /** @enum {string} */
+            state: "draft" | "open" | "closed";
+        };
         Session: {
             account: components["schemas"]["Account"];
             association: components["schemas"]["Association"];
@@ -936,6 +1575,13 @@ export interface components {
         TokenInputBody: {
             /** @description Jeton reçu par e-mail */
             token: string;
+        };
+        TransferSettings: {
+            bic: string | null;
+            enabled: boolean;
+            holder: string | null;
+            iban: string | null;
+            instructions: string | null;
         };
         UpdateSeasonInputBody: {
             /**
@@ -1488,6 +2134,383 @@ export interface operations {
             };
         };
     };
+    "list-memberships": {
+        parameters: {
+            query?: {
+                /** @description Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente */
+                season?: string;
+                status?: "pending" | "validated" | "refused" | "cancelled";
+                payment?: "due" | "announced" | "paid" | "free";
+                /** @description Adhésions d'une fiche */
+                member?: number;
+                /** @description Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche */
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembershipPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-membership-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipDashboard"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-membership-stats": {
+        parameters: {
+            query: {
+                season: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipStats"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "record-membership-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-membership-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "refuse-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "validate-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-seasons": {
         parameters: {
             query?: never;
@@ -1837,6 +2860,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Season"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-payment-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-payment-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentSettingsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettings"];
                 };
             };
             /** @description Error */
@@ -2244,6 +3329,200 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-my-memberships": {
+        parameters: {
+            query?: {
+                /** @description Adhésions d'une seule fiche du compte */
+                member?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembershipList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-my-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyMembershipBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-membership-offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipOffer"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-my-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-my-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "announce-my-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnounceBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembership"];
+                };
             };
             /** @description Error */
             default: {

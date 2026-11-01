@@ -25,7 +25,7 @@ export function Table({ caption, captionVisible = false, columns, children }: Ta
       <table className="w-full border-collapse text-left text-[15px]">
         <caption
           id={captionId}
-          className={captionVisible ? "px-5 pb-2 text-left font-bold" : "sr-only"}
+          className={captionVisible ? "px-5 pt-4 pb-2 text-left font-bold" : "sr-only"}
         >
           {caption}
         </caption>

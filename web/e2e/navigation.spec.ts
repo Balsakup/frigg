@@ -7,6 +7,7 @@ test.describe("navigation adaptée au rôle (US2)", () => {
     await expect(page.getByRole("navigation", { name: "Changer d'espace" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Tableau de bord" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Comptes" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Paramètres" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Accueil" })).toHaveAttribute(
       "aria-current",
       "page",

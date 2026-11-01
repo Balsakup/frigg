@@ -1,7 +1,12 @@
 // Commande e2eseed : prépare une base jetable pour les tests de bout en bout.
 // Elle ne fait pas partie du binaire frigg.
 //
-// Utilisation : go run ./internal/tools/e2eseed <chemin de la base>
+// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions]
+//
+// Le mode « adhesions » prépare la base du second serveur e2e : une saison
+// ouverte contenant la date du jour, des tarifs, des fiches, des adhésions et
+// les moyens de paiement (research.md 006 › R13). Les saisons étant un état
+// global, le serveur principal reste sans saison (test des saisons, 003).
 package main
 
 import (
@@ -14,6 +19,8 @@ import (
 	"github.com/balsakup/frigg/internal/auth"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/membership"
+	"github.com/balsakup/frigg/internal/season"
 )
 
 // Password est le mot de passe de tous les comptes de test.
@@ -71,17 +78,17 @@ var accounts = []struct {
 const listAccounts = 30
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base>")
+	if len(os.Args) < 2 || len(os.Args) > 3 || (len(os.Args) == 3 && os.Args[2] != "adhesions") {
+		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions]")
 		os.Exit(2)
 	}
-	if err := run(os.Args[1]); err != nil {
+	if err := run(os.Args[1], len(os.Args) == 3); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(path string) error {
+func run(path string, memberships bool) error {
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		if err := os.Remove(path + suffix); err != nil && !os.IsNotExist(err) {
 			return err
@@ -147,6 +154,125 @@ func run(path string) error {
 			ExpiresAt: time.Now().UTC().Add(7 * 24 * time.Hour).Format("2006-01-02T15:04:05Z"),
 			Now:       now,
 		})
-		return err
+		if err != nil || !memberships {
+			return err
+		}
+		return seedMemberships(ctx, q, hash, now)
 	})
+}
+
+// Comptes du serveur des adhésions : un compte par test (limite de connexions).
+var membershipAccounts = []struct {
+	email, role string
+	members     [][2]string // prénom, nom
+}{
+	{"admin-adhesions@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-adhesions-creation@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-adhesions-correction@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-adhesions-chiffres@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-adhesions-parametres@exemple.fr", auth.RoleAdmin, nil},
+	{"membre-adhesions-demande@exemple.fr", auth.RoleMember, [][2]string{{"Léo", "Martin"}, {"Inès", "Martin"}}},
+	{"membre-adhesions-paiement@exemple.fr", auth.RoleMember, [][2]string{{"Hugo", "Bernard"}}},
+	{"membre-adhesions-voisin@exemple.fr", auth.RoleMember, [][2]string{{"Zélie", "Roux"}}},
+	{"membre-adhesions-decision@exemple.fr", auth.RoleMember, [][2]string{{"Théo", "Durand"}, {"Zoé", "Durand"}, {"Marc", "Durand"}}},
+}
+
+// seedMemberships prépare le jeu de données des adhésions. L'adhésion de Hugo
+// Bernard (à payer) est créée en premier : son identifiant est 1.
+func seedMemberships(ctx context.Context, q *sqlc.Queries, hash, now string) error {
+	today := season.Today(time.Now())
+	start := season.MustDate(fmt.Sprintf("%04d-%02d-01", today.Year(), int(today.Month())))
+	end := start.AddMonths(12).AddDays(-1)
+	s, err := q.CreateSeason(ctx, sqlc.CreateSeasonParams{StartsOn: start.String(), EndsOn: end.String(), CreatedAt: now})
+	if err != nil {
+		return err
+	}
+	if _, err := q.OpenSeason(ctx, sqlc.OpenSeasonParams{Now: sql.NullString{String: now, Valid: true}, ID: s.ID}); err != nil {
+		return err
+	}
+	fee := func(label string, amount int64, renewal sql.NullInt64) (int64, error) {
+		f, err := q.CreateMembershipFee(ctx, sqlc.CreateMembershipFeeParams{
+			SeasonID: s.ID, Label: label, AmountCents: amount, RenewalAmountCents: renewal, Now: now,
+		})
+		return f.ID, err
+	}
+	adult, err := fee("Adulte", 6000, sql.NullInt64{Int64: 4000, Valid: true})
+	if err != nil {
+		return err
+	}
+	if _, err := fee("Jeune", 3000, sql.NullInt64{}); err != nil {
+		return err
+	}
+	if _, err := fee("Bienfaiteur", 0, sql.NullInt64{}); err != nil {
+		return err
+	}
+	if err := q.UpdatePaymentSettings(ctx, sqlc.UpdatePaymentSettingsParams{
+		CashEnabled: 1, CashInstructions: sql.NullString{String: "Au local de l'association,\nle samedi de 10 h à 12 h.", Valid: true},
+		ChequeEnabled: 1, ChequePayee: sql.NullString{String: "Les Sentiers du Val", Valid: true},
+		ChequeAddress: sql.NullString{String: "12 rue des Lilas\n35000 Rennes", Valid: true},
+		TransferEnabled: 1, TransferHolder: sql.NullString{String: "Les Sentiers du Val", Valid: true},
+		TransferIban: sql.NullString{String: "FR7630006000011234567890189", Valid: true},
+		TransferBic:  sql.NullString{String: "BNPAFRPP", Valid: true},
+		Now:          now,
+	}); err != nil {
+		return err
+	}
+
+	members := map[string]int64{}
+	accounts := map[string]int64{}
+	for _, a := range membershipAccounts {
+		acc, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{
+			Email: a.email, PasswordHash: hash, Role: a.role, CreatedAt: now,
+			EmailVerifiedAt: sql.NullString{String: now, Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("compte %s : %w", a.email, err)
+		}
+		accounts[a.email] = acc.ID
+		for _, m := range a.members {
+			r, err := q.CreateMemberForAccount(ctx, sqlc.CreateMemberForAccountParams{
+				AccountID: sql.NullInt64{Int64: acc.ID, Valid: true}, FirstName: m[0], LastName: m[1],
+				BirthDate: "2012-03-15", Now: now,
+			})
+			if err != nil {
+				return err
+			}
+			members[m[0]] = r.ID
+		}
+	}
+	if _, err := q.CreateMember(ctx, sqlc.CreateMemberParams{FirstName: "Jeanne", LastName: "Petit", BirthDate: "1975-06-01", Now: now}); err != nil {
+		return err
+	}
+
+	admin := sql.NullInt64{Int64: accounts["admin-adhesions@exemple.fr"], Valid: true}
+	str := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	ref := membership.NextReference(membership.ReferencePrefix(start, end), nil)
+	// 1. Hugo Bernard : validée, à payer (paiement en ligne de l'adhérent).
+	paying := sql.NullInt64{Int64: accounts["membre-adhesions-paiement@exemple.fr"], Valid: true}
+	if _, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+		MemberID: members["Hugo"], SeasonID: s.ID, FeeID: adult, Status: "validated",
+		DeclaredKind: str("first"), Kind: str("first"), AmountCents: sql.NullInt64{Int64: 6000, Valid: true},
+		RequestedBy: paying, Now: now, DecidedBy: admin, DecidedAt: str(now),
+		PaymentReference: str(ref), PaymentStatus: str("due"),
+	}); err != nil {
+		return err
+	}
+	// Théo et Zoé Durand : demandes en attente ; Marc Durand : validée, à payer.
+	deciding := sql.NullInt64{Int64: accounts["membre-adhesions-decision@exemple.fr"], Valid: true}
+	for _, first := range []string{"Théo", "Zoé"} {
+		if _, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+			MemberID: members[first], SeasonID: s.ID, FeeID: adult, Status: "pending",
+			DeclaredKind: str("renewal"), RequestedBy: deciding, Now: now,
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+		MemberID: members["Marc"], SeasonID: s.ID, FeeID: adult, Status: "validated",
+		Kind: str("first"), AmountCents: sql.NullInt64{Int64: 6000, Valid: true},
+		CreatedBy: admin, Now: now, DecidedBy: admin, DecidedAt: str(now),
+		PaymentReference: str(membership.NextReference(membership.ReferencePrefix(start, end), []string{ref})),
+		PaymentStatus:    str("due"),
+	})
+	return err
 }

@@ -9,6 +9,7 @@ import {
   House,
   type LucideIcon,
   Mail,
+  Settings,
   Shield,
   Users,
 } from "lucide-react";
@@ -71,7 +72,6 @@ export const navigation: NavEntry[] = [
     path: "/adhesions",
     space: "member",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "mes-documents",
@@ -115,7 +115,6 @@ export const navigation: NavEntry[] = [
     path: "/admin/adhesions",
     space: "admin",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "gestion-evenements",
@@ -166,6 +165,14 @@ export const navigation: NavEntry[] = [
     label: "Comptes",
     icon: Shield,
     path: "/admin/comptes",
+    space: "admin",
+    section: "settings",
+  },
+  {
+    id: "parametres",
+    label: "Paramètres",
+    icon: Settings,
+    path: "/admin/parametres",
     space: "admin",
     section: "settings",
   },

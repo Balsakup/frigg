@@ -4,7 +4,13 @@ import {
   formatAge,
   formatAmount,
   formatDay,
+  formatIban,
   formatPhone,
+  membershipKindLabel,
+  membershipStatusLabel,
+  paymentMethodLabel,
+  paymentStatusLabel,
+  previousSeasonLabel,
   seasonStatusLabel,
 } from "./format";
 
@@ -65,5 +71,29 @@ describe("formatAge", () => {
     expect(formatAge(0)).toBe("moins d'un an");
     expect(formatAge(1)).toBe("1 an");
     expect(formatAge(11)).toBe("11 ans");
+  });
+});
+
+describe("adhésions", () => {
+  it("traduit les états, types et moyens", () => {
+    expect(membershipStatusLabel("pending")).toBe("En attente de validation");
+    expect(membershipStatusLabel("cancelled")).toBe("Annulée");
+    expect(membershipKindLabel("renewal")).toBe("Renouvellement");
+    expect(paymentMethodLabel("transfer")).toBe("Virement");
+    expect(previousSeasonLabel("unknown")).toBe("Inconnu");
+  });
+
+  it("décrit l'état du paiement", () => {
+    expect(paymentStatusLabel({ status: "due" })).toBe("À payer");
+    expect(paymentStatusLabel({ status: "announced", announcedMethod: "cheque" })).toBe(
+      "Paiement annoncé — chèque",
+    );
+    expect(paymentStatusLabel({ status: "paid", paidOn: "2026-11-02" })).toBe(
+      "Payée le 2 novembre 2026",
+    );
+  });
+
+  it("groupe l'IBAN par quatre caractères", () => {
+    expect(formatIban("FR7630006000011234567890189")).toBe("FR76 3000 6000 0112 3456 7890 189");
   });
 });

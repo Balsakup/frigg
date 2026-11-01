@@ -5,6 +5,8 @@ import { useSession } from "./useSession";
 
 interface PageProps {
   title: string;
+  /** Titre du document s'il diffère du titre de la page (sous-pages). */
+  documentTitle?: string;
   intro?: string;
   actions?: ReactNode;
   breadcrumbs?: boolean;
@@ -13,11 +15,18 @@ interface PageProps {
 
 // Gabarit commun des pages du shell : fil d'Ariane, en-tête, contenu, et titre
 // du document « Page · Association ».
-export function Page({ title, intro, actions, breadcrumbs = true, children }: PageProps) {
+export function Page({
+  title,
+  documentTitle,
+  intro,
+  actions,
+  breadcrumbs = true,
+  children,
+}: PageProps) {
   const { association } = useSession();
   useEffect(() => {
-    document.title = `${title} · ${association.name}`;
-  }, [title, association.name]);
+    document.title = `${documentTitle ?? title} · ${association.name}`;
+  }, [documentTitle, title, association.name]);
 
   return (
     <>

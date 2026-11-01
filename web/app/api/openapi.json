@@ -30,6 +30,23 @@
         ],
         "type": "object"
       },
+      "AccountRef": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "type": "object"
+      },
       "AdminAccount": {
         "additionalProperties": false,
         "properties": {
@@ -126,6 +143,41 @@
         ],
         "type": "object"
       },
+      "AdminCreateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": "string"
+          },
+          "memberId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "paid": {
+            "$ref": "#/components/schemas/RecordPaymentBody",
+            "description": "Règlement déjà reçu"
+          },
+          "seasonId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "memberId",
+          "seasonId",
+          "feeId",
+          "kind"
+        ],
+        "type": "object"
+      },
       "AdminMember": {
         "additionalProperties": false,
         "properties": {
@@ -168,6 +220,16 @@
           },
           "lastName": {
             "type": "string"
+          },
+          "memberships": {
+            "description": "Adhésions de la fiche, la saison la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/MemberMembership"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "phone": {
             "description": "Normalisé : 0612345678 ou +32470123456",
@@ -364,6 +426,352 @@
         ],
         "type": "object"
       },
+      "AdminMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "$ref": "#/components/schemas/MemberAccount",
+            "description": "Compte qui gère la fiche ; null : sans compte"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/AdminMembershipActions"
+          },
+          "amountCents": {
+            "description": "Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré",
+            "format": "int64",
+            "type": "integer"
+          },
+          "amountFixed": {
+            "description": "Le montant a été figé à la validation",
+            "type": "boolean"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "declaredKind": {
+            "description": "Type déclaré par le compte ; null si créée par un administrateur",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fee": {
+            "$ref": "#/components/schemas/MembershipFeeRef",
+            "description": "Tarif actuel"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "Type retenu à la validation",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "paidBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : adhésion non validée ou gratuite"
+          },
+          "paymentNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previousSeason": {
+            "description": "Adhérent la saison précédente dans Frigg",
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "Motif d'un refus ou d'une annulation",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "requestedBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "seasonFees": {
+            "description": "Tarifs de la saison, pour valider ou corriger",
+            "items": {
+              "$ref": "#/components/schemas/MembershipFeeRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "requestedBy",
+          "createdBy",
+          "decidedBy",
+          "cancelledBy",
+          "paidBy",
+          "paymentNote",
+          "previousSeason",
+          "seasonFees",
+          "actions",
+          "id",
+          "member",
+          "season",
+          "fee",
+          "status",
+          "declaredKind",
+          "kind",
+          "amountCents",
+          "amountFixed",
+          "payment",
+          "reason",
+          "requestedAt",
+          "decidedAt",
+          "cancelledAt"
+        ],
+        "type": "object"
+      },
+      "AdminMembershipActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel": {
+            "type": "boolean"
+          },
+          "cancelPayment": {
+            "type": "boolean"
+          },
+          "recordPayment": {
+            "type": "boolean"
+          },
+          "refuse": {
+            "type": "boolean"
+          },
+          "update": {
+            "type": "boolean"
+          },
+          "validate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "validate",
+          "refuse",
+          "update",
+          "cancel",
+          "recordPayment",
+          "cancelPayment"
+        ],
+        "type": "object"
+      },
+      "AdminMembershipFee": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "AdminMembershipPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Demandes en attente d'abord, puis par nom et prénom",
+            "items": {
+              "$ref": "#/components/schemas/AdminMembershipRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonId": {
+            "description": "Saison retenue ; null : toutes",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seasonId",
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object"
+      },
+      "AdminMembershipRow": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "description": "Montant appliqué ; null tant que l'adhésion n'est pas validée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "declaredKind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fee": {
+            "$ref": "#/components/schemas/AdminMembershipFee"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "member",
+          "season",
+          "fee",
+          "status",
+          "kind",
+          "declaredKind",
+          "amountCents",
+          "payment",
+          "requestedAt"
+        ],
+        "type": "object"
+      },
+      "AnnounceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "enum": [
+              "cash",
+              "cheque",
+              "transfer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "type": "object"
+      },
       "Association": {
         "additionalProperties": false,
         "properties": {
@@ -373,6 +781,25 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "CashSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "instructions"
         ],
         "type": "object"
       },
@@ -396,6 +823,39 @@
         ],
         "type": "object"
       },
+      "ChequeSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payee": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "payee",
+          "address",
+          "instructions"
+        ],
+        "type": "object"
+      },
       "CreateInvitationInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -416,6 +876,27 @@
         },
         "required": [
           "email"
+        ],
+        "type": "object"
+      },
+      "DecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "feeId",
+          "kind"
         ],
         "type": "object"
       },
@@ -503,6 +984,26 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "FeeAmounts": {
+        "additionalProperties": false,
+        "properties": {
+          "first": {
+            "description": "Montant d'une première adhésion, en centimes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "renewal": {
+            "description": "Montant d'un renouvellement, en centimes",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "renewal"
+        ],
         "type": "object"
       },
       "Invitation": {
@@ -700,6 +1201,111 @@
         ],
         "type": "object"
       },
+      "MemberMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "season",
+          "status",
+          "payment"
+        ],
+        "type": "object"
+      },
+      "MemberRef": {
+        "additionalProperties": false,
+        "properties": {
+          "age": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "age"
+        ],
+        "type": "object"
+      },
+      "MembershipDashboard": {
+        "additionalProperties": false,
+        "properties": {
+          "paymentSetupNeeded": {
+            "description": "Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion",
+            "type": "boolean"
+          },
+          "pendingCount": {
+            "description": "Demandes en attente, toutes saisons",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pendingCount",
+          "paymentSetupNeeded"
+        ],
+        "type": "object"
+      },
+      "MembershipDueByMethod": {
+        "additionalProperties": false,
+        "properties": {
+          "cash": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cheque": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "none": {
+            "description": "Aucun moyen choisi",
+            "format": "int64",
+            "type": "integer"
+          },
+          "transfer": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "none",
+          "cash",
+          "cheque",
+          "transfer"
+        ],
+        "type": "object"
+      },
       "MembershipFee": {
         "additionalProperties": false,
         "properties": {
@@ -707,6 +1313,10 @@
             "description": "Montant en centimes d'euro",
             "format": "int64",
             "type": "integer"
+          },
+          "amounts": {
+            "$ref": "#/components/schemas/FeeAmounts",
+            "description": "Montant appliqué selon le type d'adhésion"
           },
           "createdAt": {
             "format": "date-time",
@@ -721,6 +1331,10 @@
           "id": {
             "format": "int64",
             "type": "integer"
+          },
+          "inUse": {
+            "description": "Utilisé par au moins une adhésion : ne peut pas être supprimé",
+            "type": "boolean"
           },
           "label": {
             "type": "string"
@@ -744,6 +1358,8 @@
           "amountCents",
           "renewalAmountCents",
           "description",
+          "amounts",
+          "inUse",
           "createdAt",
           "updatedAt"
         ],
@@ -820,6 +1436,171 @@
         "required": [
           "items",
           "actions"
+        ],
+        "type": "object"
+      },
+      "MembershipFeeRef": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "amounts": {
+            "$ref": "#/components/schemas/FeeAmounts"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "renewalAmountCents": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "amountCents",
+          "renewalAmountCents",
+          "description",
+          "amounts"
+        ],
+        "type": "object"
+      },
+      "MembershipFeeStat": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "feeId",
+          "label",
+          "count",
+          "amountCents"
+        ],
+        "type": "object"
+      },
+      "MembershipOffer": {
+        "additionalProperties": false,
+        "properties": {
+          "canRequest": {
+            "description": "Au moins une fiche peut adhérer à au moins une saison",
+            "type": "boolean"
+          },
+          "members": {
+            "description": "Fiches du compte, « Vous » d'abord",
+            "items": {
+              "$ref": "#/components/schemas/OfferMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "seasons": {
+            "description": "Saisons ouvertes, non closes, avec au moins un tarif ; la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/OfferSeason"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "seasons",
+          "members",
+          "canRequest"
+        ],
+        "type": "object"
+      },
+      "MembershipStats": {
+        "additionalProperties": false,
+        "properties": {
+          "byFee": {
+            "items": {
+              "$ref": "#/components/schemas/MembershipFeeStat"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dueByMethod": {
+            "$ref": "#/components/schemas/MembershipDueByMethod"
+          },
+          "dueCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "first": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "paidCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pending": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "renewal": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "totalCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "validated": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seasonId",
+          "validated",
+          "first",
+          "renewal",
+          "pending",
+          "byFee",
+          "totalCents",
+          "paidCents",
+          "dueCents",
+          "dueByMethod"
         ],
         "type": "object"
       },
@@ -921,6 +1702,282 @@
         ],
         "type": "object"
       },
+      "MyMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyMembershipActions"
+          },
+          "amountCents": {
+            "description": "Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré",
+            "format": "int64",
+            "type": "integer"
+          },
+          "amountFixed": {
+            "description": "Le montant a été figé à la validation",
+            "type": "boolean"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declaredKind": {
+            "description": "Type déclaré par le compte ; null si créée par un administrateur",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fee": {
+            "$ref": "#/components/schemas/MembershipFeeRef",
+            "description": "Tarif actuel"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "Type retenu à la validation",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : adhésion non validée ou gratuite"
+          },
+          "paymentMethods": {
+            "description": "Moyens activés ; vide s'il n'y a rien à payer",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodInfo"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "Motif d'un refus ou d'une annulation",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "actions",
+          "paymentMethods",
+          "id",
+          "member",
+          "season",
+          "fee",
+          "status",
+          "declaredKind",
+          "kind",
+          "amountCents",
+          "amountFixed",
+          "payment",
+          "reason",
+          "requestedAt",
+          "decidedAt",
+          "cancelledAt"
+        ],
+        "type": "object"
+      },
+      "MyMembershipActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel": {
+            "description": "Annuler la demande en attente",
+            "type": "boolean"
+          },
+          "pay": {
+            "description": "Choisir ou changer le moyen de paiement",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancel",
+          "pay"
+        ],
+        "type": "object"
+      },
+      "MyMembershipBody": {
+        "additionalProperties": false,
+        "properties": {
+          "declaredKind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": "string"
+          },
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "memberId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "memberId",
+          "seasonId",
+          "feeId",
+          "declaredKind"
+        ],
+        "type": "object"
+      },
+      "MyMembershipList": {
+        "additionalProperties": false,
+        "properties": {
+          "seasons": {
+            "description": "La saison la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/MyMembershipSeason"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "seasons"
+        ],
+        "type": "object"
+      },
+      "MyMembershipSeason": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Par prénom",
+            "items": {
+              "$ref": "#/components/schemas/MyMembership"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          }
+        },
+        "required": [
+          "season",
+          "items"
+        ],
+        "type": "object"
+      },
+      "OfferMember": {
+        "additionalProperties": false,
+        "properties": {
+          "availableSeasonIds": {
+            "description": "Saisons où la fiche n'a ni demande en attente ni adhésion validée",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSelf": {
+            "type": "boolean"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "isSelf",
+          "availableSeasonIds"
+        ],
+        "type": "object"
+      },
+      "OfferSeason": {
+        "additionalProperties": false,
+        "properties": {
+          "fees": {
+            "description": "Du montant le plus élevé au plus faible",
+            "items": {
+              "$ref": "#/components/schemas/MembershipFeeRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "fees"
+        ],
+        "type": "object"
+      },
       "PasswordTokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -938,6 +1995,236 @@
         "required": [
           "token",
           "password"
+        ],
+        "type": "object"
+      },
+      "Payment": {
+        "additionalProperties": false,
+        "properties": {
+          "announcedMethod": {
+            "enum": [
+              "cash",
+              "cheque",
+              "transfer"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paidMethod": {
+            "enum": [
+              "cash",
+              "cheque",
+              "transfer"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paidOn": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "due",
+              "announced",
+              "paid"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "status",
+          "announcedMethod",
+          "paidMethod",
+          "paidOn"
+        ],
+        "type": "object"
+      },
+      "PaymentMethodInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "description": "Chèque : adresse d'envoi",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bic": {
+            "description": "Virement : BIC",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "holder": {
+            "description": "Virement : titulaire du compte",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iban": {
+            "description": "Virement : IBAN normalisé",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "enum": [
+              "cash",
+              "cheque",
+              "transfer"
+            ],
+            "type": "string"
+          },
+          "payee": {
+            "description": "Chèque : ordre",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "method",
+          "instructions",
+          "payee",
+          "address",
+          "holder",
+          "iban",
+          "bic"
+        ],
+        "type": "object"
+      },
+      "PaymentSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "cash": {
+            "$ref": "#/components/schemas/CashSettings"
+          },
+          "cheque": {
+            "$ref": "#/components/schemas/ChequeSettings"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/TransferSettings"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cash",
+          "cheque",
+          "transfer",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cash": {
+            "$ref": "#/components/schemas/PaymentSettingsBodyCashStruct"
+          },
+          "cheque": {
+            "$ref": "#/components/schemas/PaymentSettingsBodyChequeStruct"
+          },
+          "transfer": {
+            "$ref": "#/components/schemas/PaymentSettingsBodyTransferStruct"
+          }
+        },
+        "required": [
+          "cash",
+          "cheque",
+          "transfer"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsBodyCashStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "instructions": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsBodyChequeStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "instructions": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "payee": {
+            "maxLength": 120,
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsBodyTransferStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "bic": {
+            "maxLength": 20,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "holder": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "iban": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "instructions": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -965,6 +2252,45 @@
           "line2",
           "postalCode",
           "city"
+        ],
+        "type": "object"
+      },
+      "ReasonBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RecordPaymentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "enum": [
+              "cash",
+              "cheque",
+              "transfer"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "receivedOn": {
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "receivedOn"
         ],
         "type": "object"
       },
@@ -1170,6 +2496,32 @@
         ],
         "type": "object"
       },
+      "SeasonRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "open",
+              "closed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "state"
+        ],
+        "type": "object"
+      },
       "Session": {
         "additionalProperties": false,
         "properties": {
@@ -1214,6 +2566,46 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "TransferSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "bic": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "holder": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iban": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instructions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "holder",
+          "iban",
+          "bic",
+          "instructions"
         ],
         "type": "object"
       },
@@ -2122,6 +3514,647 @@
         ]
       }
     },
+    "/admin/memberships": {
+      "get": {
+        "operationId": "list-memberships",
+        "parameters": [
+          {
+            "description": "Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente",
+            "explode": false,
+            "in": "query",
+            "name": "season",
+            "schema": {
+              "description": "Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente",
+              "pattern": "^(all|[0-9]+)$",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "pending",
+                "validated",
+                "refused",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "payment",
+            "schema": {
+              "enum": [
+                "due",
+                "announced",
+                "paid",
+                "free"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Adhésions d'une fiche",
+            "explode": false,
+            "in": "query",
+            "name": "member",
+            "schema": {
+              "description": "Adhésions d'une fiche",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembershipPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lister les adhésions",
+        "tags": [
+          "Adhésions"
+        ]
+      },
+      "post": {
+        "operationId": "create-membership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Enregistrer une adhésion validée",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/dashboard": {
+      "get": {
+        "operationId": "get-membership-dashboard",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDashboard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Indicateurs d'adhésion du tableau de bord",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/stats": {
+      "get": {
+        "operationId": "get-membership-stats",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Chiffres de l'adhésion d'une saison",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}": {
+      "get": {
+        "operationId": "get-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      },
+      "put": {
+        "operationId": "update-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Corriger une adhésion validée",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler une adhésion validée",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}/payment": {
+      "delete": {
+        "operationId": "cancel-membership-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler la constatation du paiement",
+        "tags": [
+          "Adhésions"
+        ]
+      },
+      "post": {
+        "operationId": "record-membership-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Constater le paiement d'une adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}/refuse": {
+      "post": {
+        "operationId": "refuse-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Refuser une demande d'adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}/validate": {
+      "post": {
+        "operationId": "validate-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Valider une demande d'adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
     "/admin/seasons": {
       "get": {
         "operationId": "list-seasons",
@@ -2673,6 +4706,86 @@
         ]
       }
     },
+    "/admin/settings/payment": {
+      "get": {
+        "operationId": "get-payment-settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Moyens de paiement proposés aux adhérents",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "put": {
+        "operationId": "update-payment-settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les moyens de paiement",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
     "/auth/email-verification/confirm": {
       "post": {
         "description": "Fonctionne sans être connecté.",
@@ -3182,6 +5295,293 @@
         "summary": "Modifier une fiche de mes membres",
         "tags": [
           "Mes membres"
+        ]
+      }
+    },
+    "/me/memberships": {
+      "get": {
+        "operationId": "list-my-memberships",
+        "parameters": [
+          {
+            "description": "Adhésions d'une seule fiche du compte",
+            "explode": false,
+            "in": "query",
+            "name": "member",
+            "schema": {
+              "description": "Adhésions d'une seule fiche du compte",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembershipList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Adhésions de mes membres",
+        "tags": [
+          "Mes adhésions"
+        ]
+      },
+      "post": {
+        "operationId": "create-my-membership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyMembershipBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembership"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Demander l'adhésion d'un de mes membres",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/offer": {
+      "get": {
+        "operationId": "get-membership-offer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipOffer"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Saisons et tarifs ouverts à l'adhésion pour mes membres",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/{id}": {
+      "get": {
+        "operationId": "get-my-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une adhésion de mes membres",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-my-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler une demande d'adhésion en attente",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/{id}/payment": {
+      "put": {
+        "operationId": "announce-my-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choisir le moyen de paiement d'une adhésion",
+        "tags": [
+          "Mes adhésions"
         ]
       }
     },

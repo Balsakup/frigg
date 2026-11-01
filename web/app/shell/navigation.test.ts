@@ -15,12 +15,14 @@ describe("navigation", () => {
     expect(entriesFor("admin", "main").every((e) => e.path.startsWith("/admin"))).toBe(true);
   });
 
-  it("regroupe la configuration de l'administration : Saisons, Comptes, Aide", () => {
+  it("regroupe la configuration de l'administration : Saisons, Comptes, Paramètres, Aide", () => {
     expect(entriesFor("admin", "settings").map((e) => e.id)).toEqual([
       "saisons",
       "comptes",
+      "parametres",
       "aide-admin",
     ]);
+    expect(entriesFor("member", "settings").some((e) => e.id === "parametres")).toBe(false);
     const saisons = entryForPath("/admin/saisons");
     expect(saisons?.label).toBe("Saisons");
     expect(saisons?.comingSoon).toBeUndefined();
@@ -30,5 +32,7 @@ describe("navigation", () => {
     expect(new Set(navigation.map((e) => e.id)).size).toBe(navigation.length);
     expect(new Set(navigation.map((e) => e.path)).size).toBe(navigation.length);
     expect(entryForPath("/admin/finances")?.label).toBe("Finances");
+    expect(entryForPath("/adhesions")?.comingSoon).toBeUndefined();
+    expect(entryForPath("/admin/adhesions")?.comingSoon).toBeUndefined();
   });
 });

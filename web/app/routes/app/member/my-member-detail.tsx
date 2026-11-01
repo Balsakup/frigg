@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { invalidateMembers, myMemberListQuery, myMemberQuery } from "~/api/members";
+import { membershipOfferQuery, myMembershipListQuery } from "~/api/memberships";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
 import { fullName, type Member, memberToForm } from "~/members/form";
 import { MyMemberForm } from "~/members/MyMemberForm";
+import { MembershipBadges } from "~/memberships/MembershipBadges";
 import { Page } from "~/shell/Page";
 import { useSession } from "~/shell/useSession";
 import { Alert } from "~/ui/Alert";
@@ -85,6 +87,7 @@ function MyMemberView({ member }: { member: Member }) {
           {error}
         </Alert>
       ) : null}
+      <MemberMemberships member={member} />
       <MyMemberForm
         defaultValues={{ ...memberToForm(member), isSelf: member.isSelf }}
         canMarkSelf={member.isSelf || (list.data?.actions.markSelf ?? false)}
@@ -117,5 +120,65 @@ function MyMemberView({ member }: { member: Member }) {
         }
       />
     </Page>
+  );
+}
+
+// Adhésions de la fiche par saison, et saisons ouvertes où elle n'a pas encore
+// adhéré (006, FR-010, US3 §5).
+function MemberMemberships({ member }: { member: Member }) {
+  const list = useQuery(myMembershipListQuery(member.id));
+  const offer = useQuery(membershipOfferQuery());
+  const seasons = list.data?.seasons ?? [];
+  const available = (offer.data?.seasons ?? []).filter((s) =>
+    (offer.data?.members ?? []).find((m) => m.id === member.id)?.availableSeasonIds?.includes(s.id),
+  );
+  return (
+    <section
+      aria-labelledby="fiche-adhesions"
+      className="mb-6 max-w-3xl rounded-lg border border-line bg-surface p-5"
+    >
+      <h2 id="fiche-adhesions" className="font-display text-lg font-bold">
+        Adhésions
+      </h2>
+      {seasons.length === 0 && available.length === 0 ? (
+        <p className="mt-2 text-muted">Aucune adhésion.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line">
+          {available.map((s) => (
+            <li
+              key={`offre-${s.id}`}
+              className="flex flex-wrap items-center justify-between gap-2 py-2"
+            >
+              <span>
+                Saison {s.label} : <span className="text-muted">Non adhérent</span>
+              </span>
+              <Link
+                to={`/adhesions/demande?membre=${member.id}`}
+                className="font-bold text-brand-ink underline underline-offset-2"
+              >
+                Demander l'adhésion
+              </Link>
+            </li>
+          ))}
+          {seasons.flatMap((s) =>
+            (s.items ?? []).map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link
+                  to={`/adhesions/${m.id}`}
+                  className="font-bold text-brand-ink underline underline-offset-2"
+                >
+                  Saison {s.season.label}
+                </Link>
+                <MembershipBadges
+                  status={m.status}
+                  amountCents={m.amountCents}
+                  payment={m.payment}
+                />
+              </li>
+            )),
+          )}
+        </ul>
+      )}
+    </section>
   );
 }

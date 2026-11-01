@@ -50,3 +50,60 @@ export function formatAge(age: number) {
   if (age < 1) return "moins d'un an";
   return age === 1 ? "1 an" : `${age} ans`;
 }
+
+// Adhésions (006) : libellés des états, types et moyens de paiement.
+export type MembershipStatus = "pending" | "validated" | "refused" | "cancelled";
+export type MembershipKind = "first" | "renewal";
+export type PaymentMethod = "cash" | "cheque" | "transfer";
+
+export function membershipStatusLabel(status: MembershipStatus) {
+  return {
+    pending: "En attente de validation",
+    validated: "Validée",
+    refused: "Refusée",
+    cancelled: "Annulée",
+  }[status];
+}
+
+export function membershipKindLabel(kind: MembershipKind) {
+  return kind === "renewal" ? "Renouvellement" : "Première adhésion";
+}
+
+export function paymentMethodLabel(method: PaymentMethod) {
+  return { cash: "Espèces", cheque: "Chèque", transfer: "Virement" }[method];
+}
+
+interface PaymentLike {
+  status: "due" | "announced" | "paid";
+  announcedMethod?: PaymentMethod | null;
+  paidOn?: string | null;
+}
+
+// État du paiement d'une adhésion validée : « À payer », « Paiement annoncé —
+// virement », « Payée le 2 novembre 2026 ».
+export function paymentStatusLabel(payment: PaymentLike) {
+  switch (payment.status) {
+    case "due":
+      return "À payer";
+    case "announced":
+      return payment.announcedMethod
+        ? `Paiement annoncé — ${paymentMethodLabel(payment.announcedMethod).toLowerCase()}`
+        : "Paiement annoncé";
+    case "paid":
+      return payment.paidOn ? `Payée le ${formatDay(payment.paidOn)}` : "Payée";
+  }
+}
+
+// IBAN normalisé par l'API → groupes de quatre caractères.
+export function formatIban(iban: string) {
+  return iban.replace(/(.{4})(?=.)/g, "$1 ");
+}
+
+export function previousSeasonLabel(hint: "yes" | "no" | "unknown") {
+  return { yes: "Oui", no: "Non", unknown: "Inconnu" }[hint];
+}
+
+// Somme en centimes → « 0,00 € », « 1 250,00 € » (chiffres : jamais « Gratuit »).
+export function formatMoney(cents: number) {
+  return amountFormat.format(cents / 100);
+}

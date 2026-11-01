@@ -169,7 +169,12 @@ export function SeasonFees({
                           }
                         />
                       ) : null}
-                      {actions?.delete ? (
+                      {actions?.delete && fee.inUse ? (
+                        <span className="self-center px-2 text-sm text-muted">
+                          Utilisé par des adhésions
+                        </span>
+                      ) : null}
+                      {actions?.delete && !fee.inUse ? (
                         <ConfirmDialog
                           title={`Supprimer le tarif ${fee.label} ?`}
                           confirmLabel="Supprimer"

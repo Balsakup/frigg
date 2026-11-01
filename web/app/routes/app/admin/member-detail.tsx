@@ -6,14 +6,15 @@ import { invalidateMembers, memberQuery } from "~/api/members";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
-import { formatAge, formatDate, formatDay, formatPhone } from "~/lib/format";
+import { formatAge, formatDate, formatDay, formatPhone, membershipStatusLabel } from "~/lib/format";
 import { NO_ACCOUNT } from "~/members/AccountPicker";
 import { AdminMemberForm } from "~/members/AdminMemberForm";
 import { type AdminMember, fullName, memberToForm } from "~/members/form";
+import { MembershipBadges } from "~/memberships/MembershipBadges";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
-import { Button } from "~/ui/Button";
+import { Button, buttonClasses } from "~/ui/Button";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
 import { Icon } from "~/ui/Icon";
 import NotFound from "../not-found";
@@ -59,6 +60,7 @@ export default function MemberDetail({ params }: Route.ComponentProps) {
 }
 
 function MemberView({ member }: { member: AdminMember }) {
+  const memberships = member.memberships ?? [];
   const qc = useQueryClient();
   const navigate = useNavigate();
   const update = $api.useMutation("put", "/admin/members/{id}");
@@ -127,6 +129,40 @@ function MemberView({ member }: { member: AdminMember }) {
         </dl>
       </section>
 
+      <section
+        aria-labelledby="membre-adhesions-titre"
+        className="mb-6 max-w-3xl rounded-lg border border-line bg-surface p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="membre-adhesions-titre" className="font-display text-lg font-bold">
+            Adhésions
+          </h2>
+          <Link
+            to={`/admin/adhesions/nouvelle?membre=${member.id}`}
+            className={buttonClasses({ variant: "secondary", size: "sm" })}
+          >
+            Créer une adhésion
+          </Link>
+        </div>
+        {memberships.length === 0 ? (
+          <p className="mt-2 text-muted">Aucune adhésion.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {memberships.map((ms) => (
+              <li key={ms.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <Link
+                  to={`/admin/adhesions/${ms.id}`}
+                  className="font-bold text-brand-ink underline underline-offset-2"
+                >
+                  Saison {ms.season.label}
+                </Link>
+                <MembershipBadges status={ms.status} payment={ms.payment} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <AdminMemberForm
         defaultValues={{ ...memberToForm(member), accountId: account }}
         isSelf={member.isSelf}
@@ -163,6 +199,22 @@ function MemberView({ member }: { member: AdminMember }) {
             }
           >
             <p>La fiche et ses informations seront effacées définitivement.</p>
+            {memberships.length > 0 ? (
+              <>
+                <p className="mt-2">
+                  {memberships.length === 1
+                    ? "Son adhésion sera aussi supprimée :"
+                    : `Ses ${memberships.length} adhésions seront aussi supprimées :`}
+                </p>
+                <ul className="mt-1 list-disc pl-5">
+                  {memberships.map((ms) => (
+                    <li key={ms.id}>
+                      Saison {ms.season.label} — {membershipStatusLabel(ms.status).toLowerCase()}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
           </ConfirmDialog>
         }
       />

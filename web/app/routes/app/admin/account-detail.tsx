@@ -407,7 +407,7 @@ function ManagedMembers({ members, choice, onChoice, error, alert }: ManagedMemb
         >
           {(
             [
-              ["delete", "Supprimer aussi ces fiches"],
+              ["delete", "Supprimer aussi ces fiches et leurs adhésions"],
               ["keep", "Conserver ces fiches sans compte"],
             ] as const
           ).map(([value, label]) => (

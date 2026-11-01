@@ -45,7 +45,12 @@ test.describe("saisons (003)", () => {
 
     await test.step("US1 — navigation et état vide", async () => {
       const settings = page.getByRole("navigation", { name: "Configuration" });
-      await expect(settings.getByRole("link")).toHaveText(["Saisons", "Comptes", "Aide"]);
+      await expect(settings.getByRole("link")).toHaveText([
+        "Saisons",
+        "Comptes",
+        "Paramètres",
+        "Aide",
+      ]);
       await page.goto("/admin/saisons");
       await expect(heading("Saisons")).toBeVisible();
       await expect(

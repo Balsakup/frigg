@@ -27,3 +27,31 @@ export async function waitForLink(to: string, since: Date, timeoutMs = 15_000): 
   }
   throw new Error(`aucun e-mail reçu pour ${to}`);
 }
+
+// Attend le prochain e-mail adressé à `to` reçu après `since` dont l'objet
+// contient `subject`, et renvoie son texte (e-mails sans jeton, 006).
+export async function waitForMail(
+  to: string,
+  since: Date,
+  subject: string,
+  timeoutMs = 15_000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await fetch(`${MAILPIT}/search?query=${encodeURIComponent(`to:"${to}"`)}`);
+    if (res.ok) {
+      const { messages } = (await res.json()) as { messages: (Summary & { Subject: string })[] };
+      const found = messages.find(
+        (m) => new Date(m.Created) >= since && m.Subject.includes(subject),
+      );
+      if (found) {
+        const msg = (await (await fetch(`${MAILPIT}/message/${found.ID}`)).json()) as {
+          Text: string;
+        };
+        return msg.Text;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  throw new Error(`aucun e-mail « ${subject} » reçu pour ${to}`);
+}

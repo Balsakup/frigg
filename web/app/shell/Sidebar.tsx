@@ -160,7 +160,9 @@ function NavList({
         const link = (
           <NavLink
             to={entry.path}
-            end
+            // Les accueils ne sont actifs que sur leur adresse exacte ; les
+            // autres rubriques le restent sur leurs sous-pages.
+            end={entry.path === "/" || entry.path === "/admin"}
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(

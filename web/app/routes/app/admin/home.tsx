@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { membershipDashboardQuery } from "~/api/memberships";
 import { queryClient } from "~/api/query-client";
 import { type SeasonList, seasonListQuery } from "~/api/seasons";
 import { Page } from "~/shell/Page";
@@ -8,7 +9,10 @@ import { buttonClasses } from "~/ui/Button";
 
 // Préchargement ; en cas d'erreur, le tableau de bord s'affiche sans encart.
 export async function clientLoader() {
-  await queryClient.ensureQueryData(seasonListQuery()).catch(() => undefined);
+  await Promise.all([
+    queryClient.ensureQueryData(seasonListQuery()).catch(() => undefined),
+    queryClient.ensureQueryData(membershipDashboardQuery()).catch(() => undefined),
+  ]);
   return null;
 }
 
@@ -16,9 +20,43 @@ export async function clientLoader() {
 // les fonctionnalités métier.
 export default function AdminHome() {
   const seasons = useQuery(seasonListQuery());
+  const memberships = useQuery(membershipDashboardQuery());
+  const pending = memberships.data?.pendingCount ?? 0;
   return (
     <Page title="Tableau de bord" intro="Vue d'ensemble de l'activité de l'association.">
       {seasons.data ? <SeasonSetupAlert list={seasons.data} /> : null}
+      {pending > 0 ? (
+        <Alert
+          kind="info"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/adhesions?season=all&status=pending"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Traiter les demandes
+            </Link>
+          }
+        >
+          {pending} demande{pending > 1 ? "s" : ""} d'adhésion en attente.
+        </Alert>
+      ) : null}
+      {memberships.data?.paymentSetupNeeded ? (
+        <Alert
+          kind="warning"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/parametres/paiements"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Paramétrer
+            </Link>
+          }
+        >
+          Aucun moyen de paiement n'est proposé aux adhérents.
+        </Alert>
+      ) : null}
       <section className="max-w-prose rounded-lg border border-line bg-surface p-5">
         <h2 className="font-display text-lg font-bold">Bienvenue dans l'administration</h2>
         <p className="mt-1 text-muted">
