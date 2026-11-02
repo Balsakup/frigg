@@ -50,6 +50,10 @@ paiement, paramètres) sont ceux de 006.
   référence de paiement, sans nom du membre (souvent un enfant) : aucune
   donnée personnelle du membre ne sort de Frigg, la référence suffit au
   rapprochement.
+- Q: Que fait Frigg d'un remboursement fait dans l'espace HelloAsso ? → A:
+  À la réception de la notification de HelloAsso, après vérification du
+  remboursement auprès de HelloAsso, l'adhésion réglée par ce paiement est
+  annulée si elle ne l'est pas déjà.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -267,9 +271,12 @@ l'avertissement.
   billetterie hors Frigg) : ignorées.
 - **Contribution volontaire** : jamais comptée dans le montant reçu de
   l'adhésion ni dans les chiffres de la saison.
-- **Remboursement fait dans HelloAsso** sans annulation dans Frigg :
-  l'adhésion reste « Payée » ; c'est à l'administrateur d'annuler l'adhésion
-  s'il y a lieu.
+- **Remboursement fait dans HelloAsso** : après vérification auprès de
+  HelloAsso, le paiement est marqué « Remboursé » ; l'adhésion qu'il a réglée
+  est annulée (motif « Paiement remboursé dans HelloAsso. », e-mail
+  d'annulation) si elle ne l'est pas déjà, et ses signalements sont clos. Le
+  remboursement d'un paiement en double ne touche pas l'adhésion. Une
+  notification perdue se rattrape par « Vérifier auprès de HelloAsso ».
 - **Bascule du mode test au mode réel** (changement de configuration) : un
   nouveau test de connexion est exigé avant que la carte bancaire ne soit de
   nouveau proposée ; les tentatives de test en cours
@@ -337,6 +344,11 @@ l'avertissement.
   attendu ou sur une adhésion annulée MUST être enregistré et signalé aux
   administrateurs dans la liste, sur l'adhésion et par un encart du tableau de
   bord, jusqu'à ce qu'un administrateur indique l'avoir traité.
+- **FR-011a**: Un remboursement fait dans l'espace HelloAsso MUST être
+  constaté, après vérification auprès de HelloAsso, à la réception de sa
+  notification ou par « Vérifier auprès de HelloAsso » : le paiement passe à
+  « Remboursé », l'adhésion qu'il a réglée est annulée si elle ne l'est pas
+  déjà, et les signalements de ce paiement sont clos.
 
 **Paramètres**
 
@@ -449,9 +461,8 @@ l'avertissement.
 - **Un seul versement** : pas de paiement en plusieurs fois, pas de
   prélèvement SEPA, pas de paiement partiel, conformément à 006.
 - **Pas de remboursement depuis Frigg** : les remboursements se font dans
-  l'espace HelloAsso ; Frigg rappelle seulement qu'ils sont à faire et laisse
-  l'administrateur indiquer qu'ils sont faits. Frigg ne détecte pas les
-  remboursements faits dans HelloAsso.
+  l'espace HelloAsso ; Frigg rappelle ceux qui sont à faire et constate ceux
+  qui sont faits (FR-011a). Seul un remboursement total est pris en compte.
 - **Pas de paiement pour les fiches sans compte**, ni de lien de paiement
   envoyé à une personne non connectée (006, FR-022c).
 - **Pas de reçu fiscal** : le reçu de paiement est envoyé par HelloAsso ;

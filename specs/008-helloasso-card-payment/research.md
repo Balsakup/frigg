@@ -65,9 +65,11 @@ commande dans l'espace HelloAsso.
 - Une partie seulement, ou un environnement inconnu : échec du démarrage
   avec un message explicite (« FRIGG_HELLOASSO_CLIENT_SECRET est obligatoire
   lorsque FRIGG_HELLOASSO_CLIENT_ID est renseigné »).
-- HelloAsso configuré et `FRIGG_BASE_URL` non HTTPS : échec du démarrage
-  (HelloAsso refuse des URL de retour non HTTPS), sauf si
-  `FRIGG_HELLOASSO_API_URL` est renseignée.
+- HelloAsso configuré et `FRIGG_BASE_URL` non HTTPS : échec du démarrage,
+  y compris en mode test (HelloAsso refuse des URL de retour non HTTPS,
+  constaté en environnement de test : « Le champ BackUrl est invalide »), sauf
+  si `FRIGG_HELLOASSO_API_URL` est renseignée. En développement, l'instance
+  est exposée par un tunnel HTTPS.
 - `FRIGG_HELLOASSO_API_URL`, réservée aux tests, remplace l'hôte HelloAsso :
   elle permet aux tests de bout en bout de viser un faux HelloAsso local.
   Comme toute variable, elle est documentée dans `.env.example` (commentée,
@@ -188,6 +190,23 @@ garantit qu'un même paiement HelloAsso n'est rattaché qu'une fois.
 
 **Alternatives écartées** : se fier au contenu de la notification (non
 signé) ; se fier au `code=succeeded` du retour (falsifiable).
+
+### R5 bis. Remboursements faits dans HelloAsso
+
+Constaté en environnement de test : un remboursement déclenche une
+notification de type `Payment` dont `data` est le paiement HelloAsso (`id`,
+`state`, `order.id`), **sans** les métadonnées de Frigg.
+
+**Décision** : la notification est rattachée à la tentative par
+`helloasso_payment_id` ou `order_id` (environnement courant). La tentative
+réussie est relue (`GET checkout-intents/{id}`) ; si son paiement est à
+l'état `Refunded`, elle passe à `refunded`, l'adhésion qu'elle a réglée est
+annulée (motif « Paiement remboursé dans HelloAsso. », sans auteur, e-mail
+d'annulation) si elle est encore validée, quelle que soit l'état de la
+saison, et les signalements de la tentative sont clos. « Vérifier auprès de
+HelloAsso » relit aussi les tentatives réussies, ce qui rattrape une
+notification perdue. Un remboursement partiel (paiement resté `Authorized`)
+n'a pas d'effet.
 
 ## R6. Adresse de notification
 
@@ -327,21 +346,22 @@ disparaît quand il n'en reste plus.
 
 ## R12. Migration
 
-**Décision** : nouvelle migration `00009_online_payments.sql`.
+**Décision** : le projet n'ayant encore été déployé sur aucune instance, la
+migration `00008_memberships.sql` est modifiée directement (constitution :
+les migrations restent modifiables tant qu'aucune instance ne les a reçues).
+Elle crée `memberships` avec `paid_method` acceptant `card` et les colonnes
+`paid_online_payment_id` et `paid_amount_cents`, `payment_settings` avec les
+colonnes HelloAsso, puis les tables `online_payments` et `payment_alerts`.
+`memberships` référence `online_payments`, créée plus loin dans la même
+migration : SQLite contrôle les clés étrangères à l'écriture, pas à la
+création.
 
-Les `CHECK` de `memberships` (`announced_method`, `paid_method`) n'acceptent
-pas `card` ; SQLite ne permet pas de modifier une contrainte. La migration
-**reconstruit** `memberships` (nouvelle table, copie, suppression,
-renommage, recréation des index, des triggers FTS et reconstruction de
-`memberships_fts` par `INSERT INTO memberships_fts(memberships_fts)
-VALUES('rebuild')`). Aucune table ne référence encore `memberships`, ce qui
-rend la suppression sûre avec `foreign_keys=ON`.
+Une base de développement déjà migrée en `00008` doit être recréée (goose
+ne rejoue pas une migration déjà appliquée).
 
-Si le projet n'a encore été déployé sur aucune instance (règle
-append-only de la constitution), modifier `00008` serait plus simple ; faute
-de certitude, la reconstruction est retenue. Tests : migration sur base
-vierge et sur une base `00008` peuplée (adhésions dans chaque état,
-recherche par référence encore fonctionnelle).
+**Alternative écartée** : une migration `00009` reconstruisant `memberships`
+(nouvelle table, copie, renommage, recréation des index et triggers FTS) :
+nécessaire seulement après un premier déploiement.
 
 ## R13. Écrans
 

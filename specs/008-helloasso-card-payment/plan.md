@@ -32,8 +32,8 @@ notification), huma/v2, sqlc, goose, `golang.org/x/time/rate` (déjà présent),
 TanStack Query, react-hook-form, lucide-react (`CreditCard`, `ExternalLink`,
 `TriangleAlert`, `RefreshCw`).
 
-**Storage**: SQLite ; migration `00009_online_payments.sql` : reconstruction
-de `memberships` (`paid_method` accepte `card`, colonnes
+**Storage**: SQLite ; migration `00008_memberships.sql` modifiée (projet
+jamais déployé) : `memberships` (`paid_method` accepte `card`, colonnes
 `paid_online_payment_id` et `paid_amount_cents`), tables `online_payments`
 et `payment_alerts`, colonnes HelloAsso de `payment_settings`
 ([data-model.md](./data-model.md)). Secret et jetons hors base.
@@ -82,7 +82,7 @@ Constitution v1.7.0.
 | III. Deux rôles | Niveaux déclarés par `register` ; aucun test de rôle dans les handlers ; matrice d'autorisation automatique | ✅ |
 | IV. Un shell, un design system | Écrans existants étendus ; composants `ui/*`, `RadioGroup`, `Switch`, `Dialog` base-ui ; tokens `ok`/`warn`/`danger` ; icônes via `Icon` ; aucune ressource tierce chargée (redirection de premier niveau, pas d'iframe ni de script HelloAsso) ; confirmation avant traitement d'un signalement et annulation ; RGAA (régions `status`, lien externe annoncé) | ✅ |
 | V. Binaire unique en Go pur | Client HelloAsso en bibliothèque standard, aucune dépendance ; HelloAsso est la dépendance externe **facultative** autorisée depuis la v1.6.0 : identifiants par variables d'environnement, absence et panne sans effet sur le démarrage ni sur les autres fonctions, secret jamais en base, renvoyé ni journalisé ; migration goose embarquée ; le faux HelloAsso des tests n'est pas embarqué | ✅ |
-| VI. API typée et SQL généré | Énumérations (`card`, `OnlineStatus`, `AlertKind`) et formats (`{key}` en `pattern`) dans huma ; requêtes sqlc ; recherche par référence de paiement inchangée (FTS5 existante, reconstruite) ; numéro de commande HelloAsso en égalité exacte (identifiant numérique, pas de recherche textuelle) ; le frontend lit `paymentMethods`, `actions`, `card.available` sans recalculer de règle | ✅ |
+| VI. API typée et SQL généré | Énumérations (`card`, `OnlineStatus`, `AlertKind`) dans huma (la clé `{key}` reste une chaîne libre comparée en temps constant, R6) ; requêtes sqlc ; recherche par référence de paiement inchangée (FTS5 existante, reconstruite) ; numéro de commande HelloAsso en égalité exacte (identifiant numérique, pas de recherche textuelle) ; le frontend lit `paymentMethods`, `actions`, `card.available` sans recalculer de règle | ✅ |
 | VII. Sécurité et RGPD | Aucune donnée de carte reçue ni stockée (FR-005) ; payeur limité à l'e-mail et au nom de la fiche « Vous » (FR-004) ; cloisonnement par compte (`…OfAccount`), `404` uniforme ; limitation de débit sur la notification (`KeyedLimiter` par IP) et de la vérification par tentative ; journaux sans données personnelles ([R14](./research.md#r14-journalisation)) | ✅ |
 | Contraintes techniques | E-mail de constatation mis en file dans la transaction ; workers internes (e-mails existant, balayage ajouté) ; configuration par variables d'environnement documentées dans `.env.example` ; variables facultatives (règle amendée) ; écritures sérialisées en `BEGIN IMMEDIATE` | ✅ |
 | Conventions de langue | Identifiants en anglais (`online_payments`, `card`, `refund_due`, `receive-helloasso-notification`) ; textes, messages et journaux en français | ✅ |
@@ -105,8 +105,9 @@ Constitution v1.7.0.
 4. Le secret n'apparaît que dans `internal/config` et `internal/helloasso` ;
    un test vérifie qu'aucune ligne de journal ni réponse d'API ne le contient,
    pas plus que le jeton.
-5. La reconstruction de `memberships` recrée à l'identique index, triggers et
-   `CHECK` de 006 ; le test de migration sur base peuplée en est le garde-fou.
+5. La migration `00008` est modifiée tant qu'aucune instance n'est
+   déployée ; après le premier déploiement, toute évolution passera par une
+   nouvelle migration.
 
 ## Project Structure
 
@@ -144,7 +145,7 @@ internal/
 │   └── stats.go                        # carte, paiements de test
 ├── auth/ratelimit.go                   # KeyedLimiter NotificationIP
 ├── database/
-│   ├── migrations/00009_online_payments.sql
+│   ├── migrations/00008_memberships.sql    # modifiée (jamais déployée)
 │   ├── queries/online_payments.sql     # nouveau
 │   ├── queries/payment_alerts.sql      # nouveau
 │   ├── queries/memberships.sql         # constatation par carte, filtres
@@ -193,6 +194,5 @@ Aucune violation de la constitution v1.7.0. Écarts de complexité retenus :
 
 | Élément | Pourquoi | Alternative plus simple écartée |
 | --- | --- | --- |
-| Reconstruction de `memberships` dans `00009` | Les `CHECK` SQLite ne se modifient pas ; `paid_method` doit accepter `card` | Modifier `00008` : interdit si une instance l'a déjà reçue (append-only) ; à reconsidérer seulement s'il est certain qu'aucune instance n'a été déployée |
 | Balayage périodique des tentatives | Rattrape une notification perdue (instance indisponible, adresse mal déclarée) et clôt les tentatives expirées ; une vérification par tentative | Sans balayage : paiements jamais constatés si l'adhérent ne revient pas et que la notification est perdue (SC-002) |
 | Faux HelloAsso pour Playwright et `FRIGG_HELLOASSO_API_URL` | Tests de bout en bout reproductibles, sans secret ni réseau | Tests contre l'environnement de démonstration réel : dépendants du réseau et de secrets en CI |

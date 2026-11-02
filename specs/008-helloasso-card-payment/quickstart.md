@@ -13,10 +13,10 @@ go tool task check
 
 Attendu en plus de 006 :
 
-- `00009_online_payments.sql` s'applique sur une base vierge **et** sur une
-  base `00008` peuplée : adhésions conservées à l'identique, recherche par
-  référence de paiement encore fonctionnelle, `payment_settings.card_enabled
-  = 0` ;
+- `00008_memberships.sql` (modifiée) s'applique sur une base vierge :
+  `payment_settings.card_enabled = 0`, un paiement par carte sans tentative
+  est refusé par les `CHECK` (une base de développement antérieure doit être
+  recréée) ;
 - matrice d'autorisation : 6 nouvelles opérations ;
   `receive-helloasso-notification` est la seule nouvelle opération publique
   et figure dans `allowedPublic` ;

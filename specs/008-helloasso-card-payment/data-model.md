@@ -1,7 +1,8 @@
 # Modèle de données : paiement par carte (HelloAsso)
 
 Complète [006 › data-model.md](../006-memberships/data-model.md). Décisions :
-[research.md](./research.md). Migration unique `00009_online_payments.sql`.
+[research.md](./research.md). Migration `00008_memberships.sql` modifiée
+(projet jamais déployé, [R12](./research.md#r12-migration)).
 Commentaires SQL des requêtes sqlc en ASCII. Montants en centimes d'euro,
 dates en texte ISO 8601 UTC (sauf `paid_on`, date à Paris).
 
@@ -12,9 +13,9 @@ identifiant et secret du client, slug de l'association, environnement
 (`sandbox` | `production`). Le secret et les jetons OAuth2 ne sont **jamais**
 écrits en base (FR-014) ; les jetons vivent en mémoire du processus.
 
-## Table `memberships` (reconstruite)
+## Table `memberships` (modifiée)
 
-Reconstruction à l'identique ([R12](./research.md#r12-migration)), avec :
+Définition de 006, avec :
 
 | Colonne | Changement |
 | --- | --- |
@@ -28,14 +29,13 @@ Reconstruction à l'identique ([R12](./research.md#r12-migration)), avec :
 - `paid_method IS NOT 'card' OR (paid_online_payment_id IS NOT NULL AND paid_amount_cents IS NOT NULL AND paid_by IS NULL)` ;
 - `paid_online_payment_id IS NULL OR paid_method = 'card'`.
 
-Les autres colonnes, `CHECK`, index (`memberships_one_active`…) et la table
-FTS `memberships_fts` avec ses trois triggers sont recréés à l'identique ;
-`memberships_fts` est reconstruite (`'rebuild'`).
+Les autres colonnes, `CHECK`, index et la table FTS `memberships_fts` sont
+ceux de 006.
 
 Note : la référence circulaire `memberships.paid_online_payment_id` →
 `online_payments` → `memberships` est permise par SQLite (contrôle des clés
-étrangères à l'écriture) ; la migration crée `online_payments` après la
-nouvelle `memberships`, les deux dans la même transaction goose.
+étrangères à l'écriture) ; `online_payments` est créée plus loin dans la
+même migration.
 
 ## Table `online_payments`
 
@@ -49,7 +49,8 @@ Une ligne par tentative de paiement par carte
 | `account_id` | `INTEGER` | `NULL REFERENCES accounts(id) ON DELETE SET NULL` | Compte qui a lancé le paiement |
 | `environment` | `TEXT` | `NOT NULL CHECK (environment IN ('sandbox','production'))` | Environnement HelloAsso au lancement |
 | `amount_cents` | `INTEGER` | `NOT NULL CHECK (amount_cents BETWEEN 1 AND 1000000)` | Montant demandé (montant appliqué au lancement) |
-| `status` | `TEXT` | `NOT NULL CHECK (status IN ('pending','succeeded','failed','abandoned','expired'))` | État de la tentative |
+| `status` | `TEXT` | `NOT NULL CHECK (status IN ('pending','succeeded','failed','abandoned','expired','refunded'))` | État de la tentative |
+| `refunded_at` | `TEXT` | `NULL` | Constatation du remboursement fait dans HelloAsso (`CHECK ((status = 'refunded') = (refunded_at IS NOT NULL))`) |
 | `checkout_intent_id` | `INTEGER` | `NULL` | Intention HelloAsso ; `NULL` tant que la création n'a pas abouti |
 | `redirect_url` | `TEXT` | `NULL CHECK (redirect_url IS NULL OR length(redirect_url) <= 2000)` | Page de paiement HelloAsso (valable 15 min), pour la reprise |
 | `order_id` | `INTEGER` | `NULL` | Commande HelloAsso (référence affichée aux administrateurs) |
@@ -76,6 +77,11 @@ Index :
 - `online_payments_order` sur `order_id` (recherche par référence HelloAsso : égalité exacte sur un numéro, pas de recherche textuelle).
 
 ### Transitions
+
+`succeeded → refunded` : remboursement vérifié chez HelloAsso (paiement à
+l'état `Refunded`), constaté sur notification ou vérification par un
+administrateur ; l'adhésion réglée par la tentative est annulée si elle ne
+l'est pas déjà (`membership.RefundCancels`), et ses signalements sont clos.
 
 ```text
             ┌──────── retour « erreur » ───────▶ failed ─────┐
@@ -120,7 +126,7 @@ Index : `UNIQUE (online_payment_id, kind)` (idempotence) ;
 
 ## Table `payment_settings` (colonnes ajoutées)
 
-`ALTER TABLE … ADD COLUMN` (pas de reconstruction) :
+Colonnes ajoutées à la définition de 006 :
 
 | Colonne | Type | Contraintes | Rôle |
 | --- | --- | --- | --- |
