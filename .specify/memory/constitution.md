@@ -22,9 +22,14 @@ données entre organisations et garde le code et les requêtes simples.
 L'application entière est protégée par authentification : refus par défaut.
 
 - Toute route de l'API et toute page du frontend MUST exiger une session valide,
-  sauf les parcours qui permettent d'en obtenir une : connexion, réinitialisation
-  du mot de passe, vérification de l'adresse électronique, acceptation d'une
-  invitation envoyée par un administrateur.
+  sauf :
+  - les parcours qui permettent d'en obtenir une : connexion, réinitialisation
+    du mot de passe, vérification de l'adresse électronique, acceptation d'une
+    invitation envoyée par un administrateur ;
+  - le point de santé, en lecture seule, destiné aux vérifications de santé du
+    conteneur, d'un orchestrateur ou d'un reverse proxy. Il indique uniquement
+    si l'instance peut servir des requêtes et MUST NOT exposer de donnée de
+    l'association, de version, de configuration ni de détail d'erreur interne.
 - Cette liste d'exceptions est explicite et centralisée dans le code ; une
   nouvelle route publique MUST faire l'objet d'un amendement de cette
   constitution.
@@ -345,4 +350,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.4.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-31
+**Version**: 1.5.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
