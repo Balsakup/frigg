@@ -46,6 +46,10 @@ jobs:
       - name: Tests Go
         run: go test ./...
 
+      # Même version que l'en-tête du code généré (internal/database/sqlc).
+      - name: Installe sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+
       - name: Vérifie que le code généré est à jour
         run: |
           go tool task gen
