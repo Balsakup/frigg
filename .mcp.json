@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "helloasso": {
+      "type": "http",
+      "url": "https://dev.helloasso.com/mcp"
+    }
+  }
+}
