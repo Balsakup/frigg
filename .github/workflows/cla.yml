@@ -1,0 +1,42 @@
+# Demande aux contributeurs d'accepter le CLA (CLA.md) et enregistre leur
+# acceptation dans signatures/cla.json, sur la branche cla-signatures.
+name: CLA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request &&
+        (github.event.comment.body == 'recheck' ||
+         github.event.comment.body == 'J''ai lu le CLA de Frigg et je l''accepte.'))
+    steps:
+      - name: Vérifie le CLA
+        uses: contributor-assistant/github-action@v2.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-document: https://github.com/Balsakup/frigg/blob/main/CLA.md
+          path-to-signatures: signatures/cla.json
+          branch: cla-signatures
+          allowlist: Balsakup,dependabot[bot],renovate[bot]
+          custom-pr-sign-comment: J'ai lu le CLA de Frigg et je l'accepte.
+          custom-notsigned-prcomment: >-
+            Merci pour votre contribution ! Avant de pouvoir la fusionner, nous
+            vous demandons d'accepter l'[accord de licence de contribution](https://github.com/Balsakup/frigg/blob/main/CLA.md)
+            (CLA). Vous restez titulaire de vos droits d'auteur ; le CLA accorde
+            au mainteneur une licence sur votre contribution. Pour l'accepter,
+            répondez par le commentaire ci-dessous :
+          custom-allsigned-prcomment: Tous les contributeurs ont accepté le CLA. Merci !
