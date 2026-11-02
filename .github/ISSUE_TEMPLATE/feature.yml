@@ -1,0 +1,21 @@
+name: Proposer une fonctionnalité
+description: Une idée pour améliorer Frigg.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Besoin
+      description: Le problème rencontré par votre association.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution envisagée
+      description: Ce que Frigg pourrait faire pour y répondre.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Comment vous faites aujourd'hui, ou d'autres pistes.

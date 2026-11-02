@@ -1,0 +1,35 @@
+name: Signaler un bug
+description: Un comportement de Frigg ne correspond pas à ce qui est attendu.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Ce qui se passe, et ce qui devrait se passer.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: |
+        1. Aller sur…
+        2. Cliquer sur…
+        3. Constater…
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Étiquette de l'image Docker ou release utilisée.
+      placeholder: 1.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Journaux
+      description: Extrait de `docker logs` utile, sans données personnelles.
+      render: text
