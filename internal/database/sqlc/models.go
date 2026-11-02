@@ -67,31 +67,33 @@ type MembersFt struct {
 }
 
 type Membership struct {
-	ID               int64
-	MemberID         int64
-	SeasonID         int64
-	FeeID            int64
-	Status           string
-	DeclaredKind     sql.NullString
-	Kind             sql.NullString
-	AmountCents      sql.NullInt64
-	Reason           sql.NullString
-	RequestedBy      sql.NullInt64
-	CreatedBy        sql.NullInt64
-	RequestedAt      string
-	DecidedBy        sql.NullInt64
-	DecidedAt        sql.NullString
-	CancelledBy      sql.NullInt64
-	CancelledAt      sql.NullString
-	PaymentReference sql.NullString
-	PaymentStatus    sql.NullString
-	AnnouncedMethod  sql.NullString
-	PaidMethod       sql.NullString
-	PaidOn           sql.NullString
-	PaidBy           sql.NullInt64
-	PaidAt           sql.NullString
-	PaymentNote      sql.NullString
-	UpdatedAt        string
+	ID                  int64
+	MemberID            int64
+	SeasonID            int64
+	FeeID               int64
+	Status              string
+	DeclaredKind        sql.NullString
+	Kind                sql.NullString
+	AmountCents         sql.NullInt64
+	Reason              sql.NullString
+	RequestedBy         sql.NullInt64
+	CreatedBy           sql.NullInt64
+	RequestedAt         string
+	DecidedBy           sql.NullInt64
+	DecidedAt           sql.NullString
+	CancelledBy         sql.NullInt64
+	CancelledAt         sql.NullString
+	PaymentReference    sql.NullString
+	PaymentStatus       sql.NullString
+	AnnouncedMethod     sql.NullString
+	PaidMethod          sql.NullString
+	PaidOn              sql.NullString
+	PaidBy              sql.NullInt64
+	PaidAt              sql.NullString
+	PaymentNote         sql.NullString
+	UpdatedAt           string
+	PaidOnlinePaymentID sql.NullInt64
+	PaidAmountCents     sql.NullInt64
 }
 
 type MembershipFee struct {
@@ -119,6 +121,27 @@ type OneTimeToken struct {
 	CreatedAt string
 }
 
+type OnlinePayment struct {
+	ID                  int64
+	MembershipID        int64
+	AccountID           sql.NullInt64
+	Environment         string
+	AmountCents         int64
+	Status              string
+	CheckoutIntentID    sql.NullInt64
+	RedirectUrl         sql.NullString
+	OrderID             sql.NullInt64
+	HelloassoPaymentID  sql.NullInt64
+	ReceivedAmountCents sql.NullInt64
+	PaidAt              sql.NullString
+	ErrorCode           sql.NullString
+	CreatedAt           string
+	FinishedAt          sql.NullString
+	LastVerifiedAt      sql.NullString
+	RefundedAt          sql.NullString
+	UpdatedAt           string
+}
+
 type OutboundEmail struct {
 	ID            int64
 	Recipient     string
@@ -133,20 +156,38 @@ type OutboundEmail struct {
 	SentAt        sql.NullString
 }
 
+type PaymentAlert struct {
+	ID              int64
+	MembershipID    int64
+	OnlinePaymentID int64
+	Kind            string
+	CreatedAt       string
+	ResolvedAt      sql.NullString
+	ResolvedBy      sql.NullInt64
+}
+
 type PaymentSetting struct {
-	ID                   int64
-	CashEnabled          int64
-	CashInstructions     sql.NullString
-	ChequeEnabled        int64
-	ChequePayee          sql.NullString
-	ChequeAddress        sql.NullString
-	ChequeInstructions   sql.NullString
-	TransferEnabled      int64
-	TransferHolder       sql.NullString
-	TransferIban         sql.NullString
-	TransferBic          sql.NullString
-	TransferInstructions sql.NullString
-	UpdatedAt            string
+	ID                        int64
+	CashEnabled               int64
+	CashInstructions          sql.NullString
+	ChequeEnabled             int64
+	ChequePayee               sql.NullString
+	ChequeAddress             sql.NullString
+	ChequeInstructions        sql.NullString
+	TransferEnabled           int64
+	TransferHolder            sql.NullString
+	TransferIban              sql.NullString
+	TransferBic               sql.NullString
+	TransferInstructions      sql.NullString
+	UpdatedAt                 string
+	CardEnabled               int64
+	HelloassoTestAt           sql.NullString
+	HelloassoTestEnvironment  sql.NullString
+	HelloassoTestOk           sql.NullInt64
+	HelloassoTestError        sql.NullString
+	HelloassoOrganizationName sql.NullString
+	HelloassoErrorAt          sql.NullString
+	HelloassoErrorCode        sql.NullString
 }
 
 type Season struct {

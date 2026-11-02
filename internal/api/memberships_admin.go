@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/membership"
@@ -47,6 +49,9 @@ type AdminMembershipActions struct {
 	Cancel        bool `json:"cancel"`
 	RecordPayment bool `json:"recordPayment"`
 	CancelPayment bool `json:"cancelPayment"`
+	// VerifyCardPayment : une tentative de paiement par carte peut être
+	// vérifiée auprès de HelloAsso (research.md 008 › R5).
+	VerifyCardPayment bool `json:"verifyCardPayment"`
 }
 
 // AdminMembership est une adhésion vue par l'administration.
@@ -62,6 +67,10 @@ type AdminMembership struct {
 	PreviousSeason string                 `json:"previousSeason" enum:"yes,no,unknown" doc:"Adhérent la saison précédente dans Frigg"`
 	SeasonFees     []MembershipFeeRef     `json:"seasonFees" doc:"Tarifs de la saison, pour valider ou corriger"`
 	Actions        AdminMembershipActions `json:"actions"`
+	OnlinePayments []OnlinePayment        `json:"onlinePayments" doc:"Tentatives de paiement par carte, la plus récente d'abord"`
+	Alerts         []PaymentAlert         `json:"alerts" doc:"Signalements de paiement, non traités d'abord"`
+	// CardPaymentPending : une tentative de moins de 60 minutes est en cours.
+	CardPaymentPending bool `json:"cardPaymentPending"`
 }
 
 // AdminMembershipFee est le tarif d'une ligne de la liste.
@@ -82,6 +91,7 @@ type AdminMembershipRow struct {
 	AmountCents  *int64             `json:"amountCents" doc:"Montant appliqué ; null tant que l'adhésion n'est pas validée"`
 	Payment      *Payment           `json:"payment"`
 	RequestedAt  string             `json:"requestedAt" format:"date-time"`
+	OpenAlerts   int64              `json:"openAlerts" doc:"Signalements de paiement à traiter"`
 }
 
 // AdminMembershipPage est une page de la liste des adhésions.
@@ -121,12 +131,26 @@ type MembershipStats struct {
 	PaidCents   int64                 `json:"paidCents"`
 	DueCents    int64                 `json:"dueCents"`
 	DueByMethod MembershipDueByMethod `json:"dueByMethod"`
+	// CollectedByMethod détaille paidCents ; collectedTest compte à part les
+	// paiements par carte en mode test, exclus de paidCents.
+	CollectedByMethod MembershipCollectedByMethod `json:"collectedByMethod"`
+	CollectedTest     int64                       `json:"collectedTest" doc:"Paiements par carte en mode test (aucun débit réel)"`
+}
+
+// MembershipCollectedByMethod est le montant encaissé par moyen constaté.
+type MembershipCollectedByMethod struct {
+	Card     int64 `json:"card"`
+	Cash     int64 `json:"cash"`
+	Cheque   int64 `json:"cheque"`
+	Transfer int64 `json:"transfer"`
 }
 
 // MembershipDashboard sont les indicateurs du tableau de bord.
 type MembershipDashboard struct {
 	PendingCount       int64 `json:"pendingCount" doc:"Demandes en attente, toutes saisons"`
 	PaymentSetupNeeded bool  `json:"paymentSetupNeeded" doc:"Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion"`
+	PaymentAlerts      int64 `json:"paymentAlerts" doc:"Signalements de paiement à traiter"`
+	HelloAssoFailing   bool  `json:"helloassoFailing" doc:"Carte activée et connexion à HelloAsso en échec"`
 }
 
 // DecisionBody est le tarif et le type retenus.
@@ -157,13 +181,16 @@ type AdminCreateBody struct {
 }
 
 type ListMembershipsInput struct {
-	Season   string `query:"season" pattern:"^(all|[0-9]+)$" doc:"Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente"`
-	Status   string `query:"status" enum:"pending,validated,refused,cancelled"`
-	Payment  string `query:"payment" enum:"due,announced,paid,free"`
-	Member   int64  `query:"member" minimum:"0" doc:"Adhésions d'une fiche"`
-	Q        string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche"`
-	Page     int64  `query:"page" minimum:"1" default:"1"`
-	PageSize int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
+	Season  string `query:"season" pattern:"^(all|[0-9]+)$" doc:"Identifiant de saison ou all ; absent : saison courante, sinon la plus récente ouverte, sinon la plus récente"`
+	Status  string `query:"status" enum:"pending,validated,refused,cancelled"`
+	Payment string `query:"payment" enum:"due,announced,paid,free"`
+	Member  int64  `query:"member" minimum:"0" doc:"Adhésions d'une fiche"`
+	Q       string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso"`
+	// PaidMethod filtre les adhésions payées par un moyen.
+	PaidMethod string `query:"paidMethod" enum:"card,cash,cheque,transfer"`
+	Alerts     string `query:"alerts" enum:"open" doc:"open : adhésions portant un signalement de paiement à traiter"`
+	Page       int64  `query:"page" minimum:"1" default:"1"`
+	PageSize   int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
 }
 
 type StatsInput struct {
@@ -221,7 +248,10 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
 	}
-	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment)}
+	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment), PaidMethod: ns(in.PaidMethod)}
+	if in.Alerts == "open" {
+		params.OpenAlerts = nid(1)
+	}
 	var seasonID *int64
 	switch in.Season {
 	case "all":
@@ -243,6 +273,9 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 			return nil, FieldErrors("query.q", MsgSearchTooShort)
 		}
 		params.Query = ns(fts)
+		if n, err := strconv.ParseInt(strings.TrimSpace(in.Q), 10, 64); err == nil {
+			params.OrderID = nid(n)
+		}
 	}
 	rows, err := q.ListMemberships(ctx, params)
 	if err != nil {
@@ -271,6 +304,14 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 	total := int64(len(rows))
 	start := min((in.Page-1)*in.PageSize, total)
 	end := min(start+in.PageSize, total)
+	alertRows, err := q.ListOpenAlertCounts(ctx)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des signalements impossible", err)
+	}
+	openAlerts := make(map[int64]int64, len(alertRows))
+	for _, a := range alertRows {
+		openAlerts[a.MembershipID] = a.OpenAlerts
+	}
 	items := make([]AdminMembershipRow, 0, end-start)
 	for _, r := range rows[start:end] {
 		m := r.Membership
@@ -284,9 +325,15 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 			DeclaredKind: optionalValue(m.DeclaredKind),
 			Payment:      paymentOf(m),
 			RequestedAt:  m.RequestedAt,
+			OpenAlerts:   openAlerts[m.ID],
 		}
 		if m.AmountCents.Valid {
 			row.AmountCents = &m.AmountCents.Int64
+		}
+		var withRef Membership
+		withRef.Payment = row.Payment
+		if err := withOnline(ctx, q, &withRef, m); err != nil {
+			return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 		}
 		items = append(items, row)
 	}
@@ -316,6 +363,9 @@ func (s *server) getMembershipStats(ctx context.Context, in *StatsInput) (*Membe
 			FeeLabel:        r.FeeLabel,
 			PaymentStatus:   membership.PaymentStatus(r.PaymentStatus.String),
 			AnnouncedMethod: membership.Method(r.AnnouncedMethod.String),
+			PaidMethod:      membership.Method(r.PaidMethod.String),
+			PaidAmountCents: r.PaidAmountCents.Int64,
+			PaidTest:        r.PaidEnvironment.String == config.HelloAssoSandbox,
 		}
 	}
 	st := membership.ComputeStats(stat)
@@ -326,6 +376,10 @@ func (s *server) getMembershipStats(ctx context.Context, in *StatsInput) (*Membe
 		DueByMethod: MembershipDueByMethod{
 			None: st.DueByMethod.None, Cash: st.DueByMethod.Cash, Cheque: st.DueByMethod.Cheque, Transfer: st.DueByMethod.Transfer,
 		},
+		CollectedByMethod: MembershipCollectedByMethod{
+			Card: st.PaidByMethod.Card, Cash: st.PaidByMethod.Cash, Cheque: st.PaidByMethod.Cheque, Transfer: st.PaidByMethod.Transfer,
+		},
+		CollectedTest: st.TestPaidCents,
 	}
 	for i, f := range st.ByFee {
 		out.ByFee[i] = MembershipFeeStat{FeeID: f.FeeID, Label: f.Label, Count: f.Count, AmountCents: f.AmountCents}
@@ -343,8 +397,16 @@ func (s *server) getMembershipDashboard(ctx context.Context, _ *struct{}) (*Memb
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	out := MembershipDashboard{PendingCount: pending}
-	if len(settings.EnabledMethods()) == 0 {
+	alerts, err := q.CountOpenPaymentAlerts(ctx)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des signalements impossible", err)
+	}
+	row, err := q.GetPaymentSettings(ctx)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
+	}
+	out := MembershipDashboard{PendingCount: pending, PaymentAlerts: alerts, HelloAssoFailing: s.helloAssoFailing(row)}
+	if len(settings.EnabledMethods()) == 0 && !settings.CardAvailable {
 		seasons, _, err := seasonIndex(ctx, q, s.today())
 		if err != nil {
 			return nil, s.internalError(ctx, "lecture des saisons impossible", err)
@@ -414,6 +476,12 @@ func (s *server) adminMembership(ctx context.Context, q *sqlc.Queries, id int64)
 	}
 	if r.MemberAccountID.Valid {
 		out.Account = &MemberAccount{ID: r.MemberAccountID.Int64, Email: r.AccountEmail.String, Disabled: r.AccountDisabledAt.Valid}
+	}
+	if err := withOnline(ctx, q, &out.Membership, m); err != nil {
+		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
+	}
+	if err := s.withOnlineAdmin(ctx, q, &out, m); err != nil {
+		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 	}
 	return &AdminMembershipOutput{Body: out}, nil
 }
@@ -596,6 +664,15 @@ func (s *server) cancelMembership(ctx context.Context, in *ReasonInput) (*AdminM
 			Reason: ns(reason), ActorID: nid(CurrentAccount(ctx).ID), Now: ns(s.timestamp()), ID: w.m.ID,
 		})); err != nil {
 			return err
+		}
+		// Payée par carte : le remboursement se fait dans HelloAsso (R10).
+		if w.m.PaidMethod.String == string(membership.Card) && w.m.PaidOnlinePaymentID.Valid {
+			if err := w.q.CreatePaymentAlert(ctx, sqlc.CreatePaymentAlertParams{
+				MembershipID: w.m.ID, OnlinePaymentID: w.m.PaidOnlinePaymentID.Int64,
+				Kind: string(membership.AlertRefundDue), Now: s.timestamp(),
+			}); err != nil {
+				return err
+			}
 		}
 		return s.notifyMembership(ctx, w.q, "membership-cancelled", w.m.ID, false)
 	})

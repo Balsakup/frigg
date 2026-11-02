@@ -57,7 +57,7 @@ func TestActions(t *testing.T) {
 		{"annulée payée", Snapshot{Status: Cancelled, PaymentStatus: Paid}, MemberActions{}, AdminActions{}},
 	}
 	for _, c := range cases {
-		if got := MemberActionsFor(c.s); got != c.member {
+		if got := MemberActionsFor(c.s, false); got != c.member {
 			t.Errorf("%s : actions membre %+v, attendu %+v", c.name, got, c.member)
 		}
 		if got := AdminActionsFor(c.s); got != c.admin {

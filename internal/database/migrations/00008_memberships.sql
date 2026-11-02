@@ -25,13 +25,18 @@ CREATE TABLE memberships (
     payment_reference TEXT UNIQUE CHECK (payment_reference IS NULL OR length(payment_reference) BETWEEN 8 AND 16),
     -- NULL = pas de paiement (adhésion non validée ou gratuite).
     payment_status TEXT CHECK (payment_status IN ('due', 'announced', 'paid')),
+    -- La carte (HelloAsso, 008) ne s'annonce pas : elle se paie en ligne.
     announced_method TEXT CHECK (announced_method IN ('cash', 'cheque', 'transfer')),
-    paid_method TEXT CHECK (paid_method IN ('cash', 'cheque', 'transfer')),
+    paid_method TEXT CHECK (paid_method IN ('cash', 'cheque', 'transfer', 'card')),
     paid_on TEXT CHECK (paid_on IS NULL OR date(paid_on) = paid_on),
     paid_by INTEGER REFERENCES accounts (id) ON DELETE SET NULL,
     paid_at TEXT,
     payment_note TEXT CHECK (payment_note IS NULL OR length(payment_note) BETWEEN 1 AND 200),
     updated_at TEXT NOT NULL,
+    -- Tentative HelloAsso qui a constate un paiement par carte (008).
+    paid_online_payment_id INTEGER REFERENCES online_payments (id) ON DELETE SET NULL,
+    -- Montant recu par carte, hors contribution volontaire (008).
+    paid_amount_cents INTEGER CHECK (paid_amount_cents BETWEEN 0 AND 1000000),
     CHECK (status <> 'pending' OR (kind IS NULL AND amount_cents IS NULL)),
     CHECK (status <> 'validated' OR (kind IS NOT NULL AND amount_cents IS NOT NULL)),
     -- Une adhésion annulée garde l'état de son paiement pour l'historique.
@@ -40,7 +45,10 @@ CREATE TABLE memberships (
     CHECK ((payment_status IS 'paid') = (paid_method IS NOT NULL AND paid_on IS NOT NULL)),
     CHECK (payment_status IS NOT 'announced' OR announced_method IS NOT NULL),
     CHECK (status <> 'refused' OR reason IS NOT NULL),
-    CHECK (requested_by IS NULL OR declared_kind IS NOT NULL)
+    CHECK (requested_by IS NULL OR declared_kind IS NOT NULL),
+    -- Seule la verification HelloAsso constate un paiement par carte (008).
+    CHECK (paid_method IS NOT 'card' OR (paid_online_payment_id IS NOT NULL AND paid_amount_cents IS NOT NULL AND paid_by IS NULL)),
+    CHECK (paid_online_payment_id IS NULL OR paid_method = 'card')
 ) STRICT;
 
 -- Une adhésion en cours (en attente ou validée) au plus par fiche et par saison (FR-003).
@@ -95,6 +103,16 @@ CREATE TABLE payment_settings (
     transfer_bic TEXT CHECK (transfer_bic IS NULL OR length(transfer_bic) IN (8, 11)),
     transfer_instructions TEXT CHECK (transfer_instructions IS NULL OR length(transfer_instructions) BETWEEN 1 AND 1000),
     updated_at TEXT NOT NULL,
+    -- Carte bancaire via HelloAsso et etat de la connexion (research.md 008 R7, R9).
+    -- Les identifiants sont dans la configuration de l'instance, jamais en base.
+    card_enabled INTEGER NOT NULL DEFAULT 0 CHECK (card_enabled IN (0, 1)),
+    helloasso_test_at TEXT,
+    helloasso_test_environment TEXT CHECK (helloasso_test_environment IN ('sandbox', 'production')),
+    helloasso_test_ok INTEGER CHECK (helloasso_test_ok IN (0, 1)),
+    helloasso_test_error TEXT CHECK (length(helloasso_test_error) <= 60),
+    helloasso_organization_name TEXT CHECK (length(helloasso_organization_name) <= 250),
+    helloasso_error_at TEXT,
+    helloasso_error_code TEXT CHECK (length(helloasso_error_code) <= 60),
     CHECK (cash_enabled = 0 OR cash_instructions IS NOT NULL),
     CHECK (cheque_enabled = 0 OR cheque_payee IS NOT NULL),
     CHECK (transfer_enabled = 0 OR (transfer_holder IS NOT NULL AND transfer_iban IS NOT NULL))
@@ -103,7 +121,58 @@ CREATE TABLE payment_settings (
 INSERT INTO payment_settings (id, updated_at)
 VALUES (1, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
+-- Tentatives de paiement par carte via HelloAsso (research.md 008 R4).
+CREATE TABLE online_payments (
+    id INTEGER PRIMARY KEY,
+    membership_id INTEGER NOT NULL REFERENCES memberships (id) ON DELETE CASCADE,
+    account_id INTEGER REFERENCES accounts (id) ON DELETE SET NULL,
+    environment TEXT NOT NULL CHECK (environment IN ('sandbox', 'production')),
+    amount_cents INTEGER NOT NULL CHECK (amount_cents BETWEEN 1 AND 1000000),
+    -- refunded : paiement rembourse dans HelloAsso, constate apres verification.
+    status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'abandoned', 'expired', 'refunded')),
+    checkout_intent_id INTEGER,
+    redirect_url TEXT CHECK (redirect_url IS NULL OR length(redirect_url) <= 2000),
+    order_id INTEGER,
+    helloasso_payment_id INTEGER,
+    received_amount_cents INTEGER CHECK (received_amount_cents BETWEEN 0 AND 1000000),
+    paid_at TEXT,
+    error_code TEXT CHECK (error_code IS NULL OR length(error_code) <= 60),
+    created_at TEXT NOT NULL,
+    finished_at TEXT,
+    last_verified_at TEXT,
+    refunded_at TEXT,
+    updated_at TEXT NOT NULL,
+    CHECK (status NOT IN ('succeeded', 'refunded') OR (order_id IS NOT NULL AND helloasso_payment_id IS NOT NULL AND received_amount_cents IS NOT NULL AND paid_at IS NOT NULL)),
+    CHECK (status = 'pending' OR finished_at IS NOT NULL),
+    CHECK ((status = 'refunded') = (refunded_at IS NOT NULL))
+) STRICT;
+
+CREATE UNIQUE INDEX online_payments_intent ON online_payments (environment, checkout_intent_id)
+WHERE checkout_intent_id IS NOT NULL;
+CREATE UNIQUE INDEX online_payments_helloasso_payment ON online_payments (environment, helloasso_payment_id)
+WHERE helloasso_payment_id IS NOT NULL;
+CREATE INDEX online_payments_membership ON online_payments (membership_id, created_at);
+CREATE INDEX online_payments_pending ON online_payments (status, created_at) WHERE status = 'pending';
+CREATE INDEX online_payments_order ON online_payments (order_id);
+
+-- Signalements de paiement a traiter par un administrateur (research.md 008 R10).
+CREATE TABLE payment_alerts (
+    id INTEGER PRIMARY KEY,
+    membership_id INTEGER NOT NULL REFERENCES memberships (id) ON DELETE CASCADE,
+    online_payment_id INTEGER NOT NULL REFERENCES online_payments (id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('duplicate', 'amount_mismatch', 'refund_due', 'unverified')),
+    created_at TEXT NOT NULL,
+    resolved_at TEXT,
+    resolved_by INTEGER REFERENCES accounts (id) ON DELETE SET NULL,
+    CHECK (resolved_by IS NULL OR resolved_at IS NOT NULL)
+) STRICT;
+
+CREATE UNIQUE INDEX payment_alerts_unique ON payment_alerts (online_payment_id, kind);
+CREATE INDEX payment_alerts_open ON payment_alerts (resolved_at, created_at);
+
 -- +goose Down
+DROP TABLE payment_alerts;
+DROP TABLE online_payments;
 DROP TABLE payment_settings;
 DROP TRIGGER memberships_fts_au;
 DROP TRIGGER memberships_fts_ad;

@@ -33,6 +33,8 @@ type Data struct {
 	Reference   string
 	Reason      string
 	Method      string
+	// PaidOn : date de réception du paiement, « 3 novembre 2026 ».
+	PaidOn string
 }
 
 // Render rend le gabarit name : name.txt.tmpl définit "subject" et "body",

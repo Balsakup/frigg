@@ -48,10 +48,26 @@ const (
 	Cash     Method = "cash"
 	Cheque   Method = "cheque"
 	Transfer Method = "transfer"
+	// Card : carte bancaire via HelloAsso (research.md 008). Ni annoncée ni
+	// constatée à la main : seul HelloAsso constate un paiement par carte.
+	Card Method = "card"
 )
 
-// Methods liste les moyens dans l'ordre d'affichage.
-var Methods = []Method{Cash, Cheque, Transfer}
+// Methods liste les moyens dans l'ordre d'affichage, la carte en premier.
+var Methods = []Method{Card, Cash, Cheque, Transfer}
+
+// MinCardAmount est le montant minimal payable par carte (centimes).
+const MinCardAmount = 100
+
+// ManualMethod indique un moyen que le compte annonce et qu'un administrateur
+// constate lui-même (tous sauf la carte).
+func ManualMethod(m Method) bool {
+	switch m {
+	case Cash, Cheque, Transfer:
+		return true
+	}
+	return false
+}
 
 const (
 	// MaxReason est la longueur maximale d'un motif de refus ou d'annulation.
@@ -84,6 +100,10 @@ type Snapshot struct {
 	PaymentStatus PaymentStatus
 	// SeasonClosed : la date de fin de la saison est passée.
 	SeasonClosed bool
+	// AmountCents : montant appliqué (adhésion validée).
+	AmountCents int64
+	// PaidMethod : moyen constaté d'une adhésion payée.
+	PaidMethod Method
 }
 
 // CanCancelRequest : le compte annule une demande en attente (FR-009).
@@ -114,13 +134,20 @@ func CanRecordPayment(s Snapshot) bool { return CanPay(s) }
 
 // CanCancelPayment : annulation de la constatation (US4 §10).
 func CanCancelPayment(s Snapshot) bool {
-	return s.Status == Validated && s.PaymentStatus == Paid
+	return s.Status == Validated && s.PaymentStatus == Paid && s.PaidMethod != Card
+}
+
+// CanPayByCard : paiement en ligne par le compte (research.md 008 › R7) :
+// adhésion payable, montant suffisant et carte disponible.
+func CanPayByCard(s Snapshot, cardAvailable bool) bool {
+	return cardAvailable && CanPay(s) && s.AmountCents >= MinCardAmount
 }
 
 // MemberActions sont les actions proposées au compte qui gère la fiche.
 type MemberActions struct {
-	Cancel bool
-	Pay    bool
+	Cancel    bool
+	Pay       bool
+	PayByCard bool
 }
 
 // AdminActions sont les actions proposées à un administrateur.
@@ -129,8 +156,8 @@ type AdminActions struct {
 }
 
 // MemberActionsFor calcule les actions de l'espace membre.
-func MemberActionsFor(s Snapshot) MemberActions {
-	return MemberActions{Cancel: CanCancelRequest(s), Pay: CanPay(s)}
+func MemberActionsFor(s Snapshot, cardAvailable bool) MemberActions {
+	return MemberActions{Cancel: CanCancelRequest(s), Pay: CanPay(s), PayByCard: CanPayByCard(s, cardAvailable)}
 }
 
 // AdminActionsFor calcule les actions de l'administration.

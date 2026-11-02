@@ -96,3 +96,35 @@ func TestMembershipsIsolation(t *testing.T) {
 		t.Errorf("nouveau compte : %+v", got)
 	}
 }
+
+// TestCardPaymentIsolation : un compte ne lance ni ne confirme le paiement par
+// carte d'une adhésion qu'il ne gère pas, et aucune tentative n'est créée.
+func TestCardPaymentIsolation(t *testing.T) {
+	f := newCardFixture(t)
+	b, _, _ := f.msFixture.member(t, "Zoé")
+	orphan := insertOrphan(t, f.env, "Jeanne", "Petit", "2010-01-01")
+	mo := expectAdminMembership(t, f.admin.Do("POST", "/api/admin/memberships", map[string]any{
+		"memberId": orphan, "seasonId": f.season.ID, "feeId": f.young.ID, "kind": "first",
+	}), http.StatusCreated)
+	st := f.start(t)
+
+	count := func() int {
+		var n int
+		if err := f.env.Store.ReadDB.QueryRow(`SELECT count(*) FROM online_payments`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	before := count()
+	for _, id := range []int64{f.ms.ID, mo.ID, 99999} {
+		expectProblem(t, b.Do("POST", cardPath(id, ""), nil), http.StatusNotFound, api.MsgMembershipGone)
+		res := b.Do("POST", cardPath(id, "/confirm"), map[string]any{"onlinePaymentId": st.OnlinePaymentID, "outcome": "return"})
+		expectProblem(t, res, http.StatusNotFound, api.MsgOnlinePaymentGone)
+	}
+	if count() != before {
+		t.Fatal("tentative créée par un autre compte")
+	}
+	// La tentative d'une adhésion ne se confirme pas sous une autre.
+	res := f.member.Do("POST", cardPath(99999, "/confirm"), map[string]any{"onlinePaymentId": st.OnlinePaymentID, "outcome": "return"})
+	expectProblem(t, res, http.StatusNotFound, api.MsgOnlinePaymentGone)
+}

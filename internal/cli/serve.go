@@ -56,13 +56,18 @@ func Serve(ctx context.Context) error {
 	}
 	go worker.Run(ctx)
 
-	h, err := server.NewHandler(api.Deps{
-		Store:    store,
-		Sessions: auth.NewSessionManager(store.WriteDB, cfg.CookieSecure),
-		Limits:   limits,
-		Config:   cfg,
-		Logger:   logger,
-	}, web.Dist())
+	deps := api.Deps{
+		Store:     store,
+		Sessions:  auth.NewSessionManager(store.WriteDB, cfg.CookieSecure),
+		Limits:    limits,
+		Config:    cfg,
+		Logger:    logger,
+		HelloAsso: api.NewHelloAssoClient(cfg, nil),
+	}
+	if deps.HelloAsso != nil {
+		go api.NewOnlinePaymentSweeper(deps).Run(ctx)
+	}
+	h, err := server.NewHandler(deps, web.Dist())
 	if err != nil {
 		return fmt.Errorf("préparation du serveur : %w", err)
 	}

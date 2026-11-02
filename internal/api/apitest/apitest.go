@@ -28,6 +28,7 @@ import (
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/helloasso/hatest"
 	"github.com/balsakup/frigg/internal/mail"
 	"github.com/balsakup/frigg/internal/mail/mailtest"
 	"github.com/balsakup/frigg/internal/season"
@@ -46,8 +47,12 @@ type Env struct {
 	API    huma.API
 	Logs   *LogBuffer
 	worker *mail.Worker
-	seq    atomic.Int64
-	clock  atomic.Pointer[time.Time]
+	// HelloAsso est le faux HelloAsso (NewWithHelloAsso), nil sinon.
+	HelloAsso *hatest.Fake
+	// Sweeper balaie les tentatives de paiement par carte (NewWithHelloAsso).
+	Sweeper *api.OnlinePaymentSweeper
+	seq     atomic.Int64
+	clock   atomic.Pointer[time.Time]
 }
 
 // LogBuffer capture les journaux pour vérifier qu'aucune donnée sensible n'y figure.
@@ -92,14 +97,19 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 		opt(&cfg)
 	}
 	srv := httptest.NewUnstartedServer(nil)
-	h, err := server.NewHandler(api.Deps{
-		Store:    store,
-		Sessions: auth.NewSessionManager(store.WriteDB, false),
-		Limits:   auth.NewLimits(),
-		Config:   cfg,
-		Logger:   logger,
-		Now:      env.now,
-	}, fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Frigg</title>")}})
+	deps := api.Deps{
+		Store:     store,
+		Sessions:  auth.NewSessionManager(store.WriteDB, false),
+		Limits:    auth.NewLimits(),
+		Config:    cfg,
+		Logger:    logger,
+		Now:       env.now,
+		HelloAsso: api.NewHelloAssoClient(cfg, env.now),
+	}
+	if deps.HelloAsso != nil {
+		env.Sweeper = api.NewOnlinePaymentSweeper(deps)
+	}
+	h, err := server.NewHandler(deps, fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Frigg</title>")}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +119,34 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 	env.URL = srv.URL
 	env.API = h.API
 	return env
+}
+
+// NewWithHelloAsso crée un environnement relié à un faux HelloAsso
+// (environnement sandbox).
+func NewWithHelloAsso(t testing.TB, options ...func(*config.Config)) *Env {
+	t.Helper()
+	fake := hatest.New(t)
+	opts := append([]func(*config.Config){func(c *config.Config) {
+		c.HelloAsso = config.HelloAsso{
+			ClientID: hatest.ClientID, ClientSecret: hatest.ClientSecret, Organization: hatest.Organization,
+			Environment: config.HelloAssoSandbox, APIURL: fake.URL,
+		}
+	}}, options...)
+	env := New(t, opts...)
+	env.HelloAsso = fake
+	return env
+}
+
+// EnableCard active la carte et enregistre un test de connexion réussi pour
+// l'environnement donné, comme après « Tester la connexion ».
+func (e *Env) EnableCard(environment string) {
+	e.t.Helper()
+	ctx := context.Background()
+	if _, err := e.Store.WriteDB.ExecContext(ctx, `UPDATE payment_settings SET card_enabled = 1,
+		helloasso_test_at = ?, helloasso_test_environment = ?, helloasso_test_ok = 1 WHERE id = 1`,
+		time.Now().UTC().Format(mail.TimeFormat), environment); err != nil {
+		e.t.Fatal(err)
+	}
 }
 
 func (e *Env) now() time.Time {
@@ -128,6 +166,12 @@ func (e *Env) SetToday(day string) {
 	}
 	noon := d.Add(12 * time.Hour)
 	e.clock.Store(&noon)
+}
+
+// Advance avance l'horloge du serveur (fixée par SetToday) de d.
+func (e *Env) Advance(d time.Duration) {
+	t := e.now().Add(d)
+	e.clock.Store(&t)
 }
 
 // Seed crée un compte avec le mot de passe Password et renvoie son adresse.
@@ -205,10 +249,15 @@ type Problem struct {
 }
 
 // Do envoie une requête ; body est encodé en JSON s'il n'est pas nil.
+// Raw est un corps envoyé tel quel par Do.
+type Raw []byte
+
 func (c *Client) Do(method, path string, body any, headers ...string) Response {
 	c.t.Helper()
 	var r io.Reader
-	if body != nil {
+	if raw, ok := body.(Raw); ok {
+		r = bytes.NewReader(raw)
+	} else if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			c.t.Fatal(err)
