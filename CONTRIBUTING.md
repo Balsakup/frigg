@@ -60,6 +60,32 @@ respecter.
    exemple `🔒 Limite les essais du mot de passe actuel`.
 5. Ouvrez une Pull Request en décrivant le problème résolu et la solution.
 
+## Construire l'image en local
+
+Pour déboguer un comportement propre au conteneur, construisez l'image avec la
+même recette que la release :
+
+```sh
+go tool task docker:build   # produit l'image frigg:dev, jamais publiée
+```
+
+L'étiquette `org.opencontainers.image.version` vaut `dev-<commit>`, suffixée de
+`-modifie` si l'arbre de travail contient des modifications non commitées.
+Pour la lancer avec Mailpit (`docker compose up -d`) :
+
+```sh
+docker run --rm --network host \
+  -e FRIGG_BASE_URL=http://localhost:8080 \
+  -e FRIGG_SMTP_HOST=localhost -e FRIGG_SMTP_PORT=1025 -e FRIGG_SMTP_TLS=none \
+  -e FRIGG_MAIL_FROM=frigg@localhost \
+  -v frigg-dev-data:/data frigg:dev
+```
+
+L'image n'a pas de shell : pour inspecter un conteneur, utilisez `docker logs`,
+`docker inspect` et `docker cp <conteneur>:/data/… .`. Les options
+d'exploitation sont décrites dans la section
+[Installer avec Docker](README.md#installer-avec-docker) du README.
+
 ## Publier une release
 
 La publication d'une release GitHub construit et publie automatiquement
