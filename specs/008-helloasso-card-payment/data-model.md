@@ -144,7 +144,10 @@ disponibilité recalculée à chaque lecture (R7).
 | `Card Method = "card"` | Nouveau moyen ; `Methods = {Card, Cash, Cheque, Transfer}` |
 | `MinCardAmount = 100` | Montant minimal payable par carte (centimes) |
 | `CardAvailability(cfgConfigured, enabled, testedEnv, testOK, currentEnv) bool` | Règle R7 |
-| `ActionsFor` | + `PayByCard`, `cancelPayment=false` si `paid_method = card` |
+| `Snapshot` | + `PaidMethod` |
+| `CanPayByCard(s, cardAvailable)` | `CanPay(s)`, montant ≥ `MinCardAmount`, carte disponible ; repris par `MemberActionsFor` (`PayByCard`) |
+| `CanCancelPayment` | `false` si `PaidMethod = card` (donc `AdminActionsFor`) |
+| `ManualMethod(m)` | vrai sauf pour `card` : moyens annonçables et constatables à la main |
 | `OnlineStatus`, `AlertKind` | Énumérations ci-dessus |
 | `SettleOnline(Snapshot, Verified) Settlement` | Décision R5 : nouvel état de tentative, constatation ou non, signalement éventuel |
 | `Stats` | `collectedByMethod.card`, `collectedTest` |

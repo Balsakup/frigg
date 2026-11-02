@@ -86,7 +86,8 @@ vérifier que l'adhésion passe à « Payée » sans action d'un administrateur.
    est redirigé vers la page de paiement de HelloAsso pour le montant appliqué
    exact, avec l'intitulé de l'adhésion (saison, tarif et référence de
    paiement, sans nom du membre, par exemple « Adhésion 2026-2027 — Jeune —
-   ADH-2627-0042 »), et ses nom, prénom et adresse électronique préremplis.
+   ADH-2627-0042 »), son adresse électronique préremplie, ainsi que son
+   prénom et son nom s'il a une fiche « Vous ».
 4. **Given** un paiement accepté par HelloAsso, **When** le titulaire revient
    sur Frigg, **Then** la page confirme le paiement, l'adhésion est « Payée »
    avec le moyen « Carte bancaire », la date du paiement et la référence de la
@@ -198,7 +199,8 @@ l'avertissement.
 1. **Given** des adhésions payées par carte, **When** l'administrateur ouvre
    l'une d'elles, **Then** il voit le moyen « Carte bancaire », la date et
    l'heure du paiement, le montant reçu, la référence de la transaction
-   HelloAsso et un lien vers celle-ci dans l'espace HelloAsso.
+   HelloAsso et un lien vers celle-ci dans l'espace HelloAsso (à défaut, vers
+   l'espace HelloAsso de l'association).
 2. **Given** la liste des adhésions, **When** l'administrateur filtre sur le
    moyen de paiement effectif ou recherche une référence HelloAsso, **Then**
    seules les adhésions correspondantes s'affichent.
@@ -259,7 +261,8 @@ l'avertissement.
 - **Notification perdue** (instance indisponible, adresse mal déclarée dans
   HelloAsso) : le paiement est constaté au retour de l'adhérent ou par
   « Vérifier auprès de HelloAsso » ; une tentative restée en cours au-delà de
-  sa durée de validité est signalée aux administrateurs pour vérification.
+  sa durée de validité est vérifiée automatiquement, et signalée aux
+  administrateurs seulement si HelloAsso reste injoignable plus de 24 heures.
 - **Notifications d'autres ventes** de l'association sur HelloAsso (dons,
   billetterie hors Frigg) : ignorées.
 - **Contribution volontaire** : jamais comptée dans le montant reçu de
@@ -294,9 +297,10 @@ l'avertissement.
   est facultative.
 - **FR-004**: Le paiement MUST être transmis à HelloAsso avec un intitulé
   composé de la saison, du tarif et de la référence de paiement, sans aucune
-  donnée personnelle du membre, et préremplir le nom, le prénom et l'adresse
-  électronique du titulaire du compte ; aucune autre donnée personnelle n'est
-  transmise.
+  donnée personnelle du membre, et préremplir l'adresse électronique du
+  titulaire du compte, ainsi que le prénom et le nom de sa fiche « Vous » s'il
+  en a une (un compte ne porte pas de nom) ; aucune autre donnée personnelle
+  n'est transmise.
 - **FR-005**: Frigg MUST NOT recevoir, afficher ni conserver les numéros de
   carte ou toute autre donnée bancaire du payeur.
 
@@ -320,7 +324,9 @@ l'avertissement.
   soient le nombre et l'ordre des notifications et retours reçus.
 - **FR-008b**: Les administrateurs MUST pouvoir vérifier auprès de HelloAsso
   l'état d'une tentative en cours ; une tentative restée en cours au-delà de
-  sa durée de validité MUST être signalée aux administrateurs.
+  sa durée de validité MUST être vérifiée automatiquement auprès de HelloAsso
+  (constatée si payée, close sinon) et signalée aux administrateurs seulement
+  si cette vérification reste impossible plus de 24 heures.
 - **FR-009**: Une tentative échouée, abandonnée ou expirée MUST laisser
   l'adhésion dans son état de paiement précédent et permettre une nouvelle
   tentative ou le choix d'un autre moyen.
@@ -359,8 +365,9 @@ l'avertissement.
 
 - **FR-016**: La consultation d'une adhésion payée par carte MUST afficher la
   date et l'heure, le montant reçu, la référence HelloAsso et un lien vers la
-  transaction dans l'espace HelloAsso ; une tentative en cours MUST être
-  visible.
+  transaction dans l'espace HelloAsso, ou, si HelloAsso ne permet pas d'y
+  accéder directement, vers l'espace HelloAsso de l'association ; une
+  tentative en cours MUST être visible.
 - **FR-017**: La liste des adhésions MUST pouvoir être filtrée par moyen
   effectif, et la recherche MUST accepter une référence HelloAsso ; les
   chiffres de la saison MUST détailler le montant encaissé par moyen.

@@ -33,14 +33,16 @@ Aucune nouvelle route : les écrans de 006 évoluent
   carte » (`aria-describedby` vers ce texte), état de chargement, erreur
   `503` affichée sans quitter la page.
 - Mode test : bandeau `warn` « Mode test — aucun débit réel » au-dessus des
-  moyens.
+  moyens ; badge `warn` « Mode test » sur toute adhésion payée en mode test,
+  ici et dans la liste `/adhesions` (`MembershipBadges`, FR-015).
 
 ## `/admin/parametres/paiements`
 
 Carte « Carte bancaire (HelloAsso) », placée avant les espèces :
 
 - non configuré : texte expliquant que l'hébergeur renseigne les variables
-  `FRIGG_HELLOASSO_*`, lien vers la documentation d'installation ;
+  `FRIGG_HELLOASSO_*`, lien vers la documentation d'installation et vers
+  la documentation de HelloAsso (`https://dev.helloasso.com`) ;
   interrupteur désactivé (`aria-disabled` + explication liée) ;
 - configuré : badge `Mode test` (`warn`) ou `Production` (`ok`), slug,
   adresse de notification en lecture seule avec bouton « Copier » (annonce
@@ -52,8 +54,10 @@ Carte « Carte bancaire (HelloAsso) », placée avant les espèces :
 
 ## `/admin/adhesions/:id`
 
-- Paiement par carte constaté : « Payée — carte bancaire », date et heure,
-  montant reçu, « Commande HelloAsso n° 98765 » avec lien externe
+- Paiement par carte constaté : « Payée — carte bancaire » (badge « Mode
+  test » si payé en mode test), date et heure,
+  montant reçu, « Commande HelloAsso n° 98765 » avec lien externe vers la
+  commande ou, à défaut, vers l'espace HelloAsso de l'association
   (`target="_blank"`, `rel="noopener noreferrer"`, mention « nouvel onglet »
   pour les lecteurs d'écran).
 - Bloc « Paiements en ligne » : tableau des tentatives (date, état en badge,

@@ -66,7 +66,7 @@ dans l'application (simple redirection de premier niveau) ; commentaires
 sqlc en ASCII
 
 **Scale/Scope**: une association, quelques centaines à quelques milliers
-d'adhésions par saison ; 6 opérations ajoutées, 9 modifiées ; 5 écrans
+d'adhésions par saison ; 6 opérations ajoutées, 10 modifiées ; 5 écrans
 modifiés, aucune nouvelle route
 
 ## Constitution Check
@@ -138,7 +138,7 @@ internal/
 │   ├── notification.go                 # NotificationKey, décodage tolérant
 │   └── client_test.go
 ├── membership/
-│   ├── membership.go                   # Method card, ActionsFor
+│   ├── membership.go                   # Method card, CanPayByCard, CanCancelPayment
 │   ├── online.go                       # nouveau : CardAvailability, SettleOnline, AlertKind
 │   ├── online_test.go
 │   └── stats.go                        # carte, paiements de test

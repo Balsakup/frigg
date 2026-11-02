@@ -31,7 +31,7 @@ Attendu en plus de 006 :
   nouvelle tentative, délai dépassé → `ErrUnavailable`, intention sans
   `order`, paiement `Authorized` avec contribution, `redirectUrl` d'hôte
   inattendu refusée, secret absent de toute erreur ;
-- `internal/membership` (tests en table) : `CardAvailability`, `ActionsFor`
+- `internal/membership` (tests en table) : `CardAvailability`, `CanPayByCard`, `MemberActionsFor`/`AdminActionsFor`
   avec carte, `SettleOnline` pour chaque ligne du tableau de
   [R5](./research.md#r5-vérification-et-constatation-cœur-de-la-fonctionnalité),
   `Stats` avec carte et paiements de test ;

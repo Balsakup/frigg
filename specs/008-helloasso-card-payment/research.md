@@ -96,8 +96,10 @@ base ni les adhésions.
   le jeton de rafraîchissement, puis par `client_credentials` en cas d'échec.
   Un `401` sur un appel déclenche un seul renouvellement puis une seule
   nouvelle tentative.
-- **Délais** : `http.Client` dédié, 10 s par appel (SC test de connexion
-  < 10 s) ; aucune nouvelle tentative automatique sur `POST checkout-intents`
+- **Délais** : `http.Client` dédié, 10 s par appel ; le test de connexion
+  (`Organization`) s'exécute sous un `context.WithTimeout` global de 10 s qui
+  couvre l'obtention du jeton et l'appel (US2 sc. 2 : résultat en moins de
+  10 s) ; aucune nouvelle tentative automatique sur `POST checkout-intents`
   (pas de double intention).
 - **Erreurs typées** : `ErrUnauthorized` (identifiants refusés),
   `ErrForbidden` (droit « Checkout » manquant), `ErrNotFound` (association
@@ -114,7 +116,7 @@ base ni les adhésions.
 **Décision** : table `online_payments`, une ligne par tentative
 ([data-model.md](./data-model.md)). Démarrer un paiement :
 
-1. Lecture de l'adhésion (cloisonnée au compte), `membership.ActionsFor`
+1. Lecture de l'adhésion (cloisonnée au compte), `membership.CanPayByCard`
    doit autoriser `PayByCard` : validée, non gratuite, à payer ou au paiement
    annoncé, carte disponible (R7).
 2. **Reprise** : s'il existe une tentative `pending` de cette adhésion, du
@@ -270,6 +272,9 @@ du worker d'e-mails lorsque HelloAsso est configuré, toutes les 5 minutes :
   (R5) ; sans paiement autorisé → `expired` ;
 - HelloAsso injoignable → la tentative reste `pending` ; au-delà de 24 h,
   signalement `unverified` aux administrateurs (FR-008b) ;
+- tentatives `pending` d'un **autre environnement** que celui configuré
+  (bascule test → réel ou inverse) → `expired` avec `error_code =
+  'environment_changed'`, sans appel à HelloAsso ni signalement ;
 - au plus 50 tentatives par passage, les plus anciennes d'abord.
 
 Le balayage rattrape une notification perdue sans réintroduire de
@@ -311,7 +316,7 @@ disparaît quand il n'en reste plus.
 - `record-membership-payment` (constatation manuelle) refuse `card` en
   `422` : seul HelloAsso constate un paiement par carte.
 - `cancel-membership-payment` est refusé (`409`) pour un paiement par carte
-  (FR-010) ; `ActionsFor` renvoie `cancelPayment=false`.
+  (FR-010) ; `CanCancelPayment` renvoie `false`, donc `AdminActionsFor` aussi.
 - Correction (`update-membership`) et annulation (`cancel-membership`)
   d'une adhésion avec une tentative `pending` récente : l'API renvoie
   `cardPaymentPending=true` dans l'adhésion ; le dialogue avertit (pas de
