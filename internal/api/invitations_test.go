@@ -170,3 +170,15 @@ func TestExpiredInvitation(t *testing.T) {
 		t.Fatalf("statut attendu expired : %+v", list.Items)
 	}
 }
+
+// Le jeton est vérifié avant le mot de passe : un faux jeton ne déclenche ni la
+// règle de mot de passe ni le hachage argon2id.
+func TestAcceptInvitationChecksTokenFirst(t *testing.T) {
+	env := apitest.New(t)
+	res := env.Client().Do("POST", "/api/auth/invitation/accept", map[string]string{"token": "inconnu", "password": "faible"})
+	var p apitest.Problem
+	res.JSON(t, &p)
+	if res.Status != http.StatusGone || p.Detail != api.MsgInvitationGone {
+		t.Fatalf("faux jeton : %d %+v", res.Status, p)
+	}
+}

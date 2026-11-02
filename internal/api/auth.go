@@ -190,12 +190,13 @@ func (s *server) acceptInvitation(ctx context.Context, in *PasswordTokenInput) (
 	if !s.Limits.TokenIP.Allow(clientIP(ctx)) {
 		return nil, TooManyAttempts()
 	}
-	if msgs := auth.ValidatePassword(in.Body.Password); len(msgs) > 0 {
-		return nil, FieldErrors("body.password", msgs...)
+	// Jeton vérifié avant le hachage (coûteux) ; revérifié dans la transaction.
+	if _, err := validInvitation(ctx, s.Store.Read, in.Body.Token); err != nil {
+		return nil, s.txError(ctx, "lecture de l'invitation impossible", err)
 	}
-	hash, err := auth.HashPassword(in.Body.Password)
+	hash, err := s.hashNewPassword(ctx, in.Body.Password)
 	if err != nil {
-		return nil, s.internalError(ctx, "hachage du mot de passe impossible", err)
+		return nil, err
 	}
 
 	var account sqlc.Account
@@ -226,6 +227,18 @@ func (s *server) acceptInvitation(ctx context.Context, in *PasswordTokenInput) (
 		return nil, s.txError(ctx, "acceptation de l'invitation impossible", err)
 	}
 	return s.openSession(ctx, account)
+}
+
+// hashNewPassword applique la règle de mot de passe puis le hache.
+func (s *server) hashNewPassword(ctx context.Context, password string) (string, error) {
+	if msgs := auth.ValidatePassword(password); len(msgs) > 0 {
+		return "", FieldErrors("body.password", msgs...)
+	}
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return "", s.internalError(ctx, "hachage du mot de passe impossible", err)
+	}
+	return hash, nil
 }
 
 type EmailInput struct {
@@ -269,12 +282,13 @@ func (s *server) confirmPasswordReset(ctx context.Context, in *PasswordTokenInpu
 	if !s.Limits.TokenIP.Allow(clientIP(ctx)) {
 		return nil, TooManyAttempts()
 	}
-	if msgs := auth.ValidatePassword(in.Body.Password); len(msgs) > 0 {
-		return nil, FieldErrors("body.password", msgs...)
+	// Jeton vérifié avant le hachage (coûteux) ; consommé dans la transaction.
+	if err := checkToken(ctx, s.Store.Read, in.Body.Token, purposePasswordReset); err != nil {
+		return nil, s.txError(ctx, "lecture du jeton impossible", err)
 	}
-	hash, err := auth.HashPassword(in.Body.Password)
+	hash, err := s.hashNewPassword(ctx, in.Body.Password)
 	if err != nil {
-		return nil, s.internalError(ctx, "hachage du mot de passe impossible", err)
+		return nil, err
 	}
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		tok, err := consumeToken(ctx, q, in.Body.Token, purposePasswordReset)

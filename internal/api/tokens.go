@@ -42,6 +42,16 @@ func issueToken(ctx context.Context, q *sqlc.Queries, accountID int64, purpose s
 	return raw, err
 }
 
+// checkToken vérifie le jeton sans le consommer ; 410 s'il est inconnu, expiré
+// ou déjà utilisé.
+func checkToken(ctx context.Context, q *sqlc.Queries, raw, purpose string) error {
+	_, err := q.GetValidToken(ctx, sqlc.GetValidTokenParams{TokenHash: auth.HashToken(raw), Purpose: purpose, Now: nowString()})
+	if errors.Is(err, sql.ErrNoRows) {
+		return huma.NewError(http.StatusGone, MsgLinkGone)
+	}
+	return err
+}
+
 // consumeToken vérifie le jeton et le marque comme utilisé ; 410 s'il est
 // inconnu, expiré ou déjà utilisé.
 func consumeToken(ctx context.Context, q *sqlc.Queries, raw, purpose string) (sqlc.OneTimeToken, error) {

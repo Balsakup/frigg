@@ -88,3 +88,15 @@ func TestPasswordResetExpiredAndRateLimited(t *testing.T) {
 		t.Fatalf("4e demande en une heure : %d, attendu 429", res.Status)
 	}
 }
+
+// Le jeton est vérifié avant le mot de passe : un faux jeton ne déclenche ni la
+// règle de mot de passe ni le hachage argon2id.
+func TestPasswordResetChecksTokenFirst(t *testing.T) {
+	env := apitest.New(t)
+	res := env.Client().Do("POST", "/api/auth/password-reset/confirm", map[string]string{"token": "inconnu", "password": "faible"})
+	var p apitest.Problem
+	res.JSON(t, &p)
+	if res.Status != http.StatusGone || p.Detail != api.MsgLinkGone {
+		t.Fatalf("faux jeton : %d %+v", res.Status, p)
+	}
+}
