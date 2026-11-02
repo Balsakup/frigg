@@ -1,0 +1,23 @@
+# Contexte de construction de l'image en liste blanche : tout est exclu par
+# défaut, puis seuls les fichiers nécessaires à la compilation sont réautorisés.
+# Un fichier absent de cette liste (.env, data/, bin/, .git, specs/…) n'entre
+# donc jamais dans le contexte, même s'il est ajouté plus tard au dépôt.
+*
+
+!cmd/
+!internal/
+!web/
+!go.mod
+!go.sum
+!LICENSE
+
+# Artefacts et dépendances du frontend, reconstruits dans l'image.
+web/node_modules
+web/build
+web/.react-router
+web/test-results
+web/playwright-report
+web/blob-report
+web/playwright/.cache
+web/.agents
+web/.env
