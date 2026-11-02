@@ -1,0 +1,199 @@
+# Publie l'image ghcr.io/balsakup/frigg à chaque release GitHub publiée
+# (specs/007-docker-release/contracts/release.md) :
+#   verify   → format de l'étiquette, version, latest, compilation et tests ;
+#   image    → construction, publication multi-architecture, provenance
+#              et SBOM ;
+#   announce → ajoute l'image et son empreinte aux notes de la release.
+# Un échec avant la publication ne publie rien ; il est visible dans l'onglet
+# Actions et notifié par GitHub. Les actions tierces sont épinglées par SHA.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/balsakup/frigg
+  BUN_VERSION: 1.3.14 # garder alignée sur l'image oven/bun du Dockerfile
+
+jobs:
+  verify:
+    name: Vérifie la release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+      latest: ${{ steps.tag.outputs.latest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Contrôle l'étiquette et calcule la version
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::étiquette $TAG invalide : format attendu vX.Y.Z ou vX.Y.Z-suffixe"
+            exit 1
+          fi
+          version="${TAG#v}"
+          prerelease=false
+          if [[ -n "${BASH_REMATCH[4]}" || "$RELEASE_PRERELEASE" == "true" ]]; then
+            prerelease=true
+          fi
+          # latest ne désigne que la plus haute version stable : un correctif
+          # d'une ancienne branche (v1.1.4 après v1.2.0) ne le déplace pas.
+          highest=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
+          latest=false
+          if [[ "$prerelease" == "false" && "$TAG" == "$highest" ]]; then
+            latest=true
+          fi
+          echo "Version $version, préversion : $prerelease, latest : $latest"
+          {
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "latest=$latest"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Installe les dépendances du frontend
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Compile le frontend
+        working-directory: web
+        run: bun run build
+
+      - name: Compile le binaire (CGO_ENABLED=0)
+        env:
+          CGO_ENABLED: "0"
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Tests Go
+        run: go test ./...
+
+      - name: Vérifie les types du frontend
+        working-directory: web
+        run: bun run typecheck
+
+      - name: Lint du frontend
+        working-directory: web
+        run: bun run lint
+
+      - name: Tests du frontend
+        working-directory: web
+        run: bun run test
+
+  image:
+    name: Construit et publie l'image
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prépare étiquettes et métadonnées
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ needs.verify.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.verify.outputs.latest == 'true' }}
+          labels: |
+            org.opencontainers.image.title=Frigg
+            org.opencontainers.image.description=Gestion d'association auto-hébergée
+            org.opencontainers.image.version=${{ needs.verify.outputs.version }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+
+      - name: Construit et publie l'image
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.verify.outputs.version }}
+            REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Atteste la provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  announce:
+    name: Annonce l'image dans la release
+    needs: [verify, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Ajoute l'image aux notes de la release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          VERSION: ${{ needs.verify.outputs.version }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ref="ghcr.io/balsakup/frigg:$VERSION"
+          body=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+          # Relance idempotente : la ligne n'est ajoutée qu'une fois.
+          if grep -qF "$ref" <<<"$body"; then
+            echo "Notes déjà à jour."
+            exit 0
+          fi
+          printf '%s\n\n**Image** : `%s`\n(`%s`, linux/amd64 et linux/arm64)\n' "$body" "$ref" "$DIGEST" \
+            | gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file -
