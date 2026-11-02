@@ -35,9 +35,19 @@ L'application entière est protégée par authentification : refus par défaut.
     `POST`, est exemptée de la protection CSRF faute d'origine navigateur, et
     son seul effet est de déclencher une vérification de l'état du paiement
     auprès du prestataire : le contenu reçu MUST NOT suffire à constater un
-    paiement ni à modifier une donnée sans cette vérification. Sa réponse est
-    identique quel que soit le contenu reçu et MUST NOT révéler de donnée de
-    l'association, de version, de configuration ni de détail d'erreur interne.
+    paiement ni à modifier une donnée sans cette vérification. L'adresse porte
+    une clé dérivée du secret d'accès au prestataire, connue seulement de lui
+    et de l'instance :
+    - toute requête sans la clé valide (absente, fausse ou mal formée) reçoit
+      une réponse identique (`200`, corps vide), sans traitement ni appel au
+      prestataire ;
+    - une requête portant la clé valide reçoit la réponse attendue par le
+      protocole du prestataire : `200` lorsque la notification est traitée ou
+      ignorée, `503` en cas d'erreur passagère de Frigg ou d'indisponibilité
+      du prestataire pendant la vérification, afin qu'il la renvoie ;
+    - dans tous les cas, la réponse MUST NOT révéler de donnée de
+      l'association, de version, de configuration ni de détail d'erreur
+      interne.
 - Cette liste d'exceptions est explicite et centralisée dans le code ; une
   nouvelle route publique MUST faire l'objet d'un amendement de cette
   constitution.
@@ -367,4 +377,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.6.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
+**Version**: 1.7.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
