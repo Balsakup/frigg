@@ -29,6 +29,14 @@ L'application entière est protégée par authentification : refus par défaut.
   - le point de santé, en lecture seule, destiné aux vérifications de santé du
     conteneur, d'un orchestrateur ou d'un reverse proxy. Il indique uniquement
     si l'instance peut servir des requêtes et MUST NOT exposer de donnée de
+    l'association, de version, de configuration ni de détail d'erreur interne ;
+  - l'adresse de réception des notifications du prestataire de paiement en
+    ligne (HelloAsso, voir principe V). Elle accepte uniquement les requêtes
+    `POST`, est exemptée de la protection CSRF faute d'origine navigateur, et
+    son seul effet est de déclencher une vérification de l'état du paiement
+    auprès du prestataire : le contenu reçu MUST NOT suffire à constater un
+    paiement ni à modifier une donnée sans cette vérification. Sa réponse est
+    identique quel que soit le contenu reçu et MUST NOT révéler de donnée de
     l'association, de version, de configuration ni de détail d'erreur interne.
 - Cette liste d'exceptions est explicite et centralisée dans le code ; une
   nouvelle route publique MUST faire l'objet d'un amendement de cette
@@ -113,7 +121,14 @@ Frigg se livre sous la forme d'un **binaire unique**, compilé avec
   démarrage ; un échec de migration MUST empêcher le démarrage du serveur.
 - Les seules dépendances d'exécution externes autorisées sont : le fichier
   SQLite, le répertoire de données des fichiers déposés, le fichier `.env`
-  (facultatif) et un serveur SMTP.
+  (facultatif), un serveur SMTP et, de façon facultative, l'API de paiement
+  en ligne **HelloAsso**.
+- HelloAsso est activé uniquement si ses identifiants sont fournis par la
+  configuration (variables d'environnement) ; ils ne sont jamais saisis dans
+  l'interface. Leur absence MUST NOT empêcher le démarrage, et une
+  indisponibilité de HelloAsso MUST NOT empêcher les autres fonctions de
+  Frigg : seul le paiement par carte devient indisponible. Le secret d'accès
+  MUST NOT être stocké en base, renvoyé au navigateur ni journalisé.
 - La commande `frigg backup` produit une sauvegarde cohérente à chaud de la base
   (`VACUUM INTO`) ; la sauvegarde complète d'une instance = ce fichier + le
   répertoire de données.
@@ -244,7 +259,9 @@ leurs métadonnées (nom généré, nom d'origine, type, taille, propriétaire).
 **Configuration** : toute la configuration passe par des variables
 d'environnement, éventuellement chargées depuis un fichier `.env`. Les variables
 déjà présentes dans l'environnement priment sur le `.env`. Le démarrage MUST
-échouer avec un message explicite si une variable obligatoire manque. Un fichier
+échouer avec un message explicite si une variable obligatoire manque ; une
+variable facultative absente (identifiants HelloAsso, par exemple) désactive
+seulement la fonction qui en dépend. Un fichier
 `.env.example` documente chaque variable ; le `.env` n'est jamais commité.
 
 **Journaux** : `slog` avec un handler JSON sur la sortie standard ; chaque requête
@@ -350,4 +367,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.5.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
+**Version**: 1.6.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
