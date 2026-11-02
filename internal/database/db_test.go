@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
 )
@@ -37,5 +38,24 @@ func TestOpenAndMigrate(t *testing.T) {
 	}
 	if name.Valid {
 		t.Fatalf("nom attendu NULL, obtenu %q", name.String)
+	}
+}
+
+// Les fichiers temporaires de SQLite restent en mémoire : l'instance doit
+// fonctionner avec un système de fichiers racine en lecture seule.
+func TestTempStoreInMemory(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "frigg.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	for name, db := range map[string]interface {
+		QueryRow(string, ...any) *sql.Row
+	}{"d'écriture": store.WriteDB, "de lecture": store.ReadDB} {
+		var mode int
+		if err := db.QueryRow("PRAGMA temp_store").Scan(&mode); err != nil || mode != 2 {
+			t.Errorf("pool %s : temp_store = %d (%v), attendu 2 (MEMORY)", name, mode, err)
+		}
 	}
 }

@@ -1,0 +1,20 @@
+# Mises à jour hebdomadaires des dépendances de construction épinglées par
+# empreinte (images du Dockerfile) ou par SHA (actions GitHub) : sans elles,
+# les versions figées vieilliraient et l'analyse de vulnérabilités de la
+# release finirait par bloquer toute publication (spec 007, research.md › R3).
+# Penser à aligner BUN_VERSION de release.yml quand l'image oven/bun change.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "⬆️"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "⬆️"

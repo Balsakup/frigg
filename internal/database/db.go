@@ -67,6 +67,10 @@ func dsn(path string, readOnly bool) string {
 	q.Add("_pragma", "busy_timeout(5000)")
 	q.Add("_pragma", "foreign_keys(1)")
 	q.Add("_pragma", "synchronous(NORMAL)")
+	// Tris et index temporaires en mémoire : sans cela, SQLite écrit des
+	// fichiers dans /tmp, ce qui échoue quand le conteneur tourne avec un
+	// système de fichiers racine en lecture seule (spec 007, research.md › R6).
+	q.Add("_pragma", "temp_store(MEMORY)")
 	if readOnly {
 		q.Add("_pragma", "query_only(1)")
 	} else {

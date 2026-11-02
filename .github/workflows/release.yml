@@ -1,8 +1,8 @@
 # Publie l'image ghcr.io/balsakup/frigg à chaque release GitHub publiée
 # (specs/007-docker-release/contracts/release.md) :
 #   verify   → format de l'étiquette, version, latest, compilation et tests ;
-#   image    → construction, publication multi-architecture, provenance
-#              et SBOM ;
+#   image    → construction, analyse de vulnérabilités bloquante, publication
+#              multi-architecture, provenance et SBOM ;
 #   announce → ajoute l'image et son empreinte aux notes de la release.
 # Un échec avant la publication ne publie rien ; il est visible dans l'onglet
 # Actions et notifié par GitHub. Les actions tierces sont épinglées par SHA.
@@ -147,6 +147,30 @@ jobs:
             org.opencontainers.image.description=Gestion d'association auto-hébergée
             org.opencontainers.image.version=${{ needs.verify.outputs.version }}
             org.opencontainers.image.licenses=AGPL-3.0-or-later
+
+      # Analyse bloquante avant toute publication : l'image amd64 est
+      # construite localement puis analysée ; une vulnérabilité critique ou
+      # élevée corrigeable arrête le job.
+      - name: Construit l'image à analyser
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: frigg:scan
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+
+      - name: Analyse les vulnérabilités
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: frigg:scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
 
       - name: Construit et publie l'image
         id: push
