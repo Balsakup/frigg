@@ -40,3 +40,20 @@ func TestChangePassword(t *testing.T) {
 		t.Fatalf("connexion avec le nouveau mot de passe : %d", res.Status)
 	}
 }
+
+func TestChangePasswordRateLimit(t *testing.T) {
+	env := apitest.New(t)
+	email := env.Seed(auth.RoleMember, true)
+	c := env.LoggedIn(email)
+	for i := range 5 {
+		if res := c.Do("PUT", "/api/me/password", map[string]string{"currentPassword": "Faux2026", "newPassword": "Nouveau2026"}); res.Status != http.StatusUnprocessableEntity {
+			t.Fatalf("tentative %d : %d", i+1, res.Status)
+		}
+	}
+	res := c.Do("PUT", "/api/me/password", map[string]string{"currentPassword": apitest.Password, "newPassword": "Nouveau2026"})
+	var p apitest.Problem
+	res.JSON(t, &p)
+	if res.Status != http.StatusTooManyRequests || p.Detail != api.MsgTooManyAttempts || res.Header.Get("Retry-After") == "" {
+		t.Fatalf("6e tentative : %d %+v", res.Status, p)
+	}
+}

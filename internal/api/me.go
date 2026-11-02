@@ -55,6 +55,9 @@ type ChangePasswordInput struct {
 
 func (s *server) changePassword(ctx context.Context, in *ChangePasswordInput) (*struct{}, error) {
 	account := CurrentAccount(ctx)
+	if !s.Limits.ChangePassword.Allow(strconv.FormatInt(account.ID, 10)) {
+		return nil, TooManyAttempts()
+	}
 	if !auth.VerifyPassword(in.Body.CurrentPassword, account.PasswordHash) {
 		return nil, FieldErrors("body.currentPassword", MsgWrongCurrentPassword)
 	}

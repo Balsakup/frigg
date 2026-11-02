@@ -71,20 +71,25 @@ type Limits struct {
 	TokenIP       *KeyedLimiter
 	InviteAdmin   *KeyedLimiter
 	AdminReset    *KeyedLimiter
+	// ChangePassword borne les essais du mot de passe actuel par compte : une
+	// session volée ne doit pas permettre de le deviner, et chaque essai coûte
+	// un hachage argon2id.
+	ChangePassword *KeyedLimiter
 }
 
 // NewLimits crée les limiteurs avec les valeurs de research.md › R7.
 func NewLimits() *Limits {
 	return &Limits{
-		LoginEmail:    NewKeyedLimiter(5, 15*time.Minute),
-		LoginIP:       NewKeyedLimiter(20, time.Minute),
-		ResetEmail:    NewKeyedLimiter(3, time.Hour),
-		ResetIP:       NewKeyedLimiter(10, time.Hour),
-		VerifyAccount: NewKeyedLimiter(3, time.Hour),
-		VerifyIP:      NewKeyedLimiter(10, time.Hour),
-		TokenIP:       NewKeyedLimiter(10, time.Minute),
-		InviteAdmin:   NewKeyedLimiter(30, time.Hour),
-		AdminReset:    NewKeyedLimiter(30, time.Hour), // research.md 002 › R9
+		LoginEmail:     NewKeyedLimiter(5, 15*time.Minute),
+		LoginIP:        NewKeyedLimiter(20, time.Minute),
+		ResetEmail:     NewKeyedLimiter(3, time.Hour),
+		ResetIP:        NewKeyedLimiter(10, time.Hour),
+		VerifyAccount:  NewKeyedLimiter(3, time.Hour),
+		VerifyIP:       NewKeyedLimiter(10, time.Hour),
+		TokenIP:        NewKeyedLimiter(10, time.Minute),
+		InviteAdmin:    NewKeyedLimiter(30, time.Hour),
+		AdminReset:     NewKeyedLimiter(30, time.Hour), // research.md 002 › R9
+		ChangePassword: NewKeyedLimiter(5, 15*time.Minute),
 	}
 }
 
@@ -97,7 +102,7 @@ func (l *Limits) RunPurge(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset} {
+			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset, l.ChangePassword} {
 				k.purge(2 * time.Hour)
 			}
 		}
