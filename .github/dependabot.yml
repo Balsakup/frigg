@@ -2,7 +2,9 @@
 # empreinte (images du Dockerfile) ou par SHA (actions GitHub) : sans elles,
 # les versions figées vieilliraient et l'analyse de vulnérabilités de la
 # release finirait par bloquer toute publication (spec 007, research.md › R3).
-# Penser à aligner BUN_VERSION de release.yml quand l'image oven/bun change.
+# Les modules Go et les paquets du frontend sont aussi suivis chaque semaine.
+# Penser à aligner BUN_VERSION de release.yml et ci.yml quand l'image oven/bun
+# change.
 version: 2
 updates:
   - package-ecosystem: docker
@@ -18,3 +20,25 @@ updates:
       interval: weekly
     commit-message:
       prefix: "⬆️"
+
+  # Modules Go : mineures et correctifs regroupés, majeures en PR séparées.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "⬆️"
+    groups:
+      go:
+        update-types: [minor, patch]
+
+  # Frontend : l'écosystème bun met à jour web/bun.lock (npm ne le ferait pas).
+  - package-ecosystem: bun
+    directory: /web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "⬆️"
+    groups:
+      web:
+        update-types: [minor, patch]
