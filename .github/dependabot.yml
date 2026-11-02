@@ -31,6 +31,11 @@ updates:
     groups:
       go:
         update-types: [minor, patch]
+    # Sous-module sans étiquette (pseudo-version) : Dependabot lui attribue à
+    # tort l'étiquette v1.4.1 du module parent et échoue. Mise à jour manuelle :
+    # go get github.com/alexedwards/scs/sqlite3store@latest
+    ignore:
+      - dependency-name: github.com/alexedwards/scs/sqlite3store
 
   # Frontend : l'écosystème bun met à jour web/bun.lock (npm ne le ferait pas).
   - package-ecosystem: bun
@@ -42,3 +47,9 @@ updates:
     groups:
       web:
         update-types: [minor, patch]
+    # TypeScript 7 (compilateur réécrit en Go) n'expose plus l'API JavaScript
+    # (ts.factory) dont openapi-typescript a besoin pour gen:api. À lever
+    # quand openapi-typescript le prendra en charge.
+    ignore:
+      - dependency-name: typescript
+        versions: [">=7"]
