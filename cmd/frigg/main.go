@@ -21,6 +21,7 @@ Commandes :
   openapi       écrit le schéma OpenAPI sur la sortie standard
   create-admin  crée un administrateur (et le nom de l'association si besoin)
   backup        sauvegarde la base : frigg backup <fichier>
+  healthcheck   vérifie l'état de santé de l'instance locale (code 0 si saine)
 `
 
 func main() {
@@ -42,6 +43,8 @@ func main() {
 		err = cli.CreateAdminCommand(ctx, os.Args[2:], os.Stdout, os.Stderr)
 	case "backup":
 		err = cli.BackupCommand(ctx, os.Args[2:], os.Stdout)
+	case "healthcheck":
+		err = cli.HealthcheckCommand(ctx)
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 		return

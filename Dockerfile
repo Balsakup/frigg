@@ -70,5 +70,11 @@ WORKDIR /data
 VOLUME ["/data"]
 EXPOSE 8080
 
+# Vérification de santé par le binaire lui-même (l'image n'a ni shell ni
+# curl) : « sain » quelques secondes après le démarrage grâce au sondage
+# rapproché, « en mauvaise santé » en moins de 2 minutes après une panne.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
+    CMD ["/frigg", "healthcheck"]
+
 ENTRYPOINT ["/frigg"]
 CMD ["serve"]

@@ -65,6 +65,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s := &server{Deps: deps}
 	api.UseMiddleware(s.accessMiddleware(api))
 
+	s.registerHealth(api)
 	s.registerAuth(api)
 	s.registerMe(api)
 	s.registerInvitations(api)

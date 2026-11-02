@@ -45,3 +45,10 @@ ni configuration SMTP. Utilisé par `bun run gen:api` dans `web/`.
 Sauvegarde cohérente à chaud via `VACUUM INTO '<fichier>'`. Refuse d'écraser un
 fichier existant (`le fichier … existe déjà`, code 1). Rappelle en sortie que le
 répertoire `FRIGG_DATA_DIR` doit être sauvegardé à part.
+
+## `frigg healthcheck`
+
+Ajoutée par la spec 007 : voir
+[specs/007-docker-release/contracts/cli.md](../../007-docker-release/contracts/cli.md),
+qui décrit aussi le contrôle d'écriture des répertoires de données effectué par
+`frigg serve` au démarrage.

@@ -33,7 +33,14 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 		if info.AccountID != 0 {
 			attrs = append(attrs, "account_id", info.AccountID)
 		}
-		logger.InfoContext(r.Context(), "requête traitée", attrs...)
+		// Le point de santé est interrogé toutes les 30 s par le conteneur :
+		// ses réponses réussies ne sont visibles qu'en debug pour ne pas
+		// noyer les journaux ; un échec reste journalisé en info.
+		level := slog.LevelInfo
+		if r.URL.Path == api.HealthPath && rec.status < http.StatusBadRequest {
+			level = slog.LevelDebug
+		}
+		logger.Log(r.Context(), level, "requête traitée", attrs...)
 	})
 }
 

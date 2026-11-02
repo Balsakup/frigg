@@ -588,6 +588,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * État de santé de l'instance
+         * @description Indique si l'instance peut servir des requêtes (serveur démarré, base accessible). Destiné aux vérifications de santé du conteneur, d'un orchestrateur ou d'un reverse proxy.
+         */
+        get: operations["get-health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/email-verification": {
         parameters: {
             query?: never;
@@ -1105,6 +1125,13 @@ export interface components {
              * @description Montant d'un renouvellement, en centimes
              */
             renewal: number;
+        };
+        HealthOutputBody: {
+            /**
+             * @description État de l'instance
+             * @enum {string}
+             */
+            status: "ok";
         };
         Invitation: {
             /** Format: date-time */
@@ -3145,6 +3172,45 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthOutputBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1006,6 +1006,22 @@
         ],
         "type": "object"
       },
+      "HealthOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "description": "État de l'instance",
+            "enum": [
+              "ok"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
       "Invitation": {
         "additionalProperties": false,
         "properties": {
@@ -5040,6 +5056,55 @@
         "summary": "Choisir un nouveau mot de passe",
         "tags": [
           "Authentification"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Indique si l'instance peut servir des requêtes (serveur démarré, base accessible). Destiné aux vérifications de santé du conteneur, d'un orchestrateur ou d'un reverse proxy.",
+        "operationId": "get-health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOutputBody"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "État de santé de l'instance",
+        "tags": [
+          "Santé"
         ]
       }
     },

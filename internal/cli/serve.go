@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/balsakup/frigg/internal/api"
 	"github.com/balsakup/frigg/internal/auth"
@@ -24,6 +25,11 @@ func Serve(ctx context.Context) error {
 	}
 	if err := cfg.RequireServe(); err != nil {
 		return err
+	}
+	for _, dir := range []string{filepath.Dir(cfg.DatabasePath), cfg.DataDir} {
+		if err := ensureWritableDir(dir); err != nil {
+			return err
+		}
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 
