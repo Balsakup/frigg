@@ -35,7 +35,7 @@ Authorization: Bearer …
 POST {hôte}/v5/organizations/{slug}/checkout-intents
 {
   "totalAmount": 4000, "initialAmount": 4000,
-  "itemName": "Adhésion 2026-2027 — Léo Martin — Jeune",
+  "itemName": "Adhésion 2026-2027 — Jeune — ADH-2627-0042",
   "backUrl":   "{BASE_URL}/adhesions/42?carte=annule&tentative=7",
   "errorUrl":  "{BASE_URL}/adhesions/42?carte=erreur&tentative=7",
   "returnUrl": "{BASE_URL}/adhesions/42?carte=retour&tentative=7",

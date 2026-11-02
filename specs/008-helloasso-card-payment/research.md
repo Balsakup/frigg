@@ -124,8 +124,9 @@ base ni les adhésions.
 3. Sinon, insertion d'une tentative `pending` (transaction courte), puis
    **hors transaction** `CreateCheckout` avec :
    - `totalAmount = initialAmount = amount_cents`, `containsDonation=false` ;
-   - `itemName` = « Adhésion {saison} — {prénom nom} — {tarif} »
-     (tronqué à 250) ;
+   - `itemName` = « Adhésion {saison} — {tarif} — {référence} »
+     (tronqué à 250), sans nom du membre (FR-004, clarification du
+     2026-11-02) ;
    - `payer` : e-mail du compte, prénom et nom de la fiche « Vous » du
      compte si elle existe (FR-004 ; aucune autre donnée) ;
    - `metadata` = `{"frigg": {"payment": <id tentative>, "membership": <id>,

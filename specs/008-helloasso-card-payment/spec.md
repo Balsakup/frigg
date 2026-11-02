@@ -46,6 +46,10 @@ paiement, paramètres) sont ceux de 006.
   l'installe. « Paramètres » affiche l'état de la connexion et permet
   d'activer la carte bancaire ; l'activation est bloquée tant que les
   identifiants ne sont pas renseignés dans la configuration.
+- Q: Quel intitulé est transmis à HelloAsso ? → A: Saison, tarif et
+  référence de paiement, sans nom du membre (souvent un enfant) : aucune
+  donnée personnelle du membre ne sort de Frigg, la référence suffit au
+  rapprochement.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -80,8 +84,9 @@ vérifier que l'adhésion passe à « Payée » sans action d'un administrateur.
    « Payer [montant] par carte ».
 3. **Given** le bouton activé, **When** le titulaire le choisit, **Then** il
    est redirigé vers la page de paiement de HelloAsso pour le montant appliqué
-   exact, avec l'intitulé de l'adhésion (membre, saison, tarif), et ses nom,
-   prénom et adresse électronique préremplis.
+   exact, avec l'intitulé de l'adhésion (saison, tarif et référence de
+   paiement, sans nom du membre, par exemple « Adhésion 2026-2027 — Jeune —
+   ADH-2627-0042 »), et ses nom, prénom et adresse électronique préremplis.
 4. **Given** un paiement accepté par HelloAsso, **When** le titulaire revient
    sur Frigg, **Then** la page confirme le paiement, l'adhésion est « Payée »
    avec le moyen « Carte bancaire », la date du paiement et la référence de la
@@ -288,9 +293,10 @@ l'avertissement.
   fait chez HelloAsso et que la contribution volontaire proposée par HelloAsso
   est facultative.
 - **FR-004**: Le paiement MUST être transmis à HelloAsso avec un intitulé
-  identifiant l'adhésion (membre, saison, tarif) et la référence de paiement,
-  et préremplir le nom, le prénom et l'adresse électronique du titulaire du
-  compte ; aucune autre donnée personnelle n'est transmise.
+  composé de la saison, du tarif et de la référence de paiement, sans aucune
+  donnée personnelle du membre, et préremplir le nom, le prénom et l'adresse
+  électronique du titulaire du compte ; aucune autre donnée personnelle n'est
+  transmise.
 - **FR-005**: Frigg MUST NOT recevoir, afficher ni conserver les numéros de
   carte ou toute autre donnée bancaire du payeur.
 
