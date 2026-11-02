@@ -22,6 +22,7 @@ import {
 import { MembershipBadges } from "~/memberships/MembershipBadges";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
+import { Badge } from "~/ui/Badge";
 import { Button, buttonClasses } from "~/ui/Button";
 import { Field } from "~/ui/Field";
 import { Icon } from "~/ui/Icon";
@@ -48,6 +49,19 @@ const statusItems = [
   { value: "validated", label: "Validées" },
   { value: "refused", label: "Refusées" },
   { value: "cancelled", label: "Annulées" },
+];
+
+const methodItems = [
+  { value: "", label: "Tous" },
+  { value: "card", label: "Carte bancaire" },
+  { value: "cash", label: "Espèces" },
+  { value: "cheque", label: "Chèque" },
+  { value: "transfer", label: "Virement" },
+];
+
+const alertItems = [
+  { value: "", label: "Toutes" },
+  { value: "open", label: "Avec signalement" },
 ];
 
 const paymentItems = [
@@ -87,7 +101,15 @@ export default function AdminMemberships() {
 
   const clear = () => {
     setDraft("");
-    navigate({ season: filters.season, status: "", payment: "", q: "", page: 1 });
+    navigate({
+      season: filters.season,
+      status: "",
+      payment: "",
+      paidMethod: "",
+      alerts: "",
+      q: "",
+      page: 1,
+    });
   };
 
   const tooShort = draft.trim() !== "" && !hasSearchableTerm(draft);
@@ -163,7 +185,7 @@ export default function AdminMemberships() {
               hint={
                 tooShort
                   ? `Saisissez au moins ${SEARCH_MIN_LENGTH} caractères.`
-                  : "Membre ou référence de paiement."
+                  : "Membre, référence de paiement ou n° de commande HelloAsso."
               }
             />
             <Select
@@ -183,6 +205,18 @@ export default function AdminMemberships() {
               value={filters.payment}
               items={paymentItems}
               onValueChange={(v) => navigate({ ...filters, q: draft, payment: v, page: 1 })}
+            />
+            <Select
+              label="Payée par"
+              value={filters.paidMethod ?? ""}
+              items={methodItems}
+              onValueChange={(v) => navigate({ ...filters, q: draft, paidMethod: v, page: 1 })}
+            />
+            <Select
+              label="Signalements"
+              value={filters.alerts ?? ""}
+              items={alertItems}
+              onValueChange={(v) => navigate({ ...filters, q: draft, alerts: v, page: 1 })}
             />
           </search>
           <div className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-2">
@@ -252,6 +286,13 @@ export default function AdminMemberships() {
                     amountCents={m.amountCents}
                     payment={m.payment}
                   />
+                  {m.openAlerts > 0 ? (
+                    <span className="mt-1 block">
+                      <Badge tone="danger">
+                        {m.openAlerts} signalement{m.openAlerts > 1 ? "s" : ""}
+                      </Badge>
+                    </span>
+                  ) : null}
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{m.payment?.reference ?? "—"}</TableCell>
               </TableRow>
@@ -296,7 +337,29 @@ function Stats({ stats }: { stats: MembershipStats }) {
         )}
         {tile("Demandes en attente", String(stats.pending))}
         {tile("Total attendu", formatMoney(stats.totalCents))}
-        {tile("Encaissé", formatMoney(stats.paidCents))}
+        {tile(
+          "Encaissé",
+          formatMoney(stats.paidCents),
+          [
+            stats.collectedByMethod.card
+              ? `carte ${formatMoney(stats.collectedByMethod.card)}`
+              : "",
+            stats.collectedByMethod.cash
+              ? `espèces ${formatMoney(stats.collectedByMethod.cash)}`
+              : "",
+            stats.collectedByMethod.cheque
+              ? `chèque ${formatMoney(stats.collectedByMethod.cheque)}`
+              : "",
+            stats.collectedByMethod.transfer
+              ? `virement ${formatMoney(stats.collectedByMethod.transfer)}`
+              : "",
+            stats.collectedTest
+              ? `dont paiements de test ${formatMoney(stats.collectedTest)} (hors total)`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined,
+        )}
         {tile(
           "Restant à percevoir",
           formatMoney(stats.dueCents),

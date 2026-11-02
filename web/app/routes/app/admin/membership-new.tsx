@@ -8,7 +8,7 @@ import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
 import { seasonListQuery } from "~/api/seasons";
-import { formatAge, type MembershipKind, type PaymentMethod } from "~/lib/format";
+import { formatAge, type ManualPaymentMethod, type MembershipKind } from "~/lib/format";
 import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
 import { type MemberOption, MemberPicker } from "~/memberships/MemberPicker";
 import { Page } from "~/shell/Page";
@@ -30,7 +30,7 @@ const kindOptions: { value: MembershipKind; label: string }[] = [
   { value: "renewal", label: "Renouvellement" },
 ];
 
-const methodOptions: { value: PaymentMethod; label: string }[] = [
+const methodOptions: { value: ManualPaymentMethod; label: string }[] = [
   { value: "cash", label: "Espèces" },
   { value: "cheque", label: "Chèque" },
   { value: "transfer", label: "Virement" },
@@ -60,7 +60,7 @@ export default function MembershipNew() {
   const [feeId, setFeeId] = useState<number | null>(null);
   const [kind, setKind] = useState<MembershipKind | "">("");
   const [paid, setPaid] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod | "">("");
+  const [method, setMethod] = useState<ManualPaymentMethod | "">("");
   const [receivedOn, setReceivedOn] = useState(todayISO());
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Errors>({});

@@ -30,6 +30,8 @@ export function membershipPageQuery(query: {
   season?: string;
   status?: "pending" | "validated" | "refused" | "cancelled";
   payment?: "due" | "announced" | "paid" | "free";
+  paidMethod?: "card" | "cash" | "cheque" | "transfer";
+  alerts?: "open";
   member?: number;
   q?: string;
   page?: number;

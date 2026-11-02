@@ -436,6 +436,16 @@
           "actions": {
             "$ref": "#/components/schemas/AdminMembershipActions"
           },
+          "alerts": {
+            "description": "Signalements de paiement, non traités d'abord",
+            "items": {
+              "$ref": "#/components/schemas/PaymentAlert"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "amountCents": {
             "description": "Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré",
             "format": "int64",
@@ -454,6 +464,9 @@
           },
           "cancelledBy": {
             "$ref": "#/components/schemas/AccountRef"
+          },
+          "cardPaymentPending": {
+            "type": "boolean"
           },
           "createdBy": {
             "$ref": "#/components/schemas/AccountRef"
@@ -500,6 +513,16 @@
           },
           "member": {
             "$ref": "#/components/schemas/MemberRef"
+          },
+          "onlinePayments": {
+            "description": "Tentatives de paiement par carte, la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/OnlinePayment"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "paidBy": {
             "$ref": "#/components/schemas/AccountRef"
@@ -571,6 +594,9 @@
           "previousSeason",
           "seasonFees",
           "actions",
+          "onlinePayments",
+          "alerts",
+          "cardPaymentPending",
           "id",
           "member",
           "season",
@@ -608,6 +634,9 @@
           },
           "validate": {
             "type": "boolean"
+          },
+          "verifyCardPayment": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -616,7 +645,8 @@
           "update",
           "cancel",
           "recordPayment",
-          "cancelPayment"
+          "cancelPayment",
+          "verifyCardPayment"
         ],
         "type": "object"
       },
@@ -721,6 +751,11 @@
           "member": {
             "$ref": "#/components/schemas/MemberRef"
           },
+          "openAlerts": {
+            "description": "Signalements de paiement à traiter",
+            "format": "int64",
+            "type": "integer"
+          },
           "payment": {
             "$ref": "#/components/schemas/Payment"
           },
@@ -751,7 +786,8 @@
           "declaredKind",
           "amountCents",
           "payment",
-          "requestedAt"
+          "requestedAt",
+          "openAlerts"
         ],
         "type": "object"
       },
@@ -759,7 +795,9 @@
         "additionalProperties": false,
         "properties": {
           "method": {
+            "description": "La carte se paie en ligne : elle n'est jamais annoncée",
             "enum": [
+              "card",
               "cash",
               "cheque",
               "transfer"
@@ -781,6 +819,90 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "CardPaymentState": {
+        "additionalProperties": false,
+        "properties": {
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "startedAt"
+        ],
+        "type": "object"
+      },
+      "CardSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "description": "Carte proposée aux adhérents",
+            "type": "boolean"
+          },
+          "configured": {
+            "description": "Identifiants présents dans la configuration de l'instance",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Choix de l'administrateur",
+            "type": "boolean"
+          },
+          "environment": {
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failing": {
+            "description": "Carte activée et connexion à HelloAsso en échec",
+            "type": "boolean"
+          },
+          "lastTest": {
+            "$ref": "#/components/schemas/HelloAssoTest"
+          },
+          "notificationUrl": {
+            "description": "Adresse à déclarer dans l'espace HelloAsso",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization": {
+            "description": "Identifiant de l'association sur HelloAsso",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "available",
+          "configured",
+          "environment",
+          "organization",
+          "notificationUrl",
+          "lastTest",
+          "failing"
         ],
         "type": "object"
       },
@@ -853,6 +975,59 @@
           "payee",
           "address",
           "instructions"
+        ],
+        "type": "object"
+      },
+      "ConfirmCardPayment": {
+        "additionalProperties": false,
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/MyMembership"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "membership"
+        ],
+        "type": "object"
+      },
+      "ConfirmCardPaymentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "checkoutIntentId": {
+            "description": "Indicatif : seule la relecture chez HelloAsso fait foi",
+            "format": "int64",
+            "type": "integer"
+          },
+          "onlinePaymentId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "outcome": {
+            "description": "D'après le paramètre carte=retour|erreur|annule",
+            "enum": [
+              "return",
+              "error",
+              "back"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "onlinePaymentId",
+          "outcome"
         ],
         "type": "object"
       },
@@ -1019,6 +1194,52 @@
         },
         "required": [
           "status"
+        ],
+        "type": "object"
+      },
+      "HelloAssoTest": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "environment": {
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "type": "string"
+          },
+          "error": {
+            "enum": [
+              "unauthorized",
+              "forbidden",
+              "not_found",
+              "unavailable",
+              "unexpected"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "organizationName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "environment",
+          "ok",
+          "organizationName",
+          "error"
         ],
         "type": "object"
       },
@@ -1274,9 +1495,46 @@
         ],
         "type": "object"
       },
+      "MembershipCollectedByMethod": {
+        "additionalProperties": false,
+        "properties": {
+          "card": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cash": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cheque": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "transfer": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "card",
+          "cash",
+          "cheque",
+          "transfer"
+        ],
+        "type": "object"
+      },
       "MembershipDashboard": {
         "additionalProperties": false,
         "properties": {
+          "helloassoFailing": {
+            "description": "Carte activée et connexion à HelloAsso en échec",
+            "type": "boolean"
+          },
+          "paymentAlerts": {
+            "description": "Signalements de paiement à traiter",
+            "format": "int64",
+            "type": "integer"
+          },
           "paymentSetupNeeded": {
             "description": "Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion",
             "type": "boolean"
@@ -1289,7 +1547,9 @@
         },
         "required": [
           "pendingCount",
-          "paymentSetupNeeded"
+          "paymentSetupNeeded",
+          "paymentAlerts",
+          "helloassoFailing"
         ],
         "type": "object"
       },
@@ -1570,6 +1830,14 @@
               "null"
             ]
           },
+          "collectedByMethod": {
+            "$ref": "#/components/schemas/MembershipCollectedByMethod"
+          },
+          "collectedTest": {
+            "description": "Paiements par carte en mode test (aucun débit réel)",
+            "format": "int64",
+            "type": "integer"
+          },
           "dueByMethod": {
             "$ref": "#/components/schemas/MembershipDueByMethod"
           },
@@ -1616,7 +1884,9 @@
           "totalCents",
           "paidCents",
           "dueCents",
-          "dueByMethod"
+          "dueByMethod",
+          "collectedByMethod",
+          "collectedTest"
         ],
         "type": "object"
       },
@@ -1740,6 +2010,10 @@
               "null"
             ]
           },
+          "cardPayment": {
+            "$ref": "#/components/schemas/CardPaymentState",
+            "description": "Dernière tentative de paiement par carte"
+          },
           "decidedAt": {
             "format": "date-time",
             "type": [
@@ -1785,7 +2059,7 @@
             "description": "null : adhésion non validée ou gratuite"
           },
           "paymentMethods": {
-            "description": "Moyens activés ; vide s'il n'y a rien à payer",
+            "description": "Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier",
             "items": {
               "$ref": "#/components/schemas/PaymentMethodInfo"
             },
@@ -1821,6 +2095,7 @@
         "required": [
           "actions",
           "paymentMethods",
+          "cardPayment",
           "id",
           "member",
           "season",
@@ -1848,11 +2123,16 @@
           "pay": {
             "description": "Choisir ou changer le moyen de paiement",
             "type": "boolean"
+          },
+          "payByCard": {
+            "description": "Payer en ligne par carte bancaire (HelloAsso)",
+            "type": "boolean"
           }
         },
         "required": [
           "cancel",
-          "pay"
+          "pay",
+          "payByCard"
         ],
         "type": "object"
       },
@@ -1994,6 +2274,120 @@
         ],
         "type": "object"
       },
+      "OnlinePayment": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "environment": {
+            "enum": [
+              "sandbox",
+              "production"
+            ],
+            "type": "string"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "helloassoUrl": {
+            "description": "Espace HelloAsso de l'association (commande ou accueil)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "orderId": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "paidAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receivedAmountCents": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "environment",
+          "amountCents",
+          "receivedAmountCents",
+          "orderId",
+          "paidAt",
+          "errorCode",
+          "createdAt",
+          "finishedAt",
+          "helloassoUrl"
+        ],
+        "type": "object"
+      },
+      "OnlinePaymentRef": {
+        "additionalProperties": false,
+        "properties": {
+          "orderId": {
+            "description": "Numéro de commande HelloAsso",
+            "format": "int64",
+            "type": "integer"
+          },
+          "paidAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "test": {
+            "description": "Payée dans l'environnement de test HelloAsso",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "orderId",
+          "paidAt",
+          "test"
+        ],
+        "type": "object"
+      },
       "PasswordTokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2028,8 +2422,20 @@
               "null"
             ]
           },
+          "online": {
+            "$ref": "#/components/schemas/OnlinePaymentRef",
+            "description": "Carte : paiement HelloAsso qui a constaté l'adhésion"
+          },
+          "paidAmountCents": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "paidMethod": {
             "enum": [
+              "card",
               "cash",
               "cheque",
               "transfer"
@@ -2063,7 +2469,54 @@
           "status",
           "announcedMethod",
           "paidMethod",
-          "paidOn"
+          "paidOn",
+          "paidAmountCents",
+          "online"
+        ],
+        "type": "object"
+      },
+      "PaymentAlert": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "duplicate",
+              "amount_mismatch",
+              "refund_due",
+              "unverified"
+            ],
+            "type": "string"
+          },
+          "onlinePaymentId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "resolvedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resolvedBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "onlinePaymentId",
+          "createdAt",
+          "resolvedAt",
+          "resolvedBy"
         ],
         "type": "object"
       },
@@ -2074,6 +2527,14 @@
             "description": "Chèque : adresse d'envoi",
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "amountCents": {
+            "description": "Carte : montant à payer",
+            "format": "int64",
+            "type": [
+              "integer",
               "null"
             ]
           },
@@ -2106,6 +2567,7 @@
           },
           "method": {
             "enum": [
+              "card",
               "cash",
               "cheque",
               "transfer"
@@ -2118,10 +2580,16 @@
               "string",
               "null"
             ]
+          },
+          "test": {
+            "description": "Carte : environnement de test HelloAsso, aucun débit réel",
+            "type": "boolean"
           }
         },
         "required": [
           "method",
+          "amountCents",
+          "test",
           "instructions",
           "payee",
           "address",
@@ -2134,6 +2602,9 @@
       "PaymentSettings": {
         "additionalProperties": false,
         "properties": {
+          "card": {
+            "$ref": "#/components/schemas/CardSettings"
+          },
           "cash": {
             "$ref": "#/components/schemas/CashSettings"
           },
@@ -2149,6 +2620,7 @@
           }
         },
         "required": [
+          "card",
           "cash",
           "cheque",
           "transfer",
@@ -2159,6 +2631,9 @@
       "PaymentSettingsBody": {
         "additionalProperties": false,
         "properties": {
+          "card": {
+            "$ref": "#/components/schemas/PaymentSettingsBodyCardStruct"
+          },
           "cash": {
             "$ref": "#/components/schemas/PaymentSettingsBodyCashStruct"
           },
@@ -2173,6 +2648,18 @@
           "cash",
           "cheque",
           "transfer"
+        ],
+        "type": "object"
+      },
+      "PaymentSettingsBodyCardStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
         ],
         "type": "object"
       },
@@ -2568,6 +3055,28 @@
         },
         "required": [
           "role"
+        ],
+        "type": "object"
+      },
+      "StartCardPayment": {
+        "additionalProperties": false,
+        "properties": {
+          "onlinePaymentId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "redirectUrl": {
+            "type": "string"
+          },
+          "resumed": {
+            "description": "Tentative en cours reprise",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "redirectUrl",
+          "onlinePaymentId",
+          "resumed"
         ],
         "type": "object"
       },
@@ -3586,13 +4095,40 @@
             }
           },
           {
-            "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche",
+            "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso",
             "explode": false,
             "in": "query",
             "name": "q",
             "schema": {
-              "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche",
+              "description": "Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso",
               "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "paidMethod",
+            "schema": {
+              "enum": [
+                "card",
+                "cash",
+                "cheque",
+                "transfer"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "open : adhésions portant un signalement de paiement à traiter",
+            "explode": false,
+            "in": "query",
+            "name": "alerts",
+            "schema": {
+              "description": "open : adhésions portant un signalement de paiement à traiter",
+              "enum": [
+                "open"
+              ],
               "type": "string"
             }
           },
@@ -3947,6 +4483,55 @@
         ]
       }
     },
+    "/admin/memberships/{id}/card-payment/verify": {
+      "post": {
+        "operationId": "verify-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier auprès de HelloAsso les paiements par carte en cours",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
     "/admin/memberships/{id}/payment": {
       "delete": {
         "operationId": "cancel-membership-payment",
@@ -4166,6 +4751,55 @@
           }
         ],
         "summary": "Valider une demande d'adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/payment-alerts/{id}/resolve": {
+      "post": {
+        "operationId": "resolve-payment-alert",
+        "parameters": [
+          {
+            "description": "Identifiant du signalement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du signalement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Marquer un signalement de paiement comme traité",
         "tags": [
           "Adhésions"
         ]
@@ -4797,6 +5431,42 @@
           }
         ],
         "summary": "Modifier les moyens de paiement",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/settings/payment/helloasso-test": {
+      "post": {
+        "operationId": "test-helloasso-connection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Tester la connexion à HelloAsso",
         "tags": [
           "Paramètres"
         ]
@@ -5591,6 +6261,114 @@
         ]
       }
     },
+    "/me/memberships/{id}/card-payment": {
+      "post": {
+        "operationId": "start-my-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lancer un paiement par carte (HelloAsso)",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/{id}/card-payment/confirm": {
+      "post": {
+        "operationId": "confirm-my-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCardPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier un paiement par carte au retour de HelloAsso",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
     "/me/memberships/{id}/payment": {
       "put": {
         "operationId": "announce-my-payment",
@@ -5724,6 +6502,51 @@
         "summary": "Session courante",
         "tags": [
           "Mon compte"
+        ]
+      }
+    },
+    "/webhooks/helloasso/{key}": {
+      "post": {
+        "description": "Adresse à déclarer dans l'espace HelloAsso de l'association. La réponse ne révèle rien à qui ne détient pas la clé.",
+        "operationId": "receive-helloasso-notification",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification reçue, traitée ou ignorée"
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "429": {
+            "description": "Trop de requêtes"
+          },
+          "503": {
+            "description": "Erreur passagère : HelloAsso renverra la notification"
+          }
+        },
+        "summary": "Recevoir une notification de HelloAsso",
+        "tags": [
+          "Paramètres"
         ]
       }
     }
