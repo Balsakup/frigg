@@ -112,3 +112,10 @@ export function previousSeasonLabel(hint: "yes" | "no" | "unknown") {
 export function formatMoney(cents: number) {
   return amountFormat.format(cents / 100);
 }
+
+// Taille de fichier : « 850 octets », « 12 Ko », « 1,2 Mo » (1 Mo = 1 048 576 octets).
+export function formatBytes(n: number) {
+  if (n < 1024) return `${n} octet${n > 1 ? "s" : ""}`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} Ko`;
+  return `${(n / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
+}

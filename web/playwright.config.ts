@@ -20,6 +20,11 @@ const fakeHelloAssoPort = 8093;
 const fakeHelloAssoSecret = "secret-e2e-ne-pas-utiliser";
 const cardSpecs = /card-payment\.spec\.ts/;
 const cardSettingsSpec = /card-settings\.spec\.ts/;
+// Quatrième serveur pour les communications (009) : saison ouverte et adhérents
+// dans chaque situation de paiement (e2eseed, mode « communication »).
+const communicationPort = 8094;
+const communicationDb = "../data/e2e/frigg-communication.db";
+const communicationSpecs = /communications\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -54,7 +59,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: [membershipSpecs, settingsSpec, cardSpecs, cardSettingsSpec],
+      testIgnore: [membershipSpecs, settingsSpec, cardSpecs, cardSettingsSpec, communicationSpecs],
     },
     {
       name: "adhesions",
@@ -80,6 +85,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${cardPort}` },
       testMatch: cardSettingsSpec,
       dependencies: ["carte"],
+    },
+    {
+      name: "communication",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${communicationPort}` },
+      testMatch: communicationSpecs,
     },
   ],
   webServer: [
@@ -112,6 +122,12 @@ export default defineConfig({
         FRIGG_HELLOASSO_ENVIRONMENT: "sandbox",
         FRIGG_HELLOASSO_API_URL: `http://localhost:${fakeHelloAssoPort}`,
       },
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${communicationDb} communication && ../bin/frigg serve`,
+      url: `http://localhost:${communicationPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(communicationDb, communicationPort, "../data/e2e/files-communication"),
     },
   ],
 });
