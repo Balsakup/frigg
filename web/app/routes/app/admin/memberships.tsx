@@ -144,14 +144,14 @@ export default function AdminMemberships() {
         {status}
       </p>
       {status ? (
-        <Alert kind="success" className="mb-6 max-w-3xl">
+        <Alert kind="success" className="mb-6">
           {status}
         </Alert>
       ) : null}
       {pending > 0 ? (
         <Alert
           kind="info"
-          className="mb-6 max-w-3xl"
+          className="mb-6"
           actions={
             <Link
               to="?season=all&status=pending"
@@ -169,7 +169,7 @@ export default function AdminMemberships() {
 
       <section
         aria-labelledby="adhesions-titre"
-        className="max-w-6xl rounded-lg border border-line bg-surface"
+        className="rounded-lg border border-line bg-surface"
       >
         <div className="px-5 pt-4">
           <h2 id="adhesions-titre" className="font-display text-lg font-bold">
@@ -325,7 +325,7 @@ function Stats({ stats }: { stats: MembershipStats }) {
   );
   const d = stats.dueByMethod;
   return (
-    <section aria-labelledby="chiffres" className="mb-6 max-w-6xl">
+    <section aria-labelledby="chiffres" className="mb-6">
       <h2 id="chiffres" className="font-display text-lg font-bold">
         Chiffres de la saison
       </h2>

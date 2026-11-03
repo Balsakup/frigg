@@ -66,10 +66,7 @@ export default function MyMembers() {
         </section>
       ) : (
         <>
-          <ul
-            aria-label="Mes membres"
-            className="grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          >
+          <ul aria-label="Mes membres" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((m) => (
               <li key={m.id} className="rounded-lg border border-line bg-surface p-5">
                 <h2 className="font-display text-lg font-bold [overflow-wrap:anywhere]">

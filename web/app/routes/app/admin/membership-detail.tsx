@@ -141,7 +141,7 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
         </Alert>
       ) : null}
 
-      <div className="flex max-w-4xl flex-col gap-6">
+      <div className="flex flex-col gap-6">
         <section
           aria-labelledby="adhesion"
           className="rounded-lg border border-line bg-surface p-5"
