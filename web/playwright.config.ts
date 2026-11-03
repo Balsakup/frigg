@@ -12,6 +12,19 @@ const membershipsPort = 8091;
 const membershipsDb = "../data/e2e/frigg-adhesions.db";
 const membershipSpecs = /(memberships|admin-memberships)\.spec\.ts/;
 const settingsSpec = /admin-settings\.spec\.ts/;
+// Troisième serveur pour le paiement par carte (008) : jeu des adhésions, carte
+// activée en sandbox et relié à un faux HelloAsso local (e2e/fake-helloasso.ts).
+const cardPort = 8092;
+const cardDb = "../data/e2e/frigg-carte.db";
+const fakeHelloAssoPort = 8093;
+const fakeHelloAssoSecret = "secret-e2e-ne-pas-utiliser";
+const cardSpecs = /card-payment\.spec\.ts/;
+const cardSettingsSpec = /card-settings\.spec\.ts/;
+// Quatrième serveur pour les communications (009) : saison ouverte et adhérents
+// dans chaque situation de paiement (e2eseed, mode « communication »).
+const communicationPort = 8094;
+const communicationDb = "../data/e2e/frigg-communication.db";
+const communicationSpecs = /communications\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -46,7 +59,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: [membershipSpecs, settingsSpec],
+      testIgnore: [membershipSpecs, settingsSpec, cardSpecs, cardSettingsSpec, communicationSpecs],
     },
     {
       name: "adhesions",
@@ -61,6 +74,23 @@ export default defineConfig({
       testMatch: settingsSpec,
       dependencies: ["adhesions"],
     },
+    {
+      name: "carte",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${cardPort}` },
+      testMatch: cardSpecs,
+    },
+    // Le paramétrage de la carte est global : il passe après les paiements.
+    {
+      name: "carte-parametres",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${cardPort}` },
+      testMatch: cardSettingsSpec,
+      dependencies: ["carte"],
+    },
+    {
+      name: "communication",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${communicationPort}` },
+      testMatch: communicationSpecs,
+    },
   ],
   webServer: [
     {
@@ -74,6 +104,30 @@ export default defineConfig({
       url: `http://localhost:${membershipsPort}`,
       reuseExistingServer: false,
       env: serverEnv(membershipsDb, membershipsPort, "../data/e2e/files-adhesions"),
+    },
+    {
+      command: `bun e2e/fake-helloasso.ts ${fakeHelloAssoPort} http://localhost:${cardPort} ${fakeHelloAssoSecret}`,
+      url: `http://localhost:${fakeHelloAssoPort}/v5/organizations/sentiers-du-val`,
+      reuseExistingServer: false,
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${cardDb} carte && ../bin/frigg serve`,
+      url: `http://localhost:${cardPort}`,
+      reuseExistingServer: false,
+      env: {
+        ...serverEnv(cardDb, cardPort, "../data/e2e/files-carte"),
+        FRIGG_HELLOASSO_CLIENT_ID: "client-e2e",
+        FRIGG_HELLOASSO_CLIENT_SECRET: fakeHelloAssoSecret,
+        FRIGG_HELLOASSO_ORGANIZATION: "sentiers-du-val",
+        FRIGG_HELLOASSO_ENVIRONMENT: "sandbox",
+        FRIGG_HELLOASSO_API_URL: `http://localhost:${fakeHelloAssoPort}`,
+      },
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${communicationDb} communication && ../bin/frigg serve`,
+      url: `http://localhost:${communicationPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(communicationDb, communicationPort, "../data/e2e/files-communication"),
     },
   ],
 });

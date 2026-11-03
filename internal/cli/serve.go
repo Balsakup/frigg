@@ -10,6 +10,7 @@ import (
 
 	"github.com/balsakup/frigg/internal/api"
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/communication"
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/mail"
@@ -45,7 +46,12 @@ func Serve(ctx context.Context) error {
 	limits := auth.NewLimits()
 	go limits.RunPurge(ctx)
 
+	files, err := communication.NewFileStore(filepath.Join(cfg.DataDir, "communications"))
+	if err != nil {
+		return err
+	}
 	worker := &mail.Worker{
+		Files:   files,
 		Queries: store.Write,
 		Sender: mail.NewSMTPSender(mail.SMTPConfig{
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername,
@@ -56,13 +62,20 @@ func Serve(ctx context.Context) error {
 	}
 	go worker.Run(ctx)
 
-	h, err := server.NewHandler(api.Deps{
-		Store:    store,
-		Sessions: auth.NewSessionManager(store.WriteDB, cfg.CookieSecure),
-		Limits:   limits,
-		Config:   cfg,
-		Logger:   logger,
-	}, web.Dist())
+	deps := api.Deps{
+		Store:     store,
+		Sessions:  auth.NewSessionManager(store.WriteDB, cfg.CookieSecure),
+		Limits:    limits,
+		Config:    cfg,
+		Logger:    logger,
+		HelloAsso: api.NewHelloAssoClient(cfg, nil),
+		Files:     files,
+	}
+	go api.NewCommunicationAttachmentSweeper(deps).Run(ctx)
+	if deps.HelloAsso != nil {
+		go api.NewOnlinePaymentSweeper(deps).Run(ctx)
+	}
+	h, err := server.NewHandler(deps, web.Dist())
 	if err != nil {
 		return fmt.Errorf("préparation du serveur : %w", err)
 	}

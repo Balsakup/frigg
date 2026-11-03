@@ -20,7 +20,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/balsakup/frigg
-  BUN_VERSION: 1.3.14 # garder alignée sur l'image oven/bun du Dockerfile
+  BUN_VERSION: 1.4.4 # garder alignée sur l'image oven/bun du Dockerfile
 
 jobs:
   verify:

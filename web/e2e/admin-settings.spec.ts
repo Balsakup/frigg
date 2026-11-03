@@ -28,6 +28,13 @@ test.describe("paramètres — moyens de paiement (006)", () => {
         .getByRole("navigation", { name: "Sections des paramètres" })
         .getByRole("link", { name: "Paiements" }),
     ).toHaveAttribute("aria-current", "page");
+
+    // Carte bancaire (008, US2) : sans identifiants HelloAsso dans la
+    // configuration, l'activation est impossible et expliquée.
+    const card = page.getByRole("group", { name: "Carte bancaire (HelloAsso)" });
+    await expect(card.getByText(/variables FRIGG_HELLOASSO_\*/)).toBeVisible();
+    await expect(card.getByRole("link", { name: /documentation de HelloAsso/ })).toBeVisible();
+    await expect(card.getByRole("switch", { name: "Proposer ce moyen" })).toBeDisabled();
     await expect(
       page.getByRole("navigation", { name: "Fil d'Ariane" }).getByText("Paiements"),
     ).toHaveAttribute("aria-current", "page");

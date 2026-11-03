@@ -75,7 +75,7 @@ export default function Seasons() {
           </Link>
         </section>
       ) : (
-        <section className="max-w-4xl rounded-lg border border-line bg-surface">
+        <section className="rounded-lg border border-line bg-surface">
           <Table
             caption="Saisons de l'association, de la plus récente à la plus ancienne"
             columns={[

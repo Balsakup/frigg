@@ -34,5 +34,6 @@ describe("navigation", () => {
     expect(entryForPath("/admin/finances")?.label).toBe("Finances");
     expect(entryForPath("/adhesions")?.comingSoon).toBeUndefined();
     expect(entryForPath("/admin/adhesions")?.comingSoon).toBeUndefined();
+    expect(entryForPath("/admin/communication")?.comingSoon).toBeUndefined();
   });
 });

@@ -85,7 +85,13 @@ WHERE (CAST(sqlc.narg(season_id) AS INTEGER) IS NULL OR ms.season_id = CAST(sqlc
   AND (CAST(sqlc.narg(member_id) AS INTEGER) IS NULL OR ms.member_id = CAST(sqlc.narg(member_id) AS INTEGER))
   AND (CAST(sqlc.narg(query) AS TEXT) IS NULL
        OR ms.id IN (SELECT rowid FROM memberships_fts WHERE memberships_fts MATCH CAST(sqlc.narg(query) AS TEXT))
-       OR ms.member_id IN (SELECT rowid FROM members_fts WHERE members_fts MATCH CAST(sqlc.narg(query) AS TEXT)));
+       OR ms.member_id IN (SELECT rowid FROM members_fts WHERE members_fts MATCH CAST(sqlc.narg(query) AS TEXT))
+       OR ms.id IN (SELECT op.membership_id FROM online_payments op
+                    WHERE op.order_id = CAST(sqlc.narg(order_id) AS INTEGER)))
+  AND (CAST(sqlc.narg(paid_method) AS TEXT) IS NULL
+       OR (ms.payment_status = 'paid' AND ms.paid_method = CAST(sqlc.narg(paid_method) AS TEXT)))
+  AND (CAST(sqlc.narg(open_alerts) AS INTEGER) IS NULL
+       OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL));
 
 -- name: ValidateMembership :execrows
 UPDATE memberships
@@ -126,7 +132,28 @@ UPDATE memberships
 SET payment_status = CASE WHEN announced_method IS NULL THEN 'due' ELSE 'announced' END,
     paid_method = NULL, paid_on = NULL, paid_by = NULL, paid_at = NULL, payment_note = NULL,
     updated_at = sqlc.arg(now)
-WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status = 'paid';
+WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status = 'paid'
+  AND paid_method IS NOT 'card';
+
+-- RecordCardPayment is only called by the HelloAsso verification
+-- (research.md 008 R5), after the payment has been checked with HelloAsso.
+
+-- name: RecordCardPayment :execrows
+UPDATE memberships
+SET payment_status = 'paid', paid_method = 'card', paid_on = sqlc.arg(paid_on), paid_by = NULL,
+    paid_at = sqlc.arg(now), payment_note = NULL, paid_amount_cents = sqlc.arg(paid_amount_cents),
+    paid_online_payment_id = sqlc.arg(online_payment_id), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status IN ('due', 'announced');
+
+-- CancelRefundedMembership cancels a membership whose card payment was
+-- refunded in HelloAsso (verified), whatever the season state.
+
+-- name: CancelRefundedMembership :execrows
+UPDATE memberships
+SET status = 'cancelled', reason = sqlc.arg(reason), cancelled_by = NULL, cancelled_at = sqlc.arg(now),
+    updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'validated' AND paid_method = 'card'
+  AND paid_online_payment_id = sqlc.arg(online_payment_id);
 
 -- Helpers.
 
@@ -143,9 +170,11 @@ WHERE member_id = sqlc.arg(member_id) AND season_id = sqlc.arg(season_id) AND st
 
 -- name: ListSeasonMembershipsForStats :many
 SELECT ms.status, ms.kind, ms.amount_cents, ms.fee_id, f.label AS fee_label,
-       ms.payment_status, ms.announced_method
+       ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_amount_cents,
+       op.environment AS paid_environment
 FROM memberships ms
 JOIN membership_fees f ON f.id = ms.fee_id
+LEFT JOIN online_payments op ON op.id = ms.paid_online_payment_id
 WHERE ms.season_id = sqlc.arg(season_id);
 
 -- name: CountPendingMemberships :one

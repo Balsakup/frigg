@@ -45,6 +45,13 @@ type Settings struct {
 	TransferIBAN         string
 	TransferBIC          string
 	TransferInstructions string
+
+	// CardEnabled : choix de l'administrateur ; CardAvailable : carte
+	// réellement proposée (configuration et test de connexion, R7) ; CardTest :
+	// environnement de test HelloAsso (008).
+	CardEnabled   bool
+	CardAvailable bool
+	CardTest      bool
 }
 
 // EnabledMethods liste les moyens activés, dans l'ordre d'affichage.

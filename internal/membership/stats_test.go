@@ -39,3 +39,23 @@ func TestComputeStats(t *testing.T) {
 		t.Errorf("saison vide : %+v", empty)
 	}
 }
+
+func TestComputeStatsCard(t *testing.T) {
+	rows := []StatRow{
+		{Status: Validated, AmountCents: 4000, PaymentStatus: Paid, PaidMethod: Card, PaidAmountCents: 4000},
+		{Status: Validated, AmountCents: 6000, PaymentStatus: Paid, PaidMethod: Card, PaidAmountCents: 5000},
+		{Status: Validated, AmountCents: 4000, PaymentStatus: Paid, PaidMethod: Card, PaidAmountCents: 4000, PaidTest: true},
+		{Status: Validated, AmountCents: 3000, PaymentStatus: Paid, PaidMethod: Cheque},
+		{Status: Validated, AmountCents: 2000, PaymentStatus: Due},
+	}
+	s := ComputeStats(rows)
+	if s.PaidCents != 12000 || s.PaidByMethod.Card != 9000 || s.PaidByMethod.Cheque != 3000 {
+		t.Fatalf("encaissé : %d, par moyen %+v", s.PaidCents, s.PaidByMethod)
+	}
+	if s.TestPaidCents != 4000 {
+		t.Fatalf("paiements de test : %d", s.TestPaidCents)
+	}
+	if s.TotalCents != 19000 || s.DueCents != 2000 {
+		t.Fatalf("total %d, restant %d", s.TotalCents, s.DueCents)
+	}
+}

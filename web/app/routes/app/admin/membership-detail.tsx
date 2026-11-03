@@ -1,5 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { type AdminMembership, invalidateMemberships, membershipQuery } from "~/api/memberships";
@@ -10,9 +11,10 @@ import {
   formatAmount,
   formatDate,
   formatDay,
+  formatMoney,
+  type ManualPaymentMethod,
   type MembershipKind,
   membershipKindLabel,
-  type PaymentMethod,
   paymentMethodLabel,
   previousSeasonLabel,
 } from "~/lib/format";
@@ -24,7 +26,9 @@ import { Badge } from "~/ui/Badge";
 import { Button } from "~/ui/Button";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
 import { Field, TextAreaField } from "~/ui/Field";
+import { Icon } from "~/ui/Icon";
 import { RadioGroup } from "~/ui/RadioGroup";
+import { Table } from "~/ui/Table";
 import NotFound from "../not-found";
 import type { Route } from "./+types/membership-detail";
 
@@ -54,7 +58,7 @@ const kindOptions: { value: MembershipKind; label: string }[] = [
   { value: "renewal", label: "Renouvellement" },
 ];
 
-const methodOptions: { value: PaymentMethod; label: string }[] = [
+const methodOptions: { value: ManualPaymentMethod; label: string }[] = [
   { value: "cash", label: "Espèces" },
   { value: "cheque", label: "Chèque" },
   { value: "transfer", label: "Virement" },
@@ -80,7 +84,7 @@ export default function AdminMembershipDetail({ params }: Route.ComponentProps) 
   if (id === null || (isProblem(query.error) && query.error.status === 404)) return <NotFound />;
   if (query.isError) {
     return (
-      <Alert kind="danger" role="alert" className="max-w-3xl">
+      <Alert kind="danger" role="alert">
         Impossible de charger cette adhésion. Rechargez la page.
       </Alert>
     );
@@ -127,17 +131,17 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
         {status}
       </p>
       {status ? (
-        <Alert kind="success" className="mb-6 max-w-3xl">
+        <Alert kind="success" className="mb-6">
           {status}
         </Alert>
       ) : null}
       {error ? (
-        <Alert kind="danger" role="alert" className="mb-6 max-w-3xl">
+        <Alert kind="danger" role="alert" className="mb-6">
           {error}
         </Alert>
       ) : null}
 
-      <div className="flex max-w-4xl flex-col gap-6">
+      <div className="flex flex-col gap-6">
         <section
           aria-labelledby="adhesion"
           className="rounded-lg border border-line bg-surface p-5"
@@ -281,7 +285,32 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
                       le {formatDay(m.payment.paidOn)} (
                       {paymentMethodLabel(m.payment.paidMethod).toLowerCase()}){by(m.paidBy)}
                     </span>
+                    {m.payment.online?.test ? (
+                      <span className="ml-2">
+                        <Badge tone="warning">Mode test</Badge>
+                      </span>
+                    ) : null}
                   </Info>
+                  {m.payment.paidMethod === "card" && m.payment.online ? (
+                    <>
+                      <Info label="Montant reçu">
+                        {formatMoney(m.payment.paidAmountCents ?? 0)}
+                        <span className="block text-sm font-normal text-muted">
+                          hors contribution volontaire à HelloAsso, le{" "}
+                          {formatDate(m.payment.online.paidAt)}
+                        </span>
+                      </Info>
+                      <Info label="Commande HelloAsso">
+                        <HelloAssoOrder
+                          orderId={m.payment.online.orderId}
+                          url={
+                            m.onlinePayments?.find((o) => o.orderId === m.payment?.online?.orderId)
+                              ?.helloassoUrl
+                          }
+                        />
+                      </Info>
+                    </>
+                  ) : null}
                   {m.paymentNote ? <Info label="Commentaire">{m.paymentNote}</Info> : null}
                 </>
               ) : null}
@@ -313,6 +342,9 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
         ) : m.status === "validated" ? (
           <Alert kind="success">Adhésion gratuite : aucun paiement n'est demandé.</Alert>
         ) : null}
+
+        <PaymentAlerts membership={m} onDone={done} onError={failed} />
+        <OnlinePayments membership={m} onDone={done} onError={failed} />
       </div>
     </Page>
   );
@@ -410,6 +442,12 @@ function DecisionDialog({
       }}
     >
       <form onSubmit={submit} noValidate className="mt-4 flex flex-col gap-5">
+        {!isValidate && m.cardPaymentPending ? (
+          <Alert kind="warning">
+            Un paiement par carte est en cours. Le remboursement d'un éventuel écart se fait dans
+            l'espace HelloAsso de l'association.
+          </Alert>
+        ) : null}
         <FeeChoice
           fees={m.seasonFees ?? []}
           value={feeId}
@@ -493,9 +531,11 @@ function ReasonDialog({
           {isRefuse
             ? `La demande d'adhésion de ${m.member.firstName} ${m.member.lastName} sera refusée. Le motif est communiqué au compte qui l'a déposée.`
             : `L'adhésion de ${m.member.firstName} ${m.member.lastName} sera annulée. Le motif est communiqué au compte qui gère la fiche.`}
-          {!isRefuse && m.payment?.status === "paid"
-            ? " Un éventuel remboursement se fait en dehors de Frigg."
-            : ""}
+          {!isRefuse && (m.payment?.paidMethod === "card" || m.cardPaymentPending)
+            ? " Le remboursement se fait dans l'espace HelloAsso de l'association."
+            : !isRefuse && m.payment?.status === "paid"
+              ? " Un éventuel remboursement se fait en dehors de Frigg."
+              : ""}
         </p>
         <TextAreaField
           label="Motif"
@@ -523,8 +563,8 @@ function ReasonDialog({
 // Constatation du paiement (US4 §9).
 function PaymentDialog({ membership: m, onDone, onError }: ActionProps) {
   const [open, setOpen] = useState(false);
-  const initialMethod = (m.payment?.announcedMethod ?? "") as PaymentMethod | "";
-  const [method, setMethod] = useState<PaymentMethod | "">(initialMethod);
+  const initialMethod = (m.payment?.announcedMethod ?? "") as ManualPaymentMethod | "";
+  const [method, setMethod] = useState<ManualPaymentMethod | "">(initialMethod);
   const [receivedOn, setReceivedOn] = useState(todayISO());
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -609,5 +649,174 @@ function PaymentDialog({ membership: m, onDone, onError }: ActionProps) {
         </div>
       </form>
     </DialogShell>
+  );
+}
+
+const onlineStatus: Record<
+  string,
+  { label: string; tone: "success" | "info" | "danger" | "muted" }
+> = {
+  pending: { label: "En cours", tone: "info" },
+  succeeded: { label: "Réussi", tone: "success" },
+  failed: { label: "Échoué", tone: "danger" },
+  abandoned: { label: "Abandonné", tone: "muted" },
+  expired: { label: "Expiré", tone: "muted" },
+  refunded: { label: "Remboursé", tone: "info" },
+};
+
+const onlineErrors: Record<string, string> = {
+  unavailable: "HelloAsso injoignable",
+  unauthorized: "identifiants HelloAsso refusés",
+  forbidden: "droits HelloAsso insuffisants",
+  payment_error: "paiement refusé ou erreur chez HelloAsso",
+  environment_changed: "changement d'environnement HelloAsso",
+  no_checkout: "page de paiement non créée",
+  redirect_host: "réponse inattendue de HelloAsso",
+};
+
+const alertLabels: Record<string, string> = {
+  duplicate: "Paiement en double — remboursement à effectuer dans HelloAsso.",
+  amount_mismatch: "Montant reçu différent du montant attendu.",
+  refund_due: "Paiement par carte reçu — remboursement à effectuer dans HelloAsso.",
+  unverified: "Paiement par carte à vérifier dans HelloAsso.",
+};
+
+function HelloAssoOrder({ orderId, url }: { orderId: number; url?: string | null }) {
+  if (!url) return <>n° {orderId}</>;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-brand-ink underline underline-offset-2"
+    >
+      n° {orderId}
+      <Icon icon={ExternalLink} className="h-4 w-4" />
+      <span className="sr-only"> (espace HelloAsso, nouvel onglet)</span>
+    </a>
+  );
+}
+
+// Signalements de paiement à traiter (008, US3).
+function PaymentAlerts({ membership: m, onDone, onError }: ActionProps) {
+  const resolve = $api.useMutation("post", "/admin/payment-alerts/{id}/resolve");
+  const open = (m.alerts ?? []).filter((a) => !a.resolvedAt);
+  if (open.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      {open.map((alert) => (
+        <Alert
+          key={alert.id}
+          kind="warning"
+          actions={
+            <ConfirmDialog
+              title="Marquer ce signalement comme traité ?"
+              confirmLabel="Marquer comme traité"
+              onConfirm={async () => {
+                try {
+                  await resolve.mutateAsync({ params: { path: { id: alert.id } } });
+                } catch (e) {
+                  await onError(e);
+                  return;
+                }
+                await onDone("Signalement traité.");
+              }}
+              trigger={
+                <Button variant="secondary" size="sm">
+                  Marquer comme traité
+                </Button>
+              }
+            >
+              <p>{alertLabels[alert.kind]}</p>
+              <p className="mt-2">Le signalement disparaîtra du tableau de bord.</p>
+            </ConfirmDialog>
+          }
+        >
+          {alertLabels[alert.kind]}{" "}
+          <span className="text-muted">(signalé le {formatDate(alert.createdAt)})</span>
+        </Alert>
+      ))}
+    </div>
+  );
+}
+
+// Tentatives de paiement par carte et vérification auprès de HelloAsso (008, US3).
+function OnlinePayments({ membership: m, onDone, onError }: ActionProps) {
+  const verify = $api.useMutation("post", "/admin/memberships/{id}/card-payment/verify");
+  const ops = m.onlinePayments ?? [];
+  if (ops.length === 0) return null;
+  const onVerify = async () => {
+    if (verify.isPending) return;
+    try {
+      await verify.mutateAsync({ params: { path: { id: m.id } } });
+    } catch (e) {
+      await onError(e);
+      return;
+    }
+    await onDone("Vérification auprès de HelloAsso effectuée.");
+  };
+  return (
+    <section
+      aria-labelledby="paiements-en-ligne"
+      className="rounded-lg border border-line bg-surface"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
+        <h2 id="paiements-en-ligne" className="font-display text-lg font-bold">
+          Paiements en ligne
+        </h2>
+        {m.actions.verifyCardPayment ? (
+          <Button variant="secondary" size="sm" onClick={onVerify} aria-disabled={verify.isPending}>
+            <Icon icon={RefreshCw} className="h-4 w-4" />
+            {verify.isPending ? "Vérification…" : "Vérifier auprès de HelloAsso"}
+          </Button>
+        ) : null}
+      </div>
+      {m.cardPaymentPending ? (
+        <p className="px-5 pt-2 text-muted">Un paiement par carte est en cours.</p>
+      ) : null}
+      <div className="mt-3 pb-2">
+        <Table
+          caption="Tentatives de paiement par carte"
+          columns={[
+            { key: "date", label: "Date" },
+            { key: "status", label: "État" },
+            { key: "amount", label: "Montant" },
+            { key: "order", label: "Commande HelloAsso" },
+          ]}
+        >
+          {ops.map((o) => (
+            <tr key={o.id} className="border-b border-line">
+              <td className="whitespace-nowrap px-5 py-2.5">{formatDate(o.createdAt)}</td>
+              <td className="px-5 py-2.5">
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <Badge tone={onlineStatus[o.status]?.tone ?? "muted"}>
+                    {onlineStatus[o.status]?.label ?? o.status}
+                  </Badge>
+                  {o.environment === "sandbox" ? <Badge tone="warning">Mode test</Badge> : null}
+                </span>
+                {o.errorCode ? (
+                  <span className="block text-sm text-muted">
+                    {onlineErrors[o.errorCode] ?? o.errorCode}
+                  </span>
+                ) : null}
+              </td>
+              <td className="whitespace-nowrap px-5 py-2.5">
+                {formatMoney(o.receivedAmountCents ?? o.amountCents)}
+                {o.receivedAmountCents !== null &&
+                o.receivedAmountCents !== undefined &&
+                o.receivedAmountCents !== o.amountCents ? (
+                  <span className="block text-sm text-muted">
+                    attendu {formatMoney(o.amountCents)}
+                  </span>
+                ) : null}
+              </td>
+              <td className="px-5 py-2.5">
+                {o.orderId ? <HelloAssoOrder orderId={o.orderId} url={o.helloassoUrl} /> : "—"}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </div>
+    </section>
   );
 }

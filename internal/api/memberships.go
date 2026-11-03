@@ -10,6 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/mail"
 	"github.com/balsakup/frigg/internal/member"
@@ -36,6 +37,7 @@ const (
 	MsgReasonTooLong            = "Le motif ne peut pas dépasser 500 caractères."
 	MsgNoteTooLong              = "Le commentaire ne peut pas dépasser 200 caractères."
 	MsgMethodUnavailable        = "Ce moyen de paiement n'est plus proposé. Choisissez-en un autre."
+	MsgCardIsOnline             = "Le paiement par carte se fait en ligne."
 	MsgReceivedFuture           = "La date de réception ne peut pas être dans le futur."
 	MsgReceivedBeforeValidation = "La date de réception ne peut pas précéder la validation de l'adhésion."
 	MsgReceivedBeforeSeason     = "La date de réception ne peut pas précéder le début de la saison."
@@ -86,8 +88,18 @@ type Payment struct {
 	Reference       string  `json:"reference"`
 	Status          string  `json:"status" enum:"due,announced,paid"`
 	AnnouncedMethod *string `json:"announcedMethod" enum:"cash,cheque,transfer"`
-	PaidMethod      *string `json:"paidMethod" enum:"cash,cheque,transfer"`
+	PaidMethod      *string `json:"paidMethod" enum:"card,cash,cheque,transfer"`
 	PaidOn          *string `json:"paidOn" format:"date"`
+	// PaidAmountCents : carte, montant reçu hors contribution volontaire.
+	PaidAmountCents *int64            `json:"paidAmountCents"`
+	Online          *OnlinePaymentRef `json:"online" doc:"Carte : paiement HelloAsso qui a constaté l'adhésion"`
+}
+
+// OnlinePaymentRef résume le paiement HelloAsso d'une adhésion payée par carte.
+type OnlinePaymentRef struct {
+	OrderID int64     `json:"orderId" doc:"Numéro de commande HelloAsso"`
+	PaidAt  time.Time `json:"paidAt"`
+	Test    bool      `json:"test" doc:"Payée dans l'environnement de test HelloAsso"`
 }
 
 // Membership est une adhésion.
@@ -234,7 +246,34 @@ func paymentOf(m sqlc.Membership) *Payment {
 		AnnouncedMethod: optionalValue(m.AnnouncedMethod),
 		PaidMethod:      optionalValue(m.PaidMethod),
 		PaidOn:          optionalValue(m.PaidOn),
+		PaidAmountCents: optionalInt(m.PaidAmountCents),
 	}
+}
+
+func optionalInt(v sql.NullInt64) *int64 {
+	if !v.Valid {
+		return nil
+	}
+	return &v.Int64
+}
+
+// withOnline complète le paiement d'une adhésion payée par carte avec la
+// commande HelloAsso qui l'a constatée.
+func withOnline(ctx context.Context, q *sqlc.Queries, out *Membership, m sqlc.Membership) error {
+	if out.Payment == nil || !m.PaidOnlinePaymentID.Valid {
+		return nil
+	}
+	op, err := q.GetOnlinePayment(ctx, m.PaidOnlinePaymentID.Int64)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	out.Payment.Online = &OnlinePaymentRef{
+		OrderID: op.OrderID.Int64, PaidAt: parseTime(op.PaidAt.String), Test: op.Environment == config.HelloAssoSandbox,
+	}
+	return nil
 }
 
 // toMembership convertit une adhésion lue en base.
@@ -270,6 +309,8 @@ func snapshotOf(m sqlc.Membership, seasons map[int64]seasonInfo) membership.Snap
 		Status:        membership.Status(m.Status),
 		PaymentStatus: membership.PaymentStatus(m.PaymentStatus.String),
 		SeasonClosed:  seasons[m.SeasonID].ref.State == string(season.Closed),
+		AmountCents:   m.AmountCents.Int64,
+		PaidMethod:    membership.Method(m.PaidMethod.String),
 	}
 }
 
@@ -340,6 +381,19 @@ func dateOfTimestamp(v string) season.Date {
 	return season.Today(parseTime(v))
 }
 
+var frenchMonths = [...]string{"janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+	"août", "septembre", "octobre", "novembre", "décembre"}
+
+// frenchDate formate une date comme « 3 novembre 2026 ».
+func frenchDate(d season.Date) string {
+	t, _ := time.Parse("2006-01-02", d.String())
+	day := fmt.Sprint(t.Day())
+	if t.Day() == 1 {
+		day = "1er"
+	}
+	return fmt.Sprintf("%s %s %d", day, frenchMonths[t.Month()-1], t.Year())
+}
+
 // formatEuros formate un montant en centimes comme le frontend : « 40,00 € »,
 // « 1 250,00 € » (espaces fines insécables).
 func formatEuros(cents int64) string {
@@ -354,7 +408,7 @@ func formatEuros(cents int64) string {
 	return fmt.Sprintf("%s,%02d €", b.String(), cents%100)
 }
 
-var methodLabels = map[string]string{"cash": "espèces", "cheque": "chèque", "transfer": "virement"}
+var methodLabels = map[string]string{"card": "carte bancaire", "cash": "espèces", "cheque": "chèque", "transfer": "virement"}
 
 // noticeRecipient renvoie l'adresse du compte qui gère la fiche, s'il existe et
 // n'est pas désactivé (FR-023).
@@ -390,6 +444,12 @@ func (s *server) notifyMembership(ctx context.Context, q *sqlc.Queries, template
 	}
 	if m.AmountCents.Valid {
 		data.Amount = formatEuros(m.AmountCents.Int64)
+	}
+	if m.PaidAmountCents.Valid {
+		data.Amount = formatEuros(m.PaidAmountCents.Int64)
+	}
+	if d, err := season.ParseDate(m.PaidOn.String); err == nil && m.PaidOn.Valid {
+		data.PaidOn = frenchDate(d)
 	}
 	path := ""
 	if withLink && m.PaymentStatus.Valid {

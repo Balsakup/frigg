@@ -21,6 +21,8 @@ var allowedPublic = map[string]bool{
 	"accept-invitation":      true,
 	// Point de santé (amendement 1.5.0 de la constitution).
 	"get-health": true,
+	// Notifications de HelloAsso (amendements 1.6.0 et 1.7.0 de la constitution).
+	"receive-helloasso-notification": true,
 }
 
 var pathParamRe = regexp.MustCompile(`\{[^}]+\}`)

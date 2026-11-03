@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/validation"
@@ -40,6 +41,13 @@ func init() {
 	huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
 		if t, ok := detailTranslations[msg]; ok {
 			msg = t
+		}
+		if strings.HasPrefix(msg, "request body is too large") {
+			if strings.Contains(msg, "limit="+strconv.Itoa(UploadMaxBody)+" ") {
+				msg = MsgAttachmentSize
+			} else {
+				msg = "La requête est trop volumineuse."
+			}
 		}
 		title, ok := errorTitles[status]
 		if !ok {

@@ -78,7 +78,8 @@ docker cp frigg:/data/backups/frigg-$(date +%F).db .
 ```
 
 La sauvegarde, lisible par son seul propriétaire, contient toute la base ;
-sauvegardez aussi le répertoire `files/` du volume. Pour restaurer, arrêtez le
+sauvegardez aussi le répertoire `files/` du volume (il contient notamment les
+pièces jointes des communications, dans `files/communications/`). Pour restaurer, arrêtez le
 conteneur et remplacez la base depuis un conteneur temporaire :
 
 ```sh
@@ -141,6 +142,68 @@ Pour vérifier qu'une image vient bien de ce dépôt :
 ```sh
 gh attestation verify oci://ghcr.io/balsakup/frigg:1.0.0 --owner Balsakup
 ```
+
+### Paiement par carte (HelloAsso)
+
+Les adhérents peuvent payer leur adhésion par carte bancaire via
+[HelloAsso](https://www.helloasso.com), la plateforme de paiement gratuite des
+associations françaises. Cette fonction est facultative : sans les variables
+ci-dessous, Frigg fonctionne normalement et ne propose pas la carte.
+
+1. Créez un client API dans l'espace HelloAsso de l'association
+   (*Mon compte › Intégrations et API*), avec le droit « Checkout ».
+   Commencez par l'environnement de test, sur
+   [helloasso-sandbox.com](https://www.helloasso-sandbox.com) : aucune somme
+   réelle n'y est débitée.
+2. Renseignez les trois premières variables ensemble (jamais dans un fichier
+   commité) :
+
+   | Variable | Rôle |
+   | --- | --- |
+   | `FRIGG_HELLOASSO_CLIENT_ID` | identifiant du client API |
+   | `FRIGG_HELLOASSO_CLIENT_SECRET` | secret du client API |
+   | `FRIGG_HELLOASSO_ORGANIZATION` | identifiant (slug) de l'association sur HelloAsso |
+   | `FRIGG_HELLOASSO_ENVIRONMENT` | `sandbox` (défaut) ou `production` |
+
+   `FRIGG_BASE_URL` doit alors être en `https://`, même en mode test :
+   HelloAsso n'accepte que des adresses de retour sécurisées. En
+   développement, exposez l'instance par un tunnel HTTPS (expose.dev,
+   cloudflared, ngrok…) et indiquez son adresse dans `FRIGG_BASE_URL`. L'instance doit être joignable depuis
+   Internet pour recevoir les notifications de paiement.
+3. Redémarrez Frigg. Dans *Administration › Paramètres › Paiements*, copiez
+   l'adresse de notification affichée et déclarez-la dans l'espace HelloAsso,
+   puis choisissez « Tester la connexion » et activez la carte.
+4. Faites un paiement d'essai avec une carte de test, puis passez en
+   production : identifiants de production, `FRIGG_HELLOASSO_ENVIRONMENT=production`,
+   redémarrage, nouveau test de connexion et nouvelle déclaration de l'adresse
+   de notification dans l'espace HelloAsso de production.
+
+Changer de secret change l'adresse de notification : déclarez la nouvelle
+adresse dans HelloAsso. Les remboursements se font dans l'espace HelloAsso ;
+Frigg signale aux administrateurs ceux qui sont à faire.
+
+### Communication
+
+*Administration › Communication* envoie un e-mail aux adhérents d'une saison
+ouverte ou close, par exemple pour relancer les cotisations impayées :
+
+- **cible** : « Tous les adhérents », « À jour » (payée ou gratuite),
+  « En impayé » (paiement annoncé ou à payer), ou une cible personnalisée par
+  situation de paiement et par tarif. Seules les adhésions validées comptent ;
+- **adresse retenue** : celle du compte qui gère la fiche, sinon celle de la
+  fiche. Une même adresse ne reçoit qu'un exemplaire (un parent pour plusieurs
+  enfants) ; les adhérents sans adresse sont listés avant l'envoi ;
+- **pièces jointes** : 5 fichiers au plus, 5 Mo par fichier et 10 Mo au
+  total, aux formats PDF, JPEG, PNG, Word (.docx), Excel (.xlsx) et
+  OpenDocument (.odt, .ods). Le type est vérifié sur le contenu ; les
+  documents à macros sont refusés. Les fichiers d'une préparation abandonnée
+  sont supprimés après 24 heures ;
+- les e-mails partent en arrière-plan par le serveur SMTP configuré, au rythme
+  de `FRIGG_MAIL_POLL_INTERVAL` (20 e-mails par passage) ; l'historique indique
+  pour chaque destinataire si l'e-mail est parti, en attente ou en échec.
+
+Le nom de l'association apparaît comme expéditeur ; les réponses arrivent à
+l'adresse `FRIGG_MAIL_FROM`.
 
 ## Contribuer
 

@@ -19,6 +19,38 @@ func (q *Queries) DeleteEmailsByRecipient(ctx context.Context, recipient string)
 	return err
 }
 
+const enqueueCommunicationEmail = `-- name: EnqueueCommunicationEmail :one
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name)
+VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5,
+        ?6, ?7)
+RETURNING id
+`
+
+type EnqueueCommunicationEmailParams struct {
+	Recipient       string
+	Subject         string
+	BodyText        string
+	BodyHtml        string
+	Now             string
+	CommunicationID sql.NullInt64
+	FromName        sql.NullString
+}
+
+func (q *Queries) EnqueueCommunicationEmail(ctx context.Context, arg EnqueueCommunicationEmailParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, enqueueCommunicationEmail,
+		arg.Recipient,
+		arg.Subject,
+		arg.BodyText,
+		arg.BodyHtml,
+		arg.Now,
+		arg.CommunicationID,
+		arg.FromName,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const enqueueEmail = `-- name: EnqueueEmail :exec
 INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at)
 VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5)
@@ -44,7 +76,7 @@ func (q *Queries) EnqueueEmail(ctx context.Context, arg EnqueueEmailParams) erro
 }
 
 const listDueEmails = `-- name: ListDueEmails :many
-SELECT id, recipient, subject, body_text, body_html, status, attempts, next_attempt_at, last_error, created_at, sent_at FROM outbound_emails
+SELECT id, recipient, subject, body_text, body_html, status, attempts, next_attempt_at, last_error, created_at, sent_at, communication_id, from_name FROM outbound_emails
 WHERE status = 'pending' AND next_attempt_at <= ?1
 ORDER BY next_attempt_at, id
 LIMIT ?2
@@ -76,6 +108,8 @@ func (q *Queries) ListDueEmails(ctx context.Context, arg ListDueEmailsParams) ([
 			&i.LastError,
 			&i.CreatedAt,
 			&i.SentAt,
+			&i.CommunicationID,
+			&i.FromName,
 		); err != nil {
 			return nil, err
 		}

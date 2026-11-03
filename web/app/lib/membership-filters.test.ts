@@ -8,9 +8,25 @@ import {
 describe("critères des adhésions", () => {
   it("lit l'URL en ignorant les valeurs inconnues", () => {
     const f = parseMembershipFilters(
-      new URLSearchParams("season=all&status=pending&payment=x&page=0"),
+      new URLSearchParams(
+        "season=all&status=pending&payment=x&paidMethod=bitcoin&alerts=all&page=0",
+      ),
     );
-    expect(f).toEqual({ season: "all", status: "pending", payment: "", q: "", page: 1 });
+    expect(f).toEqual({
+      season: "all",
+      status: "pending",
+      payment: "",
+      paidMethod: "",
+      alerts: "",
+      q: "",
+      page: 1,
+    });
+  });
+
+  it("filtre par moyen constaté et par signalement", () => {
+    const f = parseMembershipFilters(new URLSearchParams("paidMethod=card&alerts=open"));
+    expect(toMembershipApiQuery(f)).toEqual({ paidMethod: "card", alerts: "open", page: 1 });
+    expect(toMembershipSearchParams(f).toString()).toBe("paidMethod=card&alerts=open");
   });
 
   it("n'envoie pas une recherche trop courte", () => {

@@ -46,32 +46,32 @@ export default function Memberships() {
         {status}
       </p>
       {status ? (
-        <Alert kind="success" className="mb-6 max-w-3xl">
+        <Alert kind="success" className="mb-6">
           {status}
         </Alert>
       ) : null}
 
       {offer.data && (offer.data.members ?? []).length === 0 ? (
-        <Alert kind="info" className="mb-6 max-w-3xl">
+        <Alert kind="info" className="mb-6">
           Ajoutez d'abord un membre pour demander son adhésion.{" "}
           <Link to="/mes-membres" className="font-bold text-brand-ink underline underline-offset-2">
             Mes membres
           </Link>
         </Alert>
       ) : offer.data && (offer.data.seasons ?? []).length === 0 ? (
-        <Alert kind="info" className="mb-6 max-w-3xl">
+        <Alert kind="info" className="mb-6">
           Les adhésions ne sont pas ouvertes pour le moment.
         </Alert>
       ) : null}
 
       {list.isError ? (
-        <Alert kind="danger" role="alert" className="max-w-3xl">
+        <Alert kind="danger" role="alert">
           Impossible de charger vos adhésions. Rechargez la page.
         </Alert>
       ) : list.isPending ? null : seasons.length === 0 ? (
-        <p className="max-w-3xl text-muted">Aucune adhésion pour le moment.</p>
+        <p className="text-muted">Aucune adhésion pour le moment.</p>
       ) : (
-        <div className="flex max-w-5xl flex-col gap-8">
+        <div className="flex flex-col gap-8">
           {seasons.map((s) => (
             <section key={s.season.id} aria-labelledby={`saison-${s.season.id}`}>
               <h2 id={`saison-${s.season.id}`} className="font-display text-xl font-bold">

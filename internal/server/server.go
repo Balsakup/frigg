@@ -4,9 +4,11 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -38,6 +40,7 @@ func NewHandler(deps api.Deps, dist fs.FS) (*Handler, error) {
 	}
 
 	var h http.Handler = securityHeaders(csp, mux)
+	h = truncateNotificationBody(h)
 	h = requestLogger(deps.Logger, h)
 	h = deps.Sessions.LoadAndSave(h)
 
@@ -82,4 +85,20 @@ func Run(ctx context.Context, addr string, h http.Handler, logger *slog.Logger) 
 		return err
 	}
 	return nil
+}
+
+// truncateNotificationBody limite le corps lu d'une notification HelloAsso :
+// le surplus est ignoré plutôt que refusé, pour que la réponse ne dépende pas
+// du contenu reçu (constitution v1.7.0, principe II).
+func truncateNotificationBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, api.NotificationPathPrefix) && r.Body != nil {
+			r.Body = struct {
+				io.Reader
+				io.Closer
+			}{io.LimitReader(r.Body, api.NotificationMaxBody), r.Body}
+			r.ContentLength = -1
+		}
+		next.ServeHTTP(w, r)
+	})
 }
