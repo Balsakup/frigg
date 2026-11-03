@@ -84,7 +84,7 @@ export default function AdminMembershipDetail({ params }: Route.ComponentProps) 
   if (id === null || (isProblem(query.error) && query.error.status === 404)) return <NotFound />;
   if (query.isError) {
     return (
-      <Alert kind="danger" role="alert" className="max-w-3xl">
+      <Alert kind="danger" role="alert">
         Impossible de charger cette adhésion. Rechargez la page.
       </Alert>
     );
@@ -131,12 +131,12 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
         {status}
       </p>
       {status ? (
-        <Alert kind="success" className="mb-6 max-w-3xl">
+        <Alert kind="success" className="mb-6">
           {status}
         </Alert>
       ) : null}
       {error ? (
-        <Alert kind="danger" role="alert" className="mb-6 max-w-3xl">
+        <Alert kind="danger" role="alert" className="mb-6">
           {error}
         </Alert>
       ) : null}
