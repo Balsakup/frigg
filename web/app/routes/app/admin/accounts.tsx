@@ -156,7 +156,7 @@ export default function Accounts() {
 
       <section
         aria-labelledby="invitations-titre"
-        className="mt-6 max-w-5xl rounded-lg border border-line bg-surface"
+        className="mt-6 rounded-lg border border-line bg-surface"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pb-2 pt-4">
           <h2 id="invitations-titre" className="font-display text-lg font-bold">
@@ -290,15 +290,12 @@ function AccountList() {
       : `${total} compte${total > 1 ? "s" : ""}`;
 
   return (
-    <section
-      aria-labelledby="comptes-titre"
-      className="max-w-5xl rounded-lg border border-line bg-surface"
-    >
+    <section aria-labelledby="comptes-titre" className="rounded-lg border border-line bg-surface">
       <div className="px-5 pt-4">
         <h2 id="comptes-titre" className="font-display text-lg font-bold">
           Comptes de l'association
         </h2>
-        <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem_11rem] sm:items-end">
+        <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem_11rem] sm:items-start">
           <Field
             label="Rechercher une adresse"
             type="search"

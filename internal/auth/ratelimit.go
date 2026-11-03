@@ -75,6 +75,9 @@ type Limits struct {
 	// session volée ne doit pas permettre de le deviner, et chaque essai coûte
 	// un hachage argon2id.
 	ChangePassword *KeyedLimiter
+	// NotificationIP borne les appels à l'adresse publique de notification de
+	// HelloAsso (research.md 008 › R6).
+	NotificationIP *KeyedLimiter
 }
 
 // NewLimits crée les limiteurs avec les valeurs de research.md › R7.
@@ -90,6 +93,7 @@ func NewLimits() *Limits {
 		InviteAdmin:    NewKeyedLimiter(30, time.Hour),
 		AdminReset:     NewKeyedLimiter(30, time.Hour), // research.md 002 › R9
 		ChangePassword: NewKeyedLimiter(5, 15*time.Minute),
+		NotificationIP: NewKeyedLimiter(60, time.Minute),
 	}
 }
 
@@ -102,7 +106,7 @@ func (l *Limits) RunPurge(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset, l.ChangePassword} {
+			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset, l.ChangePassword, l.NotificationIP} {
 				k.purge(2 * time.Hour)
 			}
 		}

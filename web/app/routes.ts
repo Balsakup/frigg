@@ -2,7 +2,7 @@ import { index, layout, prefix, type RouteConfig, route } from "@react-router/de
 
 // Rubriques livrées par des fonctionnalités ultérieures (app/shell/navigation.ts).
 const memberComingSoon = ["mes-inscriptions", "a-regler", "evenements", "mes-documents", "aide"];
-const adminComingSoon = ["evenements", "inscriptions", "finances", "communication", "aide"];
+const adminComingSoon = ["evenements", "inscriptions", "finances", "aide"];
 
 // Chaque user story ajoute ses routes ici en même temps que leurs fichiers
 // (contracts/ui-routes.md).
@@ -49,6 +49,11 @@ export default [
           index("routes/app/admin/memberships.tsx"),
           route("nouvelle", "routes/app/admin/membership-new.tsx"),
           route(":id", "routes/app/admin/membership-detail.tsx"),
+        ]),
+        route("communication", "routes/app/admin/communications-layout.tsx", [
+          index("routes/app/admin/communications.tsx"),
+          route("nouvelle", "routes/app/admin/communication-new.tsx"),
+          route(":id", "routes/app/admin/communication-detail.tsx"),
         ]),
         route("parametres", "routes/app/admin/settings-layout.tsx", [
           index("routes/app/admin/settings-index.tsx"),

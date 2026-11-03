@@ -54,7 +54,10 @@ export function formatAge(age: number) {
 // Adhésions (006) : libellés des états, types et moyens de paiement.
 export type MembershipStatus = "pending" | "validated" | "refused" | "cancelled";
 export type MembershipKind = "first" | "renewal";
-export type PaymentMethod = "cash" | "cheque" | "transfer";
+// La carte (HelloAsso, 008) se paie en ligne : elle n'est jamais « annoncée ».
+export type PaymentMethod = "card" | "cash" | "cheque" | "transfer";
+// Moyens annoncés par le compte et constatés à la main par le bureau.
+export type ManualPaymentMethod = Exclude<PaymentMethod, "card">;
 
 export function membershipStatusLabel(status: MembershipStatus) {
   return {
@@ -70,7 +73,9 @@ export function membershipKindLabel(kind: MembershipKind) {
 }
 
 export function paymentMethodLabel(method: PaymentMethod) {
-  return { cash: "Espèces", cheque: "Chèque", transfer: "Virement" }[method];
+  return { card: "Carte bancaire", cash: "Espèces", cheque: "Chèque", transfer: "Virement" }[
+    method
+  ];
 }
 
 interface PaymentLike {
@@ -106,4 +111,11 @@ export function previousSeasonLabel(hint: "yes" | "no" | "unknown") {
 // Somme en centimes → « 0,00 € », « 1 250,00 € » (chiffres : jamais « Gratuit »).
 export function formatMoney(cents: number) {
   return amountFormat.format(cents / 100);
+}
+
+// Taille de fichier : « 850 octets », « 12 Ko », « 1,2 Mo » (1 Mo = 1 048 576 octets).
+export function formatBytes(n: number) {
+  if (n < 1024) return `${n} octet${n > 1 ? "s" : ""}`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} Ko`;
+  return `${(n / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
 }

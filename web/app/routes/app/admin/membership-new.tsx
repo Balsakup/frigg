@@ -8,7 +8,7 @@ import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
 import { seasonListQuery } from "~/api/seasons";
-import { formatAge, type MembershipKind, type PaymentMethod } from "~/lib/format";
+import { formatAge, type ManualPaymentMethod, type MembershipKind } from "~/lib/format";
 import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
 import { type MemberOption, MemberPicker } from "~/memberships/MemberPicker";
 import { Page } from "~/shell/Page";
@@ -30,7 +30,7 @@ const kindOptions: { value: MembershipKind; label: string }[] = [
   { value: "renewal", label: "Renouvellement" },
 ];
 
-const methodOptions: { value: PaymentMethod; label: string }[] = [
+const methodOptions: { value: ManualPaymentMethod; label: string }[] = [
   { value: "cash", label: "Espèces" },
   { value: "cheque", label: "Chèque" },
   { value: "transfer", label: "Virement" },
@@ -60,7 +60,7 @@ export default function MembershipNew() {
   const [feeId, setFeeId] = useState<number | null>(null);
   const [kind, setKind] = useState<MembershipKind | "">("");
   const [paid, setPaid] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod | "">("");
+  const [method, setMethod] = useState<ManualPaymentMethod | "">("");
   const [receivedOn, setReceivedOn] = useState(todayISO());
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Errors>({});
@@ -141,109 +141,111 @@ export default function MembershipNew() {
 
   return (
     <Page title="Créer une adhésion" intro="L'adhésion est enregistrée directement validée.">
-      {errors.root ? (
-        <Alert
-          kind="danger"
-          role="alert"
-          className="mb-6 max-w-3xl"
-          actions={
-            existing ? (
-              <Link
-                to={`/admin/adhesions/${existing}`}
-                className={buttonClasses({ variant: "secondary", size: "sm" })}
-              >
-                Ouvrir l'adhésion existante
-              </Link>
-            ) : undefined
-          }
-        >
-          {errors.root}
-        </Alert>
-      ) : null}
-      <form onSubmit={onSubmit} noValidate className="flex max-w-3xl flex-col gap-6">
-        <MemberPicker value={chosen} onChange={setMember} error={errors.memberId} />
-        {open.length > 1 ? (
-          <Select
-            label="Saison"
-            value={String(season.id)}
-            items={open.map((s) => ({ value: String(s.id), label: s.label }))}
-            onValueChange={(v) => {
-              setSeasonId(Number(v));
-              setFeeId(null);
-            }}
-            className="max-w-xs"
-          />
-        ) : (
-          <p>
-            <span className="font-bold">Saison : </span>
-            {season.label}
-          </p>
-        )}
-        {feeList.length === 0 && !fees.isPending ? (
-          <Alert kind="info">
-            Cette saison n'a aucun tarif : ajoutez-en depuis la fiche de la saison.
+      <section className="max-w-3xl rounded-lg border border-line bg-surface p-5">
+        {errors.root ? (
+          <Alert
+            kind="danger"
+            role="alert"
+            className="mb-4"
+            actions={
+              existing ? (
+                <Link
+                  to={`/admin/adhesions/${existing}`}
+                  className={buttonClasses({ variant: "secondary", size: "sm" })}
+                >
+                  Ouvrir l'adhésion existante
+                </Link>
+              ) : undefined
+            }
+          >
+            {errors.root}
           </Alert>
-        ) : (
-          <FeeChoice fees={feeList} value={feeId} onChange={setFeeId} error={errors.feeId} />
-        )}
-        <RadioGroup
-          legend="Type d'adhésion"
-          required
-          value={kind}
-          onValueChange={setKind}
-          error={errors.kind}
-          options={kindOptions}
-        />
-        <AmountSummary fee={fee} kind={kind} />
-
-        <label className="flex items-center gap-2.5 font-bold">
-          <input
-            type="checkbox"
-            className="h-5 w-5 shrink-0 accent-brand"
-            checked={paid}
-            onChange={(e) => setPaid(e.target.checked)}
-          />
-          Règlement déjà reçu
-        </label>
-        {paid ? (
-          <div className="flex flex-col gap-5 rounded-lg border border-line bg-surface p-4">
-            <RadioGroup
-              legend="Moyen de paiement"
-              required
-              value={method}
-              onValueChange={setMethod}
-              error={errors["paid.method"]}
-              options={methodOptions}
-            />
-            <Field
-              label="Date de réception"
-              type="date"
-              required
-              value={receivedOn}
-              onChange={(e) => setReceivedOn(e.target.value)}
-              error={errors["paid.receivedOn"]}
-              className="max-w-56"
-            />
-            <TextAreaField
-              label="Commentaire (facultatif)"
-              maxLength={200}
-              hint="Par exemple le numéro du chèque."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              error={errors["paid.note"]}
-            />
-          </div>
         ) : null}
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+          <MemberPicker value={chosen} onChange={setMember} error={errors.memberId} />
+          {open.length > 1 ? (
+            <Select
+              label="Saison"
+              value={String(season.id)}
+              items={open.map((s) => ({ value: String(s.id), label: s.label }))}
+              onValueChange={(v) => {
+                setSeasonId(Number(v));
+                setFeeId(null);
+              }}
+              className="max-w-xs"
+            />
+          ) : (
+            <p>
+              <span className="font-bold">Saison : </span>
+              {season.label}
+            </p>
+          )}
+          {feeList.length === 0 && !fees.isPending ? (
+            <Alert kind="info">
+              Cette saison n'a aucun tarif : ajoutez-en depuis la fiche de la saison.
+            </Alert>
+          ) : (
+            <FeeChoice fees={feeList} value={feeId} onChange={setFeeId} error={errors.feeId} />
+          )}
+          <RadioGroup
+            legend="Type d'adhésion"
+            required
+            value={kind}
+            onValueChange={setKind}
+            error={errors.kind}
+            options={kindOptions}
+          />
+          <AmountSummary fee={fee} kind={kind} />
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row">
-          <Link to="/admin/adhesions" className={buttonClasses({ variant: "secondary" })}>
-            Annuler
-          </Link>
-          <Button type="submit" aria-disabled={create.isPending}>
-            Enregistrer l'adhésion
-          </Button>
-        </div>
-      </form>
+          <label className="flex items-center gap-2.5 font-bold">
+            <input
+              type="checkbox"
+              className="h-5 w-5 shrink-0 accent-brand"
+              checked={paid}
+              onChange={(e) => setPaid(e.target.checked)}
+            />
+            Règlement déjà reçu
+          </label>
+          {paid ? (
+            <div className="flex flex-col gap-5 rounded-lg border border-line bg-canvas p-4">
+              <RadioGroup
+                legend="Moyen de paiement"
+                required
+                value={method}
+                onValueChange={setMethod}
+                error={errors["paid.method"]}
+                options={methodOptions}
+              />
+              <Field
+                label="Date de réception"
+                type="date"
+                required
+                value={receivedOn}
+                onChange={(e) => setReceivedOn(e.target.value)}
+                error={errors["paid.receivedOn"]}
+                className="max-w-56"
+              />
+              <TextAreaField
+                label="Commentaire (facultatif)"
+                maxLength={200}
+                hint="Par exemple le numéro du chèque."
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                error={errors["paid.note"]}
+              />
+            </div>
+          ) : null}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Link to="/admin/adhesions" className={buttonClasses({ variant: "secondary" })}>
+              Annuler
+            </Link>
+            <Button type="submit" aria-disabled={create.isPending}>
+              Enregistrer l'adhésion
+            </Button>
+          </div>
+        </form>
+      </section>
     </Page>
   );
 }

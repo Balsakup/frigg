@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -31,7 +32,12 @@ func NewSMTPSender(cfg SMTPConfig) *SMTPSender { return &SMTPSender{cfg: cfg} }
 
 func (s *SMTPSender) Send(ctx context.Context, to string, msg Message) error {
 	m := gomail.NewMsg()
-	if err := m.From(s.cfg.From); err != nil {
+	from := m.From
+	if msg.FromName != "" {
+		// Nom de l'association en expéditeur des communications (FR-016 de 009).
+		from = func(addr string) error { return m.FromFormat(msg.FromName, addr) }
+	}
+	if err := from(s.cfg.From); err != nil {
 		return fmt.Errorf("expéditeur invalide : %w", err)
 	}
 	if err := m.To(to); err != nil {
@@ -40,6 +46,11 @@ func (s *SMTPSender) Send(ctx context.Context, to string, msg Message) error {
 	m.Subject(msg.Subject)
 	m.SetBodyString(gomail.TypeTextPlain, msg.Text)
 	m.AddAlternativeString(gomail.TypeTextHTML, msg.HTML)
+	for _, a := range msg.Attachments {
+		if err := m.AttachReader(a.Name, bytes.NewReader(a.Data), gomail.WithFileContentType(gomail.ContentType(a.ContentType))); err != nil {
+			return fmt.Errorf("pièce jointe : %w", err)
+		}
+	}
 
 	opts := []gomail.Option{gomail.WithPort(s.cfg.Port)}
 	switch s.cfg.TLS {

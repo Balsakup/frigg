@@ -10,9 +10,19 @@ import (
 	"database/sql"
 )
 
+const clearHelloAssoError = `-- name: ClearHelloAssoError :exec
+UPDATE payment_settings SET helloasso_error_at = NULL, helloasso_error_code = NULL
+WHERE id = 1 AND helloasso_error_at IS NOT NULL
+`
+
+func (q *Queries) ClearHelloAssoError(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearHelloAssoError)
+	return err
+}
+
 const getPaymentSettings = `-- name: GetPaymentSettings :one
 
-SELECT id, cash_enabled, cash_instructions, cheque_enabled, cheque_payee, cheque_address, cheque_instructions, transfer_enabled, transfer_holder, transfer_iban, transfer_bic, transfer_instructions, updated_at FROM payment_settings WHERE id = 1
+SELECT id, cash_enabled, cash_instructions, cheque_enabled, cheque_payee, cheque_address, cheque_instructions, transfer_enabled, transfer_holder, transfer_iban, transfer_bic, transfer_instructions, updated_at, card_enabled, helloasso_test_at, helloasso_test_environment, helloasso_test_ok, helloasso_test_error, helloasso_organization_name, helloasso_error_at, helloasso_error_code FROM payment_settings WHERE id = 1
 `
 
 // Payment methods shown to members (research.md 006 R7): single row id = 1.
@@ -33,8 +43,62 @@ func (q *Queries) GetPaymentSettings(ctx context.Context) (PaymentSetting, error
 		&i.TransferBic,
 		&i.TransferInstructions,
 		&i.UpdatedAt,
+		&i.CardEnabled,
+		&i.HelloassoTestAt,
+		&i.HelloassoTestEnvironment,
+		&i.HelloassoTestOk,
+		&i.HelloassoTestError,
+		&i.HelloassoOrganizationName,
+		&i.HelloassoErrorAt,
+		&i.HelloassoErrorCode,
 	)
 	return i, err
+}
+
+const recordHelloAssoError = `-- name: RecordHelloAssoError :exec
+UPDATE payment_settings SET helloasso_error_at = ?1, helloasso_error_code = ?2
+WHERE id = 1
+`
+
+type RecordHelloAssoErrorParams struct {
+	Now       sql.NullString
+	ErrorCode sql.NullString
+}
+
+func (q *Queries) RecordHelloAssoError(ctx context.Context, arg RecordHelloAssoErrorParams) error {
+	_, err := q.db.ExecContext(ctx, recordHelloAssoError, arg.Now, arg.ErrorCode)
+	return err
+}
+
+const recordHelloAssoTest = `-- name: RecordHelloAssoTest :exec
+
+UPDATE payment_settings
+SET helloasso_test_at = ?1, helloasso_test_environment = ?2,
+    helloasso_test_ok = ?3, helloasso_test_error = ?4,
+    helloasso_organization_name = ?5,
+    helloasso_error_at = CASE WHEN ?3 = 1 THEN NULL ELSE helloasso_error_at END,
+    helloasso_error_code = CASE WHEN ?3 = 1 THEN NULL ELSE helloasso_error_code END
+WHERE id = 1
+`
+
+type RecordHelloAssoTestParams struct {
+	Now              sql.NullString
+	Environment      sql.NullString
+	Ok               sql.NullInt64
+	ErrorCode        sql.NullString
+	OrganizationName sql.NullString
+}
+
+// HelloAsso connection state (research.md 008 R7, R9).
+func (q *Queries) RecordHelloAssoTest(ctx context.Context, arg RecordHelloAssoTestParams) error {
+	_, err := q.db.ExecContext(ctx, recordHelloAssoTest,
+		arg.Now,
+		arg.Environment,
+		arg.Ok,
+		arg.ErrorCode,
+		arg.OrganizationName,
+	)
+	return err
 }
 
 const updatePaymentSettings = `-- name: UpdatePaymentSettings :exec
@@ -50,7 +114,8 @@ SET cash_enabled = ?1,
     transfer_iban = ?9,
     transfer_bic = ?10,
     transfer_instructions = ?11,
-    updated_at = ?12
+    card_enabled = ?12,
+    updated_at = ?13
 WHERE id = 1
 `
 
@@ -66,6 +131,7 @@ type UpdatePaymentSettingsParams struct {
 	TransferIban         sql.NullString
 	TransferBic          sql.NullString
 	TransferInstructions sql.NullString
+	CardEnabled          int64
 	Now                  string
 }
 
@@ -82,6 +148,7 @@ func (q *Queries) UpdatePaymentSettings(ctx context.Context, arg UpdatePaymentSe
 		arg.TransferIban,
 		arg.TransferBic,
 		arg.TransferInstructions,
+		arg.CardEnabled,
 		arg.Now,
 	)
 	return err

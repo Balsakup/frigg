@@ -15,9 +15,11 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/communication"
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/helloasso"
 	"github.com/balsakup/frigg/internal/season"
 )
 
@@ -31,6 +33,24 @@ type Deps struct {
 	Logger   *slog.Logger
 	// Horloge injectable ; time.Now si nil (research.md 003 › R3).
 	Now func() time.Time
+	// HelloAsso est le client du paiement par carte ; nil si les identifiants
+	// ne sont pas configurés (research.md 008 › R2).
+	HelloAsso *helloasso.Client
+	// Files range les pièces jointes des communications (specs/009-bulk-email).
+	Files *communication.FileStore
+}
+
+// NewHelloAssoClient construit le client HelloAsso depuis la configuration, ou
+// nil si elle ne le configure pas.
+func NewHelloAssoClient(cfg config.Config, now func() time.Time) *helloasso.Client {
+	if !cfg.HelloAssoConfigured() {
+		return nil
+	}
+	h := cfg.HelloAsso
+	return helloasso.New(helloasso.Config{
+		ClientID: h.ClientID, ClientSecret: h.ClientSecret, Organization: h.Organization,
+		Environment: h.Environment, APIURL: h.APIURL,
+	}, nil, now)
 }
 
 type server struct {
@@ -40,11 +60,15 @@ type server struct {
 // today renvoie la date du jour à Paris, seule source de « aujourd'hui » pour
 // les saisons.
 func (s *server) today() season.Date {
-	now := time.Now
+	return season.Today(s.now())
+}
+
+// now renvoie l'instant courant de l'horloge injectable.
+func (s *server) now() time.Time {
 	if s.Now != nil {
-		now = s.Now
+		return s.Now()
 	}
-	return season.Today(now())
+	return time.Now()
 }
 
 // New enregistre toutes les opérations sous le préfixe /api.
@@ -61,6 +85,10 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 		"session": {Type: "apiKey", In: "cookie", Name: "frigg_session"},
 	}
 
+	// Les dépôts de pièces jointes (5 Mio au plus) restent en mémoire : sans
+	// cela, net/http écrit dans le répertoire temporaire, en lecture seule en
+	// conteneur (spec 007).
+	humago.MultipartMaxMemory = UploadMaxBody
 	api := humago.NewWithPrefix(mux, "/api", cfg)
 	s := &server{Deps: deps}
 	api.UseMiddleware(s.accessMiddleware(api))
@@ -74,6 +102,10 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerMembershipFees(api)
 	s.registerMembers(api)
 	s.registerMemberships(api)
+	s.registerCardPayments(api)
+	s.registerPaymentAlerts(api)
+	s.registerHelloAssoWebhook(api)
+	s.registerCommunications(api)
 	s.mountDocs(mux, api)
 	return api
 }

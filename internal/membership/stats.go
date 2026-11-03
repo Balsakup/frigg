@@ -17,6 +17,17 @@ type StatRow struct {
 	FeeLabel        string
 	PaymentStatus   PaymentStatus
 	AnnouncedMethod Method
+	// PaidMethod et PaidAmountCents : moyen constaté et, pour la carte,
+	// montant reçu hors contribution volontaire.
+	PaidMethod      Method
+	PaidAmountCents int64
+	// PaidTest : payée par carte en mode test (environnement sandbox).
+	PaidTest bool
+}
+
+// PaidByMethod détaille le montant encaissé par moyen constaté (008).
+type PaidByMethod struct {
+	Card, Cash, Cheque, Transfer int64
 }
 
 // FeeStat est la répartition d'un tarif.
@@ -39,6 +50,10 @@ type Stats struct {
 	ByFee                              []FeeStat
 	TotalCents, PaidCents, DueCents    int64
 	DueByMethod                        DueByMethod
+	// PaidByMethod détaille PaidCents ; TestPaidCents compte à part les
+	// paiements par carte en mode test, exclus de PaidCents.
+	PaidByMethod  PaidByMethod
+	TestPaidCents int64
 }
 
 // ComputeStats calcule les chiffres d'une saison.
@@ -69,7 +84,25 @@ func ComputeStats(rows []StatRow) Stats {
 		s.TotalCents += r.AmountCents
 		switch r.PaymentStatus {
 		case Paid:
-			s.PaidCents += r.AmountCents
+			received := r.AmountCents
+			if r.PaidMethod == Card {
+				received = r.PaidAmountCents
+			}
+			if r.PaidTest {
+				s.TestPaidCents += received
+				break
+			}
+			s.PaidCents += received
+			switch r.PaidMethod {
+			case Card:
+				s.PaidByMethod.Card += received
+			case Cash:
+				s.PaidByMethod.Cash += received
+			case Cheque:
+				s.PaidByMethod.Cheque += received
+			case Transfer:
+				s.PaidByMethod.Transfer += received
+			}
 		case Due, Announced:
 			s.DueCents += r.AmountCents
 			switch r.AnnouncedMethod {

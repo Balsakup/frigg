@@ -104,82 +104,84 @@ export default function MembershipRequest() {
 
   return (
     <Page title="Demander une adhésion">
-      {errors.root ? (
-        <Alert kind="danger" role="alert" className="mb-6 max-w-3xl">
-          {errors.root}
-        </Alert>
-      ) : null}
-      <form onSubmit={onSubmit} noValidate className="flex max-w-3xl flex-col gap-6">
-        {seasons.length > 1 ? (
-          <Select
-            label="Saison"
-            value={String(season.id)}
-            items={seasons.map((s) => ({ value: String(s.id), label: s.label }))}
-            onValueChange={(v) => {
-              setSeasonId(Number(v));
-              setFeeId(null);
-            }}
-            className="max-w-xs"
-          />
-        ) : (
-          <p>
-            <span className="font-bold">Saison : </span>
-            {season.label}
-          </p>
-        )}
-
-        <div>
-          <RadioGroup
-            legend="Membre"
-            required
-            value={chosenMember === null ? "" : String(chosenMember)}
-            onValueChange={(v) => setMemberId(Number(v))}
-            error={errors.memberId}
-            options={available.map((m) => ({
-              value: String(m.id),
-              label: `${m.firstName} ${m.lastName}`,
-            }))}
-          />
-          {unavailable.map((m) => (
-            <p key={m.id} className="mt-2 text-sm text-muted">
-              {m.firstName} a déjà une adhésion en cours pour cette saison.
+      <section className="max-w-3xl rounded-lg border border-line bg-surface p-5">
+        {errors.root ? (
+          <Alert kind="danger" role="alert" className="mb-4">
+            {errors.root}
+          </Alert>
+        ) : null}
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
+          {seasons.length > 1 ? (
+            <Select
+              label="Saison"
+              value={String(season.id)}
+              items={seasons.map((s) => ({ value: String(s.id), label: s.label }))}
+              onValueChange={(v) => {
+                setSeasonId(Number(v));
+                setFeeId(null);
+              }}
+              className="max-w-xs"
+            />
+          ) : (
+            <p>
+              <span className="font-bold">Saison : </span>
+              {season.label}
             </p>
-          ))}
-        </div>
+          )}
 
-        <FeeChoice
-          fees={season.fees ?? []}
-          value={fee?.id ?? null}
-          onChange={setFeeId}
-          error={errors.feeId}
-        />
+          <div>
+            <RadioGroup
+              legend="Membre"
+              required
+              value={chosenMember === null ? "" : String(chosenMember)}
+              onValueChange={(v) => setMemberId(Number(v))}
+              error={errors.memberId}
+              options={available.map((m) => ({
+                value: String(m.id),
+                label: `${m.firstName} ${m.lastName}`,
+              }))}
+            />
+            {unavailable.map((m) => (
+              <p key={m.id} className="mt-2 text-sm text-muted">
+                {m.firstName} a déjà une adhésion en cours pour cette saison.
+              </p>
+            ))}
+          </div>
 
-        <RadioGroup
-          legend="Était-il adhérent la saison passée ?"
-          required
-          value={kind}
-          onValueChange={setKind}
-          error={errors.declaredKind}
-          options={kindOptions}
-        />
+          <FeeChoice
+            fees={season.fees ?? []}
+            value={fee?.id ?? null}
+            onChange={setFeeId}
+            error={errors.feeId}
+          />
 
-        <div className="rounded-lg border border-line bg-surface p-4">
-          <AmountSummary fee={fee} kind={kind} />
-          <p className="text-muted">
-            Votre demande sera validée par le bureau ; vous recevrez ensuite les informations de
-            paiement.
-          </p>
-        </div>
+          <RadioGroup
+            legend="Était-il adhérent la saison passée ?"
+            required
+            value={kind}
+            onValueChange={setKind}
+            error={errors.declaredKind}
+            options={kindOptions}
+          />
 
-        <div className="flex flex-col-reverse gap-2 sm:flex-row">
-          <Link to="/adhesions" className={buttonClasses({ variant: "secondary" })}>
-            Annuler
-          </Link>
-          <Button type="submit" aria-disabled={create.isPending}>
-            Envoyer la demande
-          </Button>
-        </div>
-      </form>
+          <div className="rounded-lg border border-line bg-canvas p-4">
+            <AmountSummary fee={fee} kind={kind} />
+            <p className="text-muted">
+              Votre demande sera validée par le bureau ; vous recevrez ensuite les informations de
+              paiement.
+            </p>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Link to="/adhesions" className={buttonClasses({ variant: "secondary" })}>
+              Annuler
+            </Link>
+            <Button type="submit" aria-disabled={create.isPending}>
+              Envoyer la demande
+            </Button>
+          </div>
+        </form>
+      </section>
     </Page>
   );
 }

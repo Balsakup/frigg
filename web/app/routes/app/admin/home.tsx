@@ -41,6 +41,39 @@ export default function AdminHome() {
           {pending} demande{pending > 1 ? "s" : ""} d'adhésion en attente.
         </Alert>
       ) : null}
+      {(memberships.data?.paymentAlerts ?? 0) > 0 ? (
+        <Alert
+          kind="warning"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/adhesions?season=all&alerts=open"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Voir les signalements
+            </Link>
+          }
+        >
+          {memberships.data?.paymentAlerts} signalement
+          {(memberships.data?.paymentAlerts ?? 0) > 1 ? "s" : ""} de paiement à traiter.
+        </Alert>
+      ) : null}
+      {memberships.data?.helloassoFailing ? (
+        <Alert
+          kind="danger"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/parametres/paiements"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Voir les paramètres
+            </Link>
+          }
+        >
+          Connexion à HelloAsso en échec : le paiement par carte peut être indisponible.
+        </Alert>
+      ) : null}
       {memberships.data?.paymentSetupNeeded ? (
         <Alert
           kind="warning"

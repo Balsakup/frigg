@@ -85,20 +85,17 @@ export default function Members() {
         {status}
       </p>
       {status ? (
-        <Alert kind="success" className="mb-6 max-w-3xl">
+        <Alert kind="success" className="mb-6">
           {status}
         </Alert>
       ) : null}
 
-      <section
-        aria-labelledby="membres-titre"
-        className="max-w-5xl rounded-lg border border-line bg-surface"
-      >
+      <section aria-labelledby="membres-titre" className="rounded-lg border border-line bg-surface">
         <div className="px-5 pt-4">
           <h2 id="membres-titre" className="font-display text-lg font-bold">
             Membres de l'association
           </h2>
-          <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-end">
+          <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-start">
             <Field
               label="Rechercher un membre"
               type="search"

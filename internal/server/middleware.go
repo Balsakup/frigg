@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/balsakup/frigg/internal/api"
@@ -23,9 +24,15 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r.WithContext(api.WithRequestInfo(r.Context(), info)))
 
+		path := r.URL.Path
+		// La clé de l'adresse de notification HelloAsso ne doit pas figurer
+		// dans les journaux (research.md 008 › R14).
+		if strings.HasPrefix(path, api.NotificationPathPrefix) {
+			path = api.NotificationPathPrefix + "…"
+		}
 		attrs := []any{
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", path,
 			"status", rec.status,
 			"duration_ms", time.Since(start).Milliseconds(),
 			"request_id", info.ID,

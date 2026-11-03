@@ -3,6 +3,6 @@
 {{template "body" .}}
 
 --
-Message envoyé automatiquement par Frigg pour {{.Association}}.
-Merci de ne pas y répondre.
+{{if .Footer}}{{.Footer}}{{else}}Message envoyé automatiquement par Frigg pour {{.Association}}.
+Merci de ne pas y répondre.{{end}}
 {{end}}

@@ -55,3 +55,39 @@ export async function waitForMail(
   }
   throw new Error(`aucun e-mail « ${subject} » reçu pour ${to}`);
 }
+
+export interface MailpitMessage {
+  From: { Name: string; Address: string };
+  To: { Name: string; Address: string }[];
+  Subject: string;
+  Text: string;
+  Attachments: { FileName: string; ContentType: string; Size: number }[];
+}
+
+// Attend les e-mails dont l'objet contient `subject` reçus après `since`, et
+// renvoie le détail de chacun (communications, 009).
+export async function waitForMessages(
+  subject: string,
+  since: Date,
+  count: number,
+  timeoutMs = 20_000,
+): Promise<MailpitMessage[]> {
+  const deadline = Date.now() + timeoutMs;
+  let found: (Summary & { Subject: string })[] = [];
+  while (Date.now() < deadline) {
+    const res = await fetch(
+      `${MAILPIT}/search?query=${encodeURIComponent(`subject:"${subject}"`)}`,
+    );
+    if (res.ok) {
+      const { messages } = (await res.json()) as { messages: (Summary & { Subject: string })[] };
+      found = messages.filter((m) => new Date(m.Created) >= since);
+      if (found.length >= count) break;
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  return Promise.all(
+    found.map(
+      async (m) => (await (await fetch(`${MAILPIT}/message/${m.ID}`)).json()) as MailpitMessage,
+    ),
+  );
+}

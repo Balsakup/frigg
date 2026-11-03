@@ -150,7 +150,6 @@ export const navigation: NavEntry[] = [
     path: "/admin/communication",
     space: "admin",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "saisons",

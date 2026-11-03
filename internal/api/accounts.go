@@ -419,7 +419,12 @@ func (s *server) deleteAccount(ctx context.Context, in *DeleteAccountInput) (*st
 		if err := q.DeleteInvitationsByEmail(ctx, target.Email); err != nil {
 			return err
 		}
-		return q.DeleteEmailsByRecipient(ctx, target.Email)
+		if err := q.DeleteEmailsByRecipient(ctx, target.Email); err != nil {
+			return err
+		}
+		// Droit à l'effacement : l'adresse quitte l'historique des
+		// communications (research.md 009 › R12).
+		return q.EraseRecipientEmail(ctx, target.Email)
 	})
 	if err != nil {
 		return nil, err

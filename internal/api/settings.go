@@ -9,7 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/helloasso"
 	"github.com/balsakup/frigg/internal/membership"
 	"github.com/balsakup/frigg/internal/season"
 )
@@ -24,6 +26,9 @@ const (
 	MsgIBANInvalid              = "Cet IBAN n'est pas valide. Vérifiez-le sur votre relevé d'identité bancaire."
 	MsgBICInvalid               = "Saisissez un BIC de 8 ou 11 caractères."
 	MsgTextTooLong              = "Ce texte est trop long."
+	MsgHelloAssoNotConfigured   = "Les identifiants HelloAsso ne sont pas renseignés dans la configuration de l'instance."
+	MsgHelloAssoTestFirst       = "Testez d'abord la connexion à HelloAsso."
+	MsgHelloAssoConfigure       = "Renseignez les identifiants HelloAsso dans la configuration de l'instance."
 )
 
 func (s *server) registerSettings(api huma.API) {
@@ -42,6 +47,35 @@ func (s *server) registerSettings(api huma.API) {
 		Summary:     "Modifier les moyens de paiement",
 		Tags:        []string{tagSettings},
 	}, s.updatePaymentSettings)
+
+	register(api, auth.Admin, huma.Operation{
+		OperationID: "test-helloasso-connection",
+		Method:      http.MethodPost,
+		Path:        "/admin/settings/payment/helloasso-test",
+		Summary:     "Tester la connexion à HelloAsso",
+		Tags:        []string{tagSettings},
+	}, s.testHelloAssoConnection)
+}
+
+// HelloAssoTest est le résultat du dernier test de connexion.
+type HelloAssoTest struct {
+	At               time.Time `json:"at"`
+	Environment      string    `json:"environment" enum:"sandbox,production"`
+	OK               bool      `json:"ok"`
+	OrganizationName *string   `json:"organizationName"`
+	Error            *string   `json:"error" enum:"unauthorized,forbidden,not_found,unavailable,unexpected"`
+}
+
+// CardSettings décrit le paiement par carte via HelloAsso (research.md 008 › R7).
+type CardSettings struct {
+	Enabled         bool           `json:"enabled" doc:"Choix de l'administrateur"`
+	Available       bool           `json:"available" doc:"Carte proposée aux adhérents"`
+	Configured      bool           `json:"configured" doc:"Identifiants présents dans la configuration de l'instance"`
+	Environment     *string        `json:"environment" enum:"sandbox,production"`
+	Organization    *string        `json:"organization" doc:"Identifiant de l'association sur HelloAsso"`
+	NotificationURL *string        `json:"notificationUrl" doc:"Adresse à déclarer dans l'espace HelloAsso"`
+	LastTest        *HelloAssoTest `json:"lastTest"`
+	Failing         bool           `json:"failing" doc:"Carte activée et connexion à HelloAsso en échec"`
 }
 
 // CashSettings sont les informations du paiement en espèces.
@@ -69,6 +103,7 @@ type TransferSettings struct {
 
 // PaymentSettings sont les moyens de paiement de l'association.
 type PaymentSettings struct {
+	Card      CardSettings     `json:"card"`
 	Cash      CashSettings     `json:"cash"`
 	Cheque    ChequeSettings   `json:"cheque"`
 	Transfer  TransferSettings `json:"transfer"`
@@ -77,6 +112,10 @@ type PaymentSettings struct {
 
 // PaymentSettingsBody remplace les moyens de paiement.
 type PaymentSettingsBody struct {
+	// Card est facultatif : absent, l'activation de la carte est conservée.
+	Card *struct {
+		Enabled bool `json:"enabled"`
+	} `json:"card,omitempty" required:"false"`
 	Cash struct {
 		Enabled      bool   `json:"enabled"`
 		Instructions string `json:"instructions,omitempty" required:"false" maxLength:"1000"`
@@ -113,21 +152,41 @@ func settingsFromRow(r sqlc.PaymentSetting) membership.Settings {
 		TransferIBAN:         r.TransferIban.String,
 		TransferBIC:          r.TransferBic.String,
 		TransferInstructions: r.TransferInstructions.String,
+		CardEnabled:          r.CardEnabled == 1,
 	}
 }
 
-// paymentSettings lit les paramètres des moyens de paiement.
+// paymentSettings lit les paramètres des moyens de paiement, avec la
+// disponibilité de la carte (research.md 008 › R7).
 func (s *server) paymentSettings(ctx context.Context, q *sqlc.Queries) (membership.Settings, error) {
 	r, err := q.GetPaymentSettings(ctx)
 	if err != nil {
 		return membership.Settings{}, err
 	}
-	return settingsFromRow(r), nil
+	st := settingsFromRow(r)
+	st.CardAvailable = s.cardAvailable(r)
+	st.CardTest = s.helloAssoEnvironment() == config.HelloAssoSandbox
+	return st, nil
 }
 
-func toPaymentSettings(r sqlc.PaymentSetting) PaymentSettings {
+// helloAssoEnvironment renvoie l'environnement HelloAsso configuré, ou "".
+func (s *server) helloAssoEnvironment() string {
+	if s.HelloAsso == nil {
+		return ""
+	}
+	return s.HelloAsso.Environment()
+}
+
+// cardAvailable applique la règle de disponibilité de la carte.
+func (s *server) cardAvailable(r sqlc.PaymentSetting) bool {
+	return membership.CardAvailability(s.HelloAsso != nil, r.CardEnabled == 1,
+		r.HelloassoTestEnvironment.String, r.HelloassoTestOk.Int64 == 1, s.helloAssoEnvironment())
+}
+
+func (s *server) toPaymentSettings(r sqlc.PaymentSetting) PaymentSettings {
 	st := settingsFromRow(r)
 	return PaymentSettings{
+		Card: s.cardSettings(r),
 		Cash: CashSettings{Enabled: st.CashEnabled, Instructions: optionalString(st.CashInstructions)},
 		Cheque: ChequeSettings{
 			Enabled: st.ChequeEnabled, Payee: optionalString(st.ChequePayee),
@@ -146,7 +205,7 @@ func (s *server) getPaymentSettings(ctx context.Context, _ *struct{}) (*PaymentS
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	return &PaymentSettingsOutput{Body: toPaymentSettings(r)}, nil
+	return &PaymentSettingsOutput{Body: s.toPaymentSettings(r)}, nil
 }
 
 var settingsMessages = map[error]string{
@@ -187,7 +246,24 @@ func (s *server) updatePaymentSettings(ctx context.Context, in *UpdatePaymentSet
 		return nil, s.internalError(ctx, "paramètres invalides", err)
 	}
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		current, err := q.GetPaymentSettings(ctx)
+		if err != nil {
+			return err
+		}
+		card := current.CardEnabled == 1
+		if b.Card != nil {
+			if b.Card.Enabled && !card {
+				switch {
+				case s.HelloAsso == nil:
+					return FieldErrors("body.card.enabled", MsgHelloAssoNotConfigured)
+				case current.HelloassoTestOk.Int64 != 1 || current.HelloassoTestEnvironment.String != s.helloAssoEnvironment():
+					return FieldErrors("body.card.enabled", MsgHelloAssoTestFirst)
+				}
+			}
+			card = b.Card.Enabled
+		}
 		return q.UpdatePaymentSettings(ctx, sqlc.UpdatePaymentSettingsParams{
+			CardEnabled: boolInt64(card),
 			CashEnabled: boolInt64(st.CashEnabled), CashInstructions: ns(st.CashInstructions),
 			ChequeEnabled: boolInt64(st.ChequeEnabled), ChequePayee: ns(st.ChequePayee),
 			ChequeAddress: ns(st.ChequeAddress), ChequeInstructions: ns(st.ChequeInstructions),
@@ -197,13 +273,64 @@ func (s *server) updatePaymentSettings(ctx context.Context, in *UpdatePaymentSet
 		})
 	})
 	if err != nil {
-		return nil, s.internalError(ctx, "écriture des paramètres impossible", err)
+		return nil, s.txError(ctx, "écriture des paramètres impossible", err)
 	}
-	enabled := make([]string, 0, 3)
+	enabled := make([]string, 0, 4)
+	if b.Card != nil && b.Card.Enabled {
+		enabled = append(enabled, string(membership.Card))
+	}
 	for _, m := range st.EnabledMethods() {
 		enabled = append(enabled, string(m))
 	}
 	s.Logger.InfoContext(ctx, "paramètres de paiement modifiés",
 		"action", "settings.payment_update", "actor_id", CurrentAccount(ctx).ID, "enabled", enabled)
+	return s.getPaymentSettings(ctx, nil)
+}
+
+// cardSettings décrit l'état du paiement par carte pour l'administration. Le
+// secret n'en sort jamais : seule la clé dérivée figure dans l'adresse.
+func (s *server) cardSettings(r sqlc.PaymentSetting) CardSettings {
+	c := CardSettings{Enabled: r.CardEnabled == 1, Configured: s.HelloAsso != nil, Available: s.cardAvailable(r)}
+	if s.HelloAsso != nil {
+		env, slug := s.HelloAsso.Environment(), s.HelloAsso.OrganizationSlug()
+		c.Environment, c.Organization = &env, &slug
+		u := s.Config.BaseURL + NotificationPathPrefix + s.HelloAsso.NotificationKey()
+		c.NotificationURL = &u
+	}
+	if r.HelloassoTestAt.Valid {
+		c.LastTest = &HelloAssoTest{
+			At: parseTime(r.HelloassoTestAt.String), Environment: r.HelloassoTestEnvironment.String,
+			OK: r.HelloassoTestOk.Int64 == 1, OrganizationName: optionalValue(r.HelloassoOrganizationName),
+			Error: optionalValue(r.HelloassoTestError),
+		}
+	}
+	c.Failing = s.helloAssoFailing(r)
+	return c
+}
+
+// helloAssoFailing : carte activée et dernier test en échec, ou incident
+// d'appel plus récent que le dernier succès (research.md 008 › R9).
+func (s *server) helloAssoFailing(r sqlc.PaymentSetting) bool {
+	if r.CardEnabled != 1 || s.HelloAsso == nil {
+		return false
+	}
+	return (r.HelloassoTestAt.Valid && r.HelloassoTestOk.Int64 != 1) || r.HelloassoErrorAt.Valid
+}
+
+func (s *server) testHelloAssoConnection(ctx context.Context, _ *struct{}) (*PaymentSettingsOutput, error) {
+	if s.HelloAsso == nil {
+		return nil, huma.Error409Conflict(MsgHelloAssoConfigure)
+	}
+	name, err := s.HelloAsso.Organization(ctx)
+	code := helloasso.ErrorCode(err)
+	params := sqlc.RecordHelloAssoTestParams{
+		Now: ns(s.timestamp()), Environment: ns(s.HelloAsso.Environment()), Ok: nid(boolInt64(err == nil)),
+		ErrorCode: ns(code), OrganizationName: ns(name),
+	}
+	if e := s.Store.Write.RecordHelloAssoTest(ctx, params); e != nil {
+		return nil, s.internalError(ctx, "enregistrement du test impossible", e)
+	}
+	s.Logger.InfoContext(ctx, "test de connexion HelloAsso", "action", "settings.helloasso_test",
+		"actor_id", CurrentAccount(ctx).ID, "ok", err == nil, "error_code", code, "environment", s.HelloAsso.Environment())
 	return s.getPaymentSettings(ctx, nil)
 }

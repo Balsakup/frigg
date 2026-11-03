@@ -107,6 +107,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historique des communications */
+        get: operations["list-communications"];
+        put?: never;
+        /** Envoyer une communication */
+        post: operations["send-communication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Déposer une pièce jointe */
+        post: operations["upload-communication-attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une pièce jointe */
+        delete: operations["delete-communication-attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Décompte d'une cible */
+        get: operations["get-communication-audience"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aperçu d'une communication */
+        post: operations["preview-communication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une communication */
+        get: operations["get-communication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/{id}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Télécharger une pièce jointe */
+        get: operations["download-communication-attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/invitations": {
         parameters: {
             query?: never;
@@ -283,6 +403,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/memberships/{id}/card-payment/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier auprès de HelloAsso les paiements par carte en cours */
+        post: operations["verify-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/memberships/{id}/payment": {
         parameters: {
             query?: never;
@@ -329,6 +466,23 @@ export interface paths {
         put?: never;
         /** Valider une demande d'adhésion */
         post: operations["validate-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/payment-alerts/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marquer un signalement de paiement comme traité */
+        post: operations["resolve-payment-alert"];
         delete?: never;
         options?: never;
         head?: never;
@@ -454,6 +608,23 @@ export interface paths {
         /** Modifier les moyens de paiement */
         put: operations["update-payment-settings"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/payment/helloasso-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tester la connexion à HelloAsso */
+        post: operations["test-helloasso-connection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -731,6 +902,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/memberships/{id}/card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lancer un paiement par carte (HelloAsso) */
+        post: operations["start-my-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/memberships/{id}/card-payment/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier un paiement par carte au retour de HelloAsso */
+        post: operations["confirm-my-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/memberships/{id}/payment": {
         parameters: {
             query?: never;
@@ -782,6 +987,26 @@ export interface paths {
         get: operations["get-session"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/helloasso/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recevoir une notification de HelloAsso
+         * @description Adresse à déclarer dans l'espace HelloAsso de l'association. La réponse ne révèle rien à qui ne détient pas la clé.
+         */
+        post: operations["receive-helloasso-notification"];
         delete?: never;
         options?: never;
         head?: never;
@@ -932,6 +1157,8 @@ export interface components {
             /** @description Compte qui gère la fiche ; null : sans compte */
             account: components["schemas"]["MemberAccount"];
             actions: components["schemas"]["AdminMembershipActions"];
+            /** @description Signalements de paiement, non traités d'abord */
+            alerts: components["schemas"]["PaymentAlert"][] | null;
             /**
              * Format: int64
              * @description Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré
@@ -942,6 +1169,7 @@ export interface components {
             /** Format: date-time */
             cancelledAt: string | null;
             cancelledBy: components["schemas"]["AccountRef"];
+            cardPaymentPending: boolean;
             createdBy: components["schemas"]["AccountRef"];
             /** Format: date-time */
             decidedAt: string | null;
@@ -961,6 +1189,8 @@ export interface components {
              */
             kind: "first" | "renewal" | null;
             member: components["schemas"]["MemberRef"];
+            /** @description Tentatives de paiement par carte, la plus récente d'abord */
+            onlinePayments: components["schemas"]["OnlinePayment"][] | null;
             paidBy: components["schemas"]["AccountRef"];
             /** @description null : adhésion non validée ou gratuite */
             payment: components["schemas"]["Payment"];
@@ -988,6 +1218,7 @@ export interface components {
             refuse: boolean;
             update: boolean;
             validate: boolean;
+            verifyCardPayment: boolean;
         };
         AdminMembershipFee: {
             /** Format: int64 */
@@ -1023,6 +1254,11 @@ export interface components {
             /** @enum {string|null} */
             kind: "first" | "renewal" | null;
             member: components["schemas"]["MemberRef"];
+            /**
+             * Format: int64
+             * @description Signalements de paiement à traiter
+             */
+            openAlerts: number;
             payment: components["schemas"]["Payment"];
             /** Format: date-time */
             requestedAt: string;
@@ -1031,11 +1267,77 @@ export interface components {
             status: "pending" | "validated" | "refused" | "cancelled";
         };
         AnnounceBody: {
-            /** @enum {string} */
-            method: "cash" | "cheque" | "transfer";
+            /**
+             * @description La carte se paie en ligne : elle n'est jamais annoncée
+             * @enum {string}
+             */
+            method: "card" | "cash" | "cheque" | "transfer";
         };
         Association: {
             name: string;
+        };
+        Attachment: {
+            contentType: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        Audience: {
+            /** @description Adhérents joignables, par nom puis prénom */
+            members: components["schemas"]["AudienceMember"][] | null;
+            /**
+             * Format: int64
+             * @description Adhérents ciblés, non joignables compris
+             */
+            membersCount: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /**
+             * Format: int64
+             * @description Adresses distinctes
+             */
+            recipientsCount: number;
+            target: components["schemas"]["Target"];
+            targetLabel: string;
+            unreachable: components["schemas"]["AudienceMember"][] | null;
+            /** Format: int64 */
+            unreachableCount: number;
+        };
+        AudienceMember: {
+            /** @description null : non joignable */
+            contactEmail: string | null;
+            feeLabel: string;
+            firstName: string;
+            lastName: string;
+            /** Format: int64 */
+            memberId: number;
+            /** @enum {string} */
+            situation: "up_to_date" | "announced" | "due";
+        };
+        CardPaymentState: {
+            /** Format: date-time */
+            startedAt: string;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
+        CardSettings: {
+            /** @description Carte proposée aux adhérents */
+            available: boolean;
+            /** @description Identifiants présents dans la configuration de l'instance */
+            configured: boolean;
+            /** @description Choix de l'administrateur */
+            enabled: boolean;
+            /** @enum {string|null} */
+            environment: "sandbox" | "production" | null;
+            /** @description Carte activée et connexion à HelloAsso en échec */
+            failing: boolean;
+            lastTest: components["schemas"]["HelloAssoTest"];
+            /** @description Adresse à déclarer dans l'espace HelloAsso */
+            notificationUrl: string | null;
+            /** @description Identifiant de l'association sur HelloAsso */
+            organization: string | null;
         };
         CashSettings: {
             enabled: boolean;
@@ -1053,6 +1355,80 @@ export interface components {
             instructions: string | null;
             payee: string | null;
         };
+        Communication: {
+            attachments: components["schemas"]["Attachment"][] | null;
+            /** Format: int64 */
+            attachmentsCount: number;
+            /** @description null : compte supprimé */
+            author: components["schemas"]["AccountRef"];
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            delivery: components["schemas"]["Delivery"];
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            membersCount: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /** @description En échec, en attente puis envoyés */
+            recipients: components["schemas"]["Recipient"][] | null;
+            /** Format: int64 */
+            recipientsCount: number;
+            season: components["schemas"]["CommunicationSeason"];
+            subject: string;
+            target: components["schemas"]["Target"];
+            targetLabel: string;
+            /** Format: int64 */
+            unreachableCount: number;
+        };
+        CommunicationPage: {
+            /** @description La plus récente d'abord */
+            items: components["schemas"]["CommunicationSummary"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        CommunicationSeason: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
+        CommunicationSummary: {
+            /** Format: int64 */
+            attachmentsCount: number;
+            /** @description null : compte supprimé */
+            author: components["schemas"]["AccountRef"];
+            /** Format: date-time */
+            createdAt: string;
+            delivery: components["schemas"]["Delivery"];
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /** Format: int64 */
+            recipientsCount: number;
+            subject: string;
+            targetLabel: string;
+        };
+        ConfirmCardPayment: {
+            membership: components["schemas"]["MyMembership"];
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
+        ConfirmCardPaymentBody: {
+            /**
+             * Format: int64
+             * @description Indicatif : seule la relecture chez HelloAsso fait foi
+             */
+            checkoutIntentId?: number;
+            /** Format: int64 */
+            onlinePaymentId: number;
+            /**
+             * @description D'après le paramètre carte=retour|erreur|annule
+             * @enum {string}
+             */
+            outcome: "return" | "error" | "back";
+        };
         CreateInvitationInputBody: {
             /** @description Adresse électronique de la personne invitée */
             email: string;
@@ -1068,6 +1444,14 @@ export interface components {
             feeId: number;
             /** @enum {string} */
             kind: "first" | "renewal";
+        };
+        Delivery: {
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            sent: number;
         };
         EmailInputBody: {
             /** @description Adresse électronique */
@@ -1132,6 +1516,16 @@ export interface components {
              * @enum {string}
              */
             status: "ok";
+        };
+        HelloAssoTest: {
+            /** Format: date-time */
+            at: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            /** @enum {string|null} */
+            error: "unauthorized" | "forbidden" | "not_found" | "unavailable" | "unexpected" | null;
+            ok: boolean;
+            organizationName: string | null;
         };
         Invitation: {
             /** Format: date-time */
@@ -1206,7 +1600,24 @@ export interface components {
             id: number;
             lastName: string;
         };
+        MembershipCollectedByMethod: {
+            /** Format: int64 */
+            card: number;
+            /** Format: int64 */
+            cash: number;
+            /** Format: int64 */
+            cheque: number;
+            /** Format: int64 */
+            transfer: number;
+        };
         MembershipDashboard: {
+            /** @description Carte activée et connexion à HelloAsso en échec */
+            helloassoFailing: boolean;
+            /**
+             * Format: int64
+             * @description Signalements de paiement à traiter
+             */
+            paymentAlerts: number;
             /** @description Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion */
             paymentSetupNeeded: boolean;
             /**
@@ -1303,6 +1714,12 @@ export interface components {
         };
         MembershipStats: {
             byFee: components["schemas"]["MembershipFeeStat"][] | null;
+            collectedByMethod: components["schemas"]["MembershipCollectedByMethod"];
+            /**
+             * Format: int64
+             * @description Paiements par carte en mode test (aucun débit réel)
+             */
+            collectedTest: number;
             dueByMethod: components["schemas"]["MembershipDueByMethod"];
             /** Format: int64 */
             dueCents: number;
@@ -1361,6 +1778,8 @@ export interface components {
             amountFixed: boolean;
             /** Format: date-time */
             cancelledAt: string | null;
+            /** @description Dernière tentative de paiement par carte */
+            cardPayment: components["schemas"]["CardPaymentState"];
             /** Format: date-time */
             decidedAt: string | null;
             /**
@@ -1380,7 +1799,7 @@ export interface components {
             member: components["schemas"]["MemberRef"];
             /** @description null : adhésion non validée ou gratuite */
             payment: components["schemas"]["Payment"];
-            /** @description Moyens activés ; vide s'il n'y a rien à payer */
+            /** @description Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier */
             paymentMethods: components["schemas"]["PaymentMethodInfo"][] | null;
             /** @description Motif d'un refus ou d'une annulation */
             reason: string | null;
@@ -1395,6 +1814,8 @@ export interface components {
             cancel: boolean;
             /** @description Choisir ou changer le moyen de paiement */
             pay: boolean;
+            /** @description Payer en ligne par carte bancaire (HelloAsso) */
+            payByCard: boolean;
         };
         MyMembershipBody: {
             /** @enum {string} */
@@ -1431,6 +1852,40 @@ export interface components {
             id: number;
             label: string;
         };
+        OnlinePayment: {
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            errorCode: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /** @description Espace HelloAsso de l'association (commande ou accueil) */
+            helloassoUrl: string | null;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            orderId: number | null;
+            /** Format: date-time */
+            paidAt: string | null;
+            /** Format: int64 */
+            receivedAmountCents: number | null;
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
+        OnlinePaymentRef: {
+            /**
+             * Format: int64
+             * @description Numéro de commande HelloAsso
+             */
+            orderId: number;
+            /** Format: date-time */
+            paidAt: string;
+            /** @description Payée dans l'environnement de test HelloAsso */
+            test: boolean;
+        };
         PasswordTokenInputBody: {
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
             password: string;
@@ -1440,17 +1895,39 @@ export interface components {
         Payment: {
             /** @enum {string|null} */
             announcedMethod: "cash" | "cheque" | "transfer" | null;
+            /** @description Carte : paiement HelloAsso qui a constaté l'adhésion */
+            online: components["schemas"]["OnlinePaymentRef"];
+            /** Format: int64 */
+            paidAmountCents: number | null;
             /** @enum {string|null} */
-            paidMethod: "cash" | "cheque" | "transfer" | null;
+            paidMethod: "card" | "cash" | "cheque" | "transfer" | null;
             /** Format: date */
             paidOn: string | null;
             reference: string;
             /** @enum {string} */
             status: "due" | "announced" | "paid";
         };
+        PaymentAlert: {
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "duplicate" | "amount_mismatch" | "refund_due" | "unverified";
+            /** Format: int64 */
+            onlinePaymentId: number;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            resolvedBy: components["schemas"]["AccountRef"];
+        };
         PaymentMethodInfo: {
             /** @description Chèque : adresse d'envoi */
             address: string | null;
+            /**
+             * Format: int64
+             * @description Carte : montant à payer
+             */
+            amountCents: number | null;
             /** @description Virement : BIC */
             bic: string | null;
             /** @description Virement : titulaire du compte */
@@ -1459,11 +1936,14 @@ export interface components {
             iban: string | null;
             instructions: string | null;
             /** @enum {string} */
-            method: "cash" | "cheque" | "transfer";
+            method: "card" | "cash" | "cheque" | "transfer";
             /** @description Chèque : ordre */
             payee: string | null;
+            /** @description Carte : environnement de test HelloAsso, aucun débit réel */
+            test: boolean;
         };
         PaymentSettings: {
+            card: components["schemas"]["CardSettings"];
             cash: components["schemas"]["CashSettings"];
             cheque: components["schemas"]["ChequeSettings"];
             transfer: components["schemas"]["TransferSettings"];
@@ -1471,9 +1951,13 @@ export interface components {
             updatedAt: string;
         };
         PaymentSettingsBody: {
+            card?: components["schemas"]["PaymentSettingsBodyCardStruct"];
             cash: components["schemas"]["PaymentSettingsBodyCashStruct"];
             cheque: components["schemas"]["PaymentSettingsBodyChequeStruct"];
             transfer: components["schemas"]["PaymentSettingsBodyTransferStruct"];
+        };
+        PaymentSettingsBodyCardStruct: {
+            enabled: boolean;
         };
         PaymentSettingsBodyCashStruct: {
             enabled: boolean;
@@ -1498,8 +1982,29 @@ export interface components {
             line2: string | null;
             postalCode: string;
         };
+        Preview: {
+            html: string;
+            subject: string;
+            text: string;
+        };
+        PreviewInputBody: {
+            body: string;
+            /** Format: int64 */
+            seasonId: number;
+            subject: string;
+        };
         ReasonBody: {
             reason: string;
+        };
+        Recipient: {
+            /** @description null : adresse effacée (compte supprimé) */
+            email: string | null;
+            /** Format: int64 */
+            membersCount: number;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** @enum {string} */
+            status: "pending" | "sent" | "failed";
         };
         RecordPaymentBody: {
             /** @enum {string} */
@@ -1588,6 +2093,17 @@ export interface components {
             /** @enum {string} */
             state: "draft" | "open" | "closed";
         };
+        SendCommunicationInputBody: {
+            body: string;
+            draftKey: string;
+            /**
+             * Format: int64
+             * @description Décompte présenté à l'administrateur
+             */
+            expectedRecipients: number;
+            subject: string;
+            target: components["schemas"]["Target"];
+        };
         Session: {
             account: components["schemas"]["Account"];
             association: components["schemas"]["Association"];
@@ -1598,6 +2114,21 @@ export interface components {
              * @enum {string}
              */
             role: "member" | "admin";
+        };
+        StartCardPayment: {
+            /** Format: int64 */
+            onlinePaymentId: number;
+            redirectUrl: string;
+            /** @description Tentative en cours reprise */
+            resumed: boolean;
+        };
+        Target: {
+            /** @description Tarifs retenus ; vide : tous les tarifs de la saison */
+            feeIds: number[] | null;
+            /** Format: int64 */
+            seasonId: number;
+            /** @description Situations de paiement retenues */
+            situations: ("up_to_date" | "announced" | "due")[] | null;
         };
         TokenInputBody: {
             /** @description Jeton reçu par e-mail */
@@ -1855,6 +2386,266 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAccount"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-communications": {
+        parameters: {
+            query?: {
+                page?: number;
+                perPage?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "send-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendCommunicationInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "upload-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    draftKey: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-communication-audience": {
+        parameters: {
+            query: {
+                seasonId: number;
+                situations: ("up_to_date" | "announced" | "due")[] | null;
+                feeIds?: number[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "download-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le fichier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             /** @description Error */
@@ -2170,8 +2961,11 @@ export interface operations {
                 payment?: "due" | "announced" | "paid" | "free";
                 /** @description Adhésions d'une fiche */
                 member?: number;
-                /** @description Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche */
+                /** @description Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso */
                 q?: string;
+                paidMethod?: "card" | "cash" | "cheque" | "transfer";
+                /** @description open : adhésions portant un signalement de paiement à traiter */
+                alerts?: "open";
                 page?: number;
                 pageSize?: number;
             };
@@ -2398,6 +3192,38 @@ export interface operations {
             };
         };
     };
+    "verify-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "record-membership-payment": {
         parameters: {
             query?: never;
@@ -2517,6 +3343,38 @@ export interface operations {
                 "application/json": components["schemas"]["DecisionBody"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-payment-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du signalement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -2941,6 +3799,35 @@ export interface operations {
                 "application/json": components["schemas"]["PaymentSettingsBody"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "test-helloasso-connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -3565,6 +4452,74 @@ export interface operations {
             };
         };
     };
+    "start-my-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-my-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmCardPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "announce-my-payment": {
         parameters: {
             query?: never;
@@ -3658,6 +4613,51 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
+            };
+        };
+    };
+    "receive-helloasso-notification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Notification reçue, traitée ou ignorée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Trop de requêtes */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Erreur passagère : HelloAsso renverra la notification */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

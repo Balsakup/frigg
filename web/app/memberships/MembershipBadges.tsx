@@ -20,6 +20,8 @@ interface BadgesProps {
     status: "due" | "announced" | "paid";
     announcedMethod?: PaymentMethod | null;
     paidOn?: string | null;
+    paidMethod?: PaymentMethod | null;
+    online?: { test: boolean } | null;
   } | null;
 }
 
@@ -31,7 +33,13 @@ export function MembershipBadges({ status, amountCents, payment }: BadgesProps) 
     <span className="inline-flex flex-wrap items-center gap-2">
       <Badge tone={statusTones[status]}>{membershipStatusLabel(status)}</Badge>
       {status === "validated" && payment ? (
-        <Badge tone={paymentTone}>{paymentStatusLabel(payment)}</Badge>
+        <Badge tone={paymentTone}>
+          {paymentStatusLabel(payment)}
+          {payment.status === "paid" && payment.paidMethod === "card" ? " — carte bancaire" : ""}
+        </Badge>
+      ) : null}
+      {payment?.status === "paid" && payment.online?.test ? (
+        <Badge tone="warning">Mode test</Badge>
       ) : null}
       {status === "validated" && !payment && amountCents === 0 ? (
         <Badge tone="success">Gratuite</Badge>

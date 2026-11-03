@@ -51,3 +51,40 @@ func TestRenderMembershipTemplates(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderCommunication(t *testing.T) {
+	body := "Bonjour,\r\n\r\n<script>alert(1)</script> et <b>gras</b>\nVoir https://exemple.test/a?b=1&c=2.\n\n\njavascript:alert(1)"
+	msg, err := Render("communication", Data{
+		Association: "Club de Frigg", Subject: "Rappel : cotisation", Body: body,
+		Footer: "Vous recevez ce message en tant qu'adhérent de Club de Frigg pour la saison 2026-2027.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if msg.Subject != "Rappel : cotisation" {
+		t.Errorf("objet %q", msg.Subject)
+	}
+	for _, want := range []string{"<script>alert(1)</script>", "https://exemple.test/a?b=1&c=2.", "pour la saison 2026-2027"} {
+		if !strings.Contains(msg.Text, want) {
+			t.Errorf("texte : %q absent", want)
+		}
+	}
+	for _, want := range []string{
+		"&lt;script&gt;alert(1)&lt;/script&gt;", "&lt;b&gt;gras&lt;/b&gt;<br>Voir ",
+		`<a href="https://exemple.test/a?b=1&amp;c=2" rel="noopener"`, "c=2</a>.",
+		`<p style="margin:0 0 12px">Bonjour,</p>`, "javascript:alert(1)</p>", "pour la saison 2026-2027",
+	} {
+		if !strings.Contains(msg.HTML, want) {
+			t.Errorf("HTML : %q absent\n%s", want, msg.HTML)
+		}
+	}
+	for _, no := range []string{"<script>", "<b>", `href="javascript`, "Merci de ne pas y répondre"} {
+		if strings.Contains(msg.HTML, no) || (no == "Merci de ne pas y répondre" && strings.Contains(msg.Text, no)) {
+			t.Errorf("%q ne devrait pas figurer", no)
+		}
+	}
+	other, err := Render("membership-paid", Data{Association: "Club", Member: "Léo"})
+	if err != nil || !strings.Contains(other.Text, "Merci de ne pas y répondre") || !strings.Contains(other.HTML, "Merci de ne pas y répondre") {
+		t.Errorf("pied par défaut absent des autres gabarits (%v)", err)
+	}
+}

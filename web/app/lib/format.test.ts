@@ -3,6 +3,7 @@ import {
   amountInput,
   formatAge,
   formatAmount,
+  formatBytes,
   formatDay,
   formatIban,
   formatPhone,
@@ -95,5 +96,15 @@ describe("adhésions", () => {
 
   it("groupe l'IBAN par quatre caractères", () => {
     expect(formatIban("FR7630006000011234567890189")).toBe("FR76 3000 6000 0112 3456 7890 189");
+  });
+});
+
+describe("formatBytes", () => {
+  it("formate les tailles de fichier en français", () => {
+    expect(formatBytes(1)).toBe("1 octet");
+    expect(formatBytes(850)).toBe("850 octets");
+    expect(formatBytes(12 * 1024)).toBe("12 Ko");
+    expect(formatBytes(1.2 * 1024 * 1024)).toBe("1,2 Mo");
+    expect(formatBytes(10 * 1024 * 1024)).toBe("10,0 Mo");
   });
 });

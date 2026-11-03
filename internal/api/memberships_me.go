@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -99,13 +100,22 @@ type MembershipOffer struct {
 
 // MyMembershipActions sont les actions proposées au compte.
 type MyMembershipActions struct {
-	Cancel bool `json:"cancel" doc:"Annuler la demande en attente"`
-	Pay    bool `json:"pay" doc:"Choisir ou changer le moyen de paiement"`
+	Cancel    bool `json:"cancel" doc:"Annuler la demande en attente"`
+	Pay       bool `json:"pay" doc:"Choisir ou changer le moyen de paiement"`
+	PayByCard bool `json:"payByCard" doc:"Payer en ligne par carte bancaire (HelloAsso)"`
+}
+
+// CardPaymentState est la dernière tentative de paiement par carte.
+type CardPaymentState struct {
+	Status    string    `json:"status" enum:"pending,succeeded,failed,abandoned,expired,refunded"`
+	StartedAt time.Time `json:"startedAt"`
 }
 
 // PaymentMethodInfo est un moyen de paiement activé et ses informations.
 type PaymentMethodInfo struct {
-	Method       string  `json:"method" enum:"cash,cheque,transfer"`
+	Method       string  `json:"method" enum:"card,cash,cheque,transfer"`
+	AmountCents  *int64  `json:"amountCents" doc:"Carte : montant à payer"`
+	Test         bool    `json:"test" doc:"Carte : environnement de test HelloAsso, aucun débit réel"`
 	Instructions *string `json:"instructions"`
 	Payee        *string `json:"payee" doc:"Chèque : ordre"`
 	Address      *string `json:"address" doc:"Chèque : adresse d'envoi"`
@@ -118,7 +128,8 @@ type PaymentMethodInfo struct {
 type MyMembership struct {
 	Membership
 	Actions        MyMembershipActions `json:"actions"`
-	PaymentMethods []PaymentMethodInfo `json:"paymentMethods" doc:"Moyens activés ; vide s'il n'y a rien à payer"`
+	PaymentMethods []PaymentMethodInfo `json:"paymentMethods" doc:"Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier"`
+	CardPayment    *CardPaymentState   `json:"cardPayment" doc:"Dernière tentative de paiement par carte"`
 }
 
 // MyMembershipSeason regroupe les adhésions d'une saison.
@@ -142,7 +153,7 @@ type MyMembershipBody struct {
 
 // AnnounceBody est le moyen de paiement choisi.
 type AnnounceBody struct {
-	Method string `json:"method" enum:"cash,cheque,transfer"`
+	Method string `json:"method" enum:"card,cash,cheque,transfer" doc:"La carte se paie en ligne : elle n'est jamais annoncée"`
 }
 
 type MembershipOfferOutput struct{ Body MembershipOffer }
@@ -219,13 +230,39 @@ func (s *server) getMembershipOffer(ctx context.Context, _ *struct{}) (*Membersh
 
 // myMembership complète une adhésion pour l'espace membre : actions et
 // moyens de paiement activés si elle est à payer.
-func myMembership(m Membership, snap membership.Snapshot, settings membership.Settings) MyMembership {
-	a := membership.MemberActionsFor(snap)
-	out := MyMembership{Membership: m, Actions: MyMembershipActions{Cancel: a.Cancel, Pay: a.Pay}, PaymentMethods: []PaymentMethodInfo{}}
+func myMembership(m Membership, snap membership.Snapshot, settings membership.Settings, latest *sqlc.OnlinePayment) MyMembership {
+	a := membership.MemberActionsFor(snap, settings.CardAvailable)
+	out := MyMembership{
+		Membership:     m,
+		Actions:        MyMembershipActions{Cancel: a.Cancel, Pay: a.Pay, PayByCard: a.PayByCard},
+		PaymentMethods: []PaymentMethodInfo{},
+	}
+	if a.PayByCard {
+		amount := snap.AmountCents
+		out.PaymentMethods = append(out.PaymentMethods, PaymentMethodInfo{Method: string(membership.Card), AmountCents: &amount, Test: settings.CardTest})
+	}
 	if a.Pay {
-		out.PaymentMethods = paymentMethodInfos(settings)
+		out.PaymentMethods = append(out.PaymentMethods, paymentMethodInfos(settings)...)
+	}
+	if latest != nil {
+		out.CardPayment = &CardPaymentState{Status: latest.Status, StartedAt: parseTime(latest.CreatedAt)}
 	}
 	return out
+}
+
+// latestCardPayment lit la dernière tentative d'une adhésion à paiement.
+func latestCardPayment(ctx context.Context, q *sqlc.Queries, m sqlc.Membership) (*sqlc.OnlinePayment, error) {
+	if !m.PaymentStatus.Valid {
+		return nil, nil
+	}
+	op, err := q.LatestOnlinePaymentOfMembership(ctx, m.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &op, nil
 }
 
 // paymentMethodInfos renvoie les informations des moyens activés.
@@ -277,7 +314,14 @@ func (s *server) listMyMemberships(ctx context.Context, in *ListMyMembershipsInp
 	bySeason := map[int64][]MyMembership{}
 	for _, r := range rows {
 		m := toMembership(r.Membership, r.MembershipFee, r.FirstName, r.LastName, r.BirthDate, seasons, today)
-		bySeason[r.Membership.SeasonID] = append(bySeason[r.Membership.SeasonID], myMembership(m, snapshotOf(r.Membership, seasons), settings))
+		if err := withOnline(ctx, q, &m, r.Membership); err != nil {
+			return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
+		}
+		latest, err := latestCardPayment(ctx, q, r.Membership)
+		if err != nil {
+			return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
+		}
+		bySeason[r.Membership.SeasonID] = append(bySeason[r.Membership.SeasonID], myMembership(m, snapshotOf(r.Membership, seasons), settings, latest))
 	}
 	list := MyMembershipList{Seasons: []MyMembershipSeason{}}
 	for i := len(order) - 1; i >= 0; i-- {
@@ -316,7 +360,14 @@ func (s *server) myMembershipOutput(ctx context.Context, q *sqlc.Queries, id int
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
 	m := toMembership(r.Membership, r.MembershipFee, r.FirstName, r.LastName, r.BirthDate, seasons, today)
-	return &MyMembershipOutput{Body: myMembership(m, snapshotOf(r.Membership, seasons), settings)}, nil
+	if err := withOnline(ctx, q, &m, r.Membership); err != nil {
+		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
+	}
+	latest, err := latestCardPayment(ctx, q, r.Membership)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
+	}
+	return &MyMembershipOutput{Body: myMembership(m, snapshotOf(r.Membership, seasons), settings, latest)}, nil
 }
 
 func (s *server) getMyMembership(ctx context.Context, in *MembershipIDInput) (*MyMembershipOutput, error) {
@@ -418,6 +469,9 @@ func (s *server) cancelMyMembership(ctx context.Context, in *MembershipIDInput) 
 
 func (s *server) announceMyPayment(ctx context.Context, in *AnnounceMyPaymentInput) (*MyMembershipOutput, error) {
 	m, err := s.myMembershipWrite(ctx, in.ID, func(q *sqlc.Queries, m sqlc.Membership, snap membership.Snapshot) error {
+		if !membership.ManualMethod(membership.Method(in.Body.Method)) {
+			return FieldErrors("body.method", MsgCardIsOnline)
+		}
 		if !membership.CanPay(snap) {
 			return huma.Error409Conflict(MsgMembershipChanged)
 		}

@@ -50,13 +50,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           tabIndex={-1}
           className="flex-1 px-4 py-6 focus:outline-none lg:px-8 lg:py-8"
         >
-          <VerifyEmailBanner />
-          {rightsRevoked ? (
-            <Alert kind="info" role="status" className="mb-6">
-              Vos droits d'administration ont été retirés.
-            </Alert>
-          ) : null}
-          {children}
+          {/* Conteneur unique, centré, de même largeur sur toutes les pages. */}
+          <div className="mx-auto w-full max-w-6xl">
+            <VerifyEmailBanner />
+            {rightsRevoked ? (
+              <Alert kind="info" role="status" className="mb-6">
+                Vos droits d'administration ont été retirés.
+              </Alert>
+            ) : null}
+            {children}
+          </div>
         </main>
         <Footer association={association.name} />
       </div>
