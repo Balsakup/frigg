@@ -15,6 +15,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/communication"
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
@@ -35,6 +36,8 @@ type Deps struct {
 	// HelloAsso est le client du paiement par carte ; nil si les identifiants
 	// ne sont pas configurés (research.md 008 › R2).
 	HelloAsso *helloasso.Client
+	// Files range les pièces jointes des communications (specs/009-bulk-email).
+	Files *communication.FileStore
 }
 
 // NewHelloAssoClient construit le client HelloAsso depuis la configuration, ou
@@ -82,6 +85,10 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 		"session": {Type: "apiKey", In: "cookie", Name: "frigg_session"},
 	}
 
+	// Les dépôts de pièces jointes (5 Mio au plus) restent en mémoire : sans
+	// cela, net/http écrit dans le répertoire temporaire, en lecture seule en
+	// conteneur (spec 007).
+	humago.MultipartMaxMemory = UploadMaxBody
 	api := humago.NewWithPrefix(mux, "/api", cfg)
 	s := &server{Deps: deps}
 	api.UseMiddleware(s.accessMiddleware(api))
@@ -98,6 +105,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerCardPayments(api)
 	s.registerPaymentAlerts(api)
 	s.registerHelloAssoWebhook(api)
+	s.registerCommunications(api)
 	s.mountDocs(mux, api)
 	return api
 }

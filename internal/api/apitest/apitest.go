@@ -25,6 +25,7 @@ import (
 
 	"github.com/balsakup/frigg/internal/api"
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/communication"
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
@@ -51,8 +52,12 @@ type Env struct {
 	HelloAsso *hatest.Fake
 	// Sweeper balaie les tentatives de paiement par carte (NewWithHelloAsso).
 	Sweeper *api.OnlinePaymentSweeper
-	seq     atomic.Int64
-	clock   atomic.Pointer[time.Time]
+	// Files range les pièces jointes des communications (répertoire temporaire).
+	Files *communication.FileStore
+	// AttachmentSweeper purge les pièces jointes abandonnées.
+	AttachmentSweeper *api.CommunicationAttachmentSweeper
+	seq               atomic.Int64
+	clock             atomic.Pointer[time.Time]
 }
 
 // LogBuffer capture les journaux pour vérifier qu'aucune donnée sensible n'y figure.
@@ -89,8 +94,12 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 
 	logs := &LogBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	env := &Env{t: t, Store: store, Mail: &mailtest.Sender{}, Logs: logs}
-	env.worker = &mail.Worker{Queries: store.Write, Sender: env.Mail, Interval: time.Hour, Logger: logger}
+	files, err := communication.NewFileStore(filepath.Join(t.TempDir(), "communications"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := &Env{t: t, Store: store, Mail: &mailtest.Sender{}, Logs: logs, Files: files}
+	env.worker = &mail.Worker{Queries: store.Write, Sender: env.Mail, Interval: time.Hour, Logger: logger, Files: files}
 
 	cfg := config.Config{BaseURL: "http://frigg.test", CookieSecure: false}
 	for _, opt := range options {
@@ -105,7 +114,9 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 		Logger:    logger,
 		Now:       env.now,
 		HelloAsso: api.NewHelloAssoClient(cfg, env.now),
+		Files:     files,
 	}
+	env.AttachmentSweeper = api.NewCommunicationAttachmentSweeper(deps)
 	if deps.HelloAsso != nil {
 		env.Sweeper = api.NewOnlinePaymentSweeper(deps)
 	}

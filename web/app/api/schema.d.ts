@@ -107,6 +107,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historique des communications */
+        get: operations["list-communications"];
+        put?: never;
+        /** Envoyer une communication */
+        post: operations["send-communication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Déposer une pièce jointe */
+        post: operations["upload-communication-attachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retirer une pièce jointe */
+        delete: operations["delete-communication-attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Décompte d'une cible */
+        get: operations["get-communication-audience"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aperçu d'une communication */
+        post: operations["preview-communication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une communication */
+        get: operations["get-communication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/communications/{id}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Télécharger une pièce jointe */
+        get: operations["download-communication-attachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/invitations": {
         parameters: {
             query?: never;
@@ -1156,6 +1276,46 @@ export interface components {
         Association: {
             name: string;
         };
+        Attachment: {
+            contentType: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        Audience: {
+            /** @description Adhérents joignables, par nom puis prénom */
+            members: components["schemas"]["AudienceMember"][] | null;
+            /**
+             * Format: int64
+             * @description Adhérents ciblés, non joignables compris
+             */
+            membersCount: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /**
+             * Format: int64
+             * @description Adresses distinctes
+             */
+            recipientsCount: number;
+            target: components["schemas"]["Target"];
+            targetLabel: string;
+            unreachable: components["schemas"]["AudienceMember"][] | null;
+            /** Format: int64 */
+            unreachableCount: number;
+        };
+        AudienceMember: {
+            /** @description null : non joignable */
+            contactEmail: string | null;
+            feeLabel: string;
+            firstName: string;
+            lastName: string;
+            /** Format: int64 */
+            memberId: number;
+            /** @enum {string} */
+            situation: "up_to_date" | "announced" | "due";
+        };
         CardPaymentState: {
             /** Format: date-time */
             startedAt: string;
@@ -1195,6 +1355,61 @@ export interface components {
             instructions: string | null;
             payee: string | null;
         };
+        Communication: {
+            attachments: components["schemas"]["Attachment"][] | null;
+            /** Format: int64 */
+            attachmentsCount: number;
+            /** @description null : compte supprimé */
+            author: components["schemas"]["AccountRef"];
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            delivery: components["schemas"]["Delivery"];
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            membersCount: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /** @description En échec, en attente puis envoyés */
+            recipients: components["schemas"]["Recipient"][] | null;
+            /** Format: int64 */
+            recipientsCount: number;
+            season: components["schemas"]["CommunicationSeason"];
+            subject: string;
+            target: components["schemas"]["Target"];
+            targetLabel: string;
+            /** Format: int64 */
+            unreachableCount: number;
+        };
+        CommunicationPage: {
+            /** @description La plus récente d'abord */
+            items: components["schemas"]["CommunicationSummary"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        CommunicationSeason: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
+        CommunicationSummary: {
+            /** Format: int64 */
+            attachmentsCount: number;
+            /** @description null : compte supprimé */
+            author: components["schemas"]["AccountRef"];
+            /** Format: date-time */
+            createdAt: string;
+            delivery: components["schemas"]["Delivery"];
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            preset: "all" | "up_to_date" | "unpaid" | "custom";
+            /** Format: int64 */
+            recipientsCount: number;
+            subject: string;
+            targetLabel: string;
+        };
         ConfirmCardPayment: {
             membership: components["schemas"]["MyMembership"];
             /** @enum {string} */
@@ -1229,6 +1444,14 @@ export interface components {
             feeId: number;
             /** @enum {string} */
             kind: "first" | "renewal";
+        };
+        Delivery: {
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            sent: number;
         };
         EmailInputBody: {
             /** @description Adresse électronique */
@@ -1759,8 +1982,29 @@ export interface components {
             line2: string | null;
             postalCode: string;
         };
+        Preview: {
+            html: string;
+            subject: string;
+            text: string;
+        };
+        PreviewInputBody: {
+            body: string;
+            /** Format: int64 */
+            seasonId: number;
+            subject: string;
+        };
         ReasonBody: {
             reason: string;
+        };
+        Recipient: {
+            /** @description null : adresse effacée (compte supprimé) */
+            email: string | null;
+            /** Format: int64 */
+            membersCount: number;
+            /** Format: date-time */
+            sentAt: string | null;
+            /** @enum {string} */
+            status: "pending" | "sent" | "failed";
         };
         RecordPaymentBody: {
             /** @enum {string} */
@@ -1849,6 +2093,17 @@ export interface components {
             /** @enum {string} */
             state: "draft" | "open" | "closed";
         };
+        SendCommunicationInputBody: {
+            body: string;
+            draftKey: string;
+            /**
+             * Format: int64
+             * @description Décompte présenté à l'administrateur
+             */
+            expectedRecipients: number;
+            subject: string;
+            target: components["schemas"]["Target"];
+        };
         Session: {
             account: components["schemas"]["Account"];
             association: components["schemas"]["Association"];
@@ -1866,6 +2121,14 @@ export interface components {
             redirectUrl: string;
             /** @description Tentative en cours reprise */
             resumed: boolean;
+        };
+        Target: {
+            /** @description Tarifs retenus ; vide : tous les tarifs de la saison */
+            feeIds: number[] | null;
+            /** Format: int64 */
+            seasonId: number;
+            /** @description Situations de paiement retenues */
+            situations: ("up_to_date" | "announced" | "due")[] | null;
         };
         TokenInputBody: {
             /** @description Jeton reçu par e-mail */
@@ -2123,6 +2386,266 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminAccount"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-communications": {
+        parameters: {
+            query?: {
+                page?: number;
+                perPage?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "send-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendCommunicationInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "upload-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    draftKey: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-communication-audience": {
+        parameters: {
+            query: {
+                seasonId: number;
+                situations: ("up_to_date" | "announced" | "due")[] | null;
+                feeIds?: number[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Audience"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preview"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-communication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Communication"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "download-communication-attachment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le fichier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             /** @description Error */

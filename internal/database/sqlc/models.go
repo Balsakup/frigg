@@ -30,6 +30,45 @@ type Association struct {
 	UpdatedAt string
 }
 
+type Communication struct {
+	ID               int64
+	DraftKey         string
+	AuthorID         sql.NullInt64
+	SeasonID         int64
+	Situations       string
+	FeeIds           string
+	TargetLabel      string
+	Subject          string
+	Body             string
+	MembersCount     int64
+	UnreachableCount int64
+	RecipientsCount  int64
+	CreatedAt        string
+}
+
+type CommunicationAttachment struct {
+	ID              int64
+	DraftKey        string
+	UploadedBy      sql.NullInt64
+	CommunicationID sql.NullInt64
+	StoredName      string
+	OriginalName    string
+	ContentType     string
+	SizeBytes       int64
+	Sha256          string
+	CreatedAt       string
+}
+
+type CommunicationRecipient struct {
+	ID              int64
+	CommunicationID int64
+	Email           sql.NullString
+	MembersCount    int64
+	OutboundEmailID sql.NullInt64
+	Status          string
+	SentAt          sql.NullString
+}
+
 type Invitation struct {
 	ID        int64
 	Email     string
@@ -143,17 +182,19 @@ type OnlinePayment struct {
 }
 
 type OutboundEmail struct {
-	ID            int64
-	Recipient     string
-	Subject       string
-	BodyText      string
-	BodyHtml      string
-	Status        string
-	Attempts      int64
-	NextAttemptAt string
-	LastError     sql.NullString
-	CreatedAt     string
-	SentAt        sql.NullString
+	ID              int64
+	Recipient       string
+	Subject         string
+	BodyText        string
+	BodyHtml        string
+	Status          string
+	Attempts        int64
+	NextAttemptAt   string
+	LastError       sql.NullString
+	CreatedAt       string
+	SentAt          sql.NullString
+	CommunicationID sql.NullInt64
+	FromName        sql.NullString
 }
 
 type PaymentAlert struct {

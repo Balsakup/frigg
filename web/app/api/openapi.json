@@ -822,6 +822,138 @@
         ],
         "type": "object"
       },
+      "Attachment": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "contentType",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "Audience": {
+        "additionalProperties": false,
+        "properties": {
+          "members": {
+            "description": "Adhérents joignables, par nom puis prénom",
+            "items": {
+              "$ref": "#/components/schemas/AudienceMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "membersCount": {
+            "description": "Adhérents ciblés, non joignables compris",
+            "format": "int64",
+            "type": "integer"
+          },
+          "preset": {
+            "enum": [
+              "all",
+              "up_to_date",
+              "unpaid",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "recipientsCount": {
+            "description": "Adresses distinctes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "targetLabel": {
+            "type": "string"
+          },
+          "unreachable": {
+            "items": {
+              "$ref": "#/components/schemas/AudienceMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unreachableCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "preset",
+          "targetLabel",
+          "membersCount",
+          "unreachableCount",
+          "recipientsCount",
+          "members",
+          "unreachable"
+        ],
+        "type": "object"
+      },
+      "AudienceMember": {
+        "additionalProperties": false,
+        "properties": {
+          "contactEmail": {
+            "description": "null : non joignable",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "feeLabel": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "memberId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "situation": {
+            "enum": [
+              "up_to_date",
+              "announced",
+              "due"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "memberId",
+          "firstName",
+          "lastName",
+          "situation",
+          "feeLabel",
+          "contactEmail"
+        ],
+        "type": "object"
+      },
       "CardPaymentState": {
         "additionalProperties": false,
         "properties": {
@@ -978,6 +1110,200 @@
         ],
         "type": "object"
       },
+      "Communication": {
+        "additionalProperties": false,
+        "properties": {
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "attachmentsCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "author": {
+            "$ref": "#/components/schemas/AccountRef",
+            "description": "null : compte supprimé"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "membersCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "preset": {
+            "enum": [
+              "all",
+              "up_to_date",
+              "unpaid",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "recipients": {
+            "description": "En échec, en attente puis envoyés",
+            "items": {
+              "$ref": "#/components/schemas/Recipient"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "recipientsCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "season": {
+            "$ref": "#/components/schemas/CommunicationSeason"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "targetLabel": {
+            "type": "string"
+          },
+          "unreachableCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "body",
+          "season",
+          "target",
+          "membersCount",
+          "unreachableCount",
+          "attachments",
+          "recipients",
+          "id",
+          "subject",
+          "targetLabel",
+          "preset",
+          "author",
+          "recipientsCount",
+          "attachmentsCount",
+          "delivery",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "CommunicationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "La plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/CommunicationSummary"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "CommunicationSeason": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "CommunicationSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "attachmentsCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "author": {
+            "$ref": "#/components/schemas/AccountRef",
+            "description": "null : compte supprimé"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "preset": {
+            "enum": [
+              "all",
+              "up_to_date",
+              "unpaid",
+              "custom"
+            ],
+            "type": "string"
+          },
+          "recipientsCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "targetLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subject",
+          "targetLabel",
+          "preset",
+          "author",
+          "recipientsCount",
+          "attachmentsCount",
+          "delivery",
+          "createdAt"
+        ],
+        "type": "object"
+      },
       "ConfirmCardPayment": {
         "additionalProperties": false,
         "properties": {
@@ -1072,6 +1398,29 @@
         "required": [
           "feeId",
           "kind"
+        ],
+        "type": "object"
+      },
+      "Delivery": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pending": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sent": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending",
+          "sent",
+          "failed"
         ],
         "type": "object"
       },
@@ -2758,6 +3107,52 @@
         ],
         "type": "object"
       },
+      "Preview": {
+        "additionalProperties": false,
+        "properties": {
+          "html": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "text",
+          "html"
+        ],
+        "type": "object"
+      },
+      "PreviewInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "seasonId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "subject": {
+            "maxLength": 150,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "seasonId",
+          "subject",
+          "body"
+        ],
+        "type": "object"
+      },
       "ReasonBody": {
         "additionalProperties": false,
         "properties": {
@@ -2768,6 +3163,44 @@
         },
         "required": [
           "reason"
+        ],
+        "type": "object"
+      },
+      "Recipient": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "description": "null : adresse effacée (compte supprimé)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "membersCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sentAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "sent",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "membersCount",
+          "status",
+          "sentAt"
         ],
         "type": "object"
       },
@@ -3025,6 +3458,43 @@
         ],
         "type": "object"
       },
+      "SendCommunicationInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "draftKey": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "patternDescription": "une clé de préparation (UUID v4)",
+            "type": "string"
+          },
+          "expectedRecipients": {
+            "description": "Décompte présenté à l'administrateur",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "subject": {
+            "maxLength": 150,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          }
+        },
+        "required": [
+          "draftKey",
+          "target",
+          "subject",
+          "body",
+          "expectedRecipients"
+        ],
+        "type": "object"
+      },
       "Session": {
         "additionalProperties": false,
         "properties": {
@@ -3077,6 +3547,51 @@
           "redirectUrl",
           "onlinePaymentId",
           "resumed"
+        ],
+        "type": "object"
+      },
+      "Target": {
+        "additionalProperties": false,
+        "properties": {
+          "feeIds": {
+            "description": "Tarifs retenus ; vide : tous les tarifs de la saison",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "seasonId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "situations": {
+            "description": "Situations de paiement retenues",
+            "items": {
+              "enum": [
+                "up_to_date",
+                "announced",
+                "due"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "seasonId",
+          "situations",
+          "feeIds"
         ],
         "type": "object"
       },
@@ -3588,6 +4103,459 @@
         "summary": "Changer le rôle d'un compte",
         "tags": [
           "Comptes"
+        ]
+      }
+    },
+    "/admin/communications": {
+      "get": {
+        "operationId": "list-communications",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "perPage",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Historique des communications",
+        "tags": [
+          "Communications"
+        ]
+      },
+      "post": {
+        "operationId": "send-communication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendCommunicationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Communication"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Envoyer une communication",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/attachments": {
+      "post": {
+        "operationId": "upload-communication-attachment",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "draftKey": {
+                  "contentType": "text/plain"
+                },
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "draftKey": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                    "patternDescription": "une clé de préparation (UUID v4)",
+                    "type": "string"
+                  },
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "draftKey",
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Déposer une pièce jointe",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/attachments/{id}": {
+      "delete": {
+        "operationId": "delete-communication-attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retirer une pièce jointe",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/audience": {
+      "get": {
+        "operationId": "get-communication-audience",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "seasonId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "situations",
+            "required": true,
+            "schema": {
+              "items": {
+                "enum": [
+                  "up_to_date",
+                  "announced",
+                  "due"
+                ],
+                "type": "string"
+              },
+              "maxItems": 3,
+              "minItems": 1,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "feeIds",
+            "schema": {
+              "items": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "maxItems": 50,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Audience"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Décompte d'une cible",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/preview": {
+      "post": {
+        "operationId": "preview-communication",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Aperçu d'une communication",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/{id}": {
+      "get": {
+        "operationId": "get-communication",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Communication"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une communication",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/admin/communications/{id}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "download-communication-attachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "attachmentId",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Le fichier"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Télécharger une pièce jointe",
+        "tags": [
+          "Communications"
         ]
       }
     },

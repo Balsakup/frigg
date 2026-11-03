@@ -25,3 +25,9 @@ DELETE FROM outbound_emails WHERE status = 'sent' AND sent_at < sqlc.arg(before)
 
 -- name: DeleteEmailsByRecipient :exec
 DELETE FROM outbound_emails WHERE recipient = sqlc.arg(recipient);
+
+-- name: EnqueueCommunicationEmail :one
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name)
+VALUES (sqlc.arg(recipient), sqlc.arg(subject), sqlc.arg(body_text), sqlc.arg(body_html), 'pending', sqlc.arg(now), sqlc.arg(now),
+        sqlc.arg(communication_id), sqlc.narg(from_name))
+RETURNING id;

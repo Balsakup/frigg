@@ -1,7 +1,7 @@
 // Commande e2eseed : prépare une base jetable pour les tests de bout en bout.
 // Elle ne fait pas partie du binaire frigg.
 //
-// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte]
+// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication]
 //
 // Le mode « adhesions » prépare la base du second serveur e2e : une saison
 // ouverte contenant la date du jour, des tarifs, des fiches, des adhésions et
@@ -10,6 +10,10 @@
 //
 // Le mode « carte » ajoute au jeu des adhésions la carte bancaire activée et
 // testée en sandbox, et des adhésions à payer par carte (research.md 008 › R15).
+//
+// Le mode « communication » prépare le jeu de quickstart.md 009 › validation
+// manuelle : une saison ouverte et des adhérents dans chaque situation de
+// paiement (specs/009-bulk-email, tâche T030).
 package main
 
 import (
@@ -85,8 +89,8 @@ func main() {
 	if len(os.Args) == 3 {
 		mode = os.Args[2]
 	}
-	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte") {
-		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte]")
+	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication") {
+		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication]")
 		os.Exit(2)
 	}
 	if err := run(os.Args[1], mode); err != nil {
@@ -163,6 +167,9 @@ func run(path, mode string) error {
 		})
 		if err != nil || mode == "" {
 			return err
+		}
+		if mode == "communication" {
+			return seedCommunication(ctx, q, hash, now)
 		}
 		if err := seedMemberships(ctx, q, hash, now); err != nil || mode != "carte" {
 			return err
@@ -398,6 +405,115 @@ func seedCard(ctx context.Context, q *sqlc.Queries, hash, now string) error {
 			PaidAmountCents: sql.NullInt64{Int64: 3000, Valid: true}, OnlinePaymentID: sql.NullInt64{Int64: op.ID, Valid: true}, ID: ms,
 		}); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// Administrateurs du serveur des communications : un par test (limite de
+// connexions).
+var communicationAdmins = []string{
+	"admin-communication-relance@exemple.fr",
+	"admin-communication-pieces@exemple.fr",
+	"admin-communication-cibles@exemple.fr",
+	"admin-communication-historique@exemple.fr",
+}
+
+// seedCommunication crée la saison 2026-2027 (ou celle contenant la date du
+// jour), les tarifs « Jeune » et « Adulte » et les adhérents de quickstart.md
+// 009 : Léo et Inès Martin (compte Claire, à payer), Paul Durand (paiement
+// annoncé), Anne Petit (sans compte, payée), Hugo Roux (sans compte ni
+// adresse, à payer), Zoé Blanc (gratuite) et Marc Noir (demande en attente).
+func seedCommunication(ctx context.Context, q *sqlc.Queries, hash, now string) error {
+	str := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	id := func(v int64) sql.NullInt64 { return sql.NullInt64{Int64: v, Valid: true} }
+	today := season.Today(time.Now())
+	start := season.MustDate(fmt.Sprintf("%04d-%02d-01", today.Year(), int(today.Month())))
+	end := start.AddMonths(12).AddDays(-1)
+	s, err := q.CreateSeason(ctx, sqlc.CreateSeasonParams{StartsOn: start.String(), EndsOn: end.String(), CreatedAt: now})
+	if err != nil {
+		return err
+	}
+	if _, err := q.OpenSeason(ctx, sqlc.OpenSeasonParams{Now: str(now), ID: s.ID}); err != nil {
+		return err
+	}
+	fees := map[string]int64{}
+	for label, amount := range map[string]int64{"Jeune": 3000, "Adulte": 6000} {
+		f, err := q.CreateMembershipFee(ctx, sqlc.CreateMembershipFeeParams{SeasonID: s.ID, Label: label, AmountCents: amount, Now: now})
+		if err != nil {
+			return err
+		}
+		fees[label] = f.ID
+	}
+	accounts := map[string]int64{}
+	for _, a := range append(communicationAdmins, "claire.communication@exemple.fr", "paul.communication@exemple.fr",
+		"zoe.communication@exemple.fr", "marc.communication@exemple.fr") {
+		role := auth.RoleMember
+		if len(a) > 6 && a[:6] == "admin-" {
+			role = auth.RoleAdmin
+		}
+		acc, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{Email: a, PasswordHash: hash, Role: role, CreatedAt: now, EmailVerifiedAt: str(now)})
+		if err != nil {
+			return fmt.Errorf("compte %s : %w", a, err)
+		}
+		accounts[a] = acc.ID
+	}
+	admin := id(accounts[communicationAdmins[0]])
+	prefix := membership.ReferencePrefix(start, end)
+	var refs []string
+	type row struct {
+		first, last, account, email, fee, payment string
+		amount                                    int64
+		pending                                   bool
+	}
+	for _, r := range []row{
+		{"Léo", "Martin", "claire.communication@exemple.fr", "", "Jeune", "due", 3000, false},
+		{"Inès", "Martin", "claire.communication@exemple.fr", "ines.communication@exemple.fr", "Jeune", "due", 3000, false},
+		{"Paul", "Durand", "paul.communication@exemple.fr", "", "Adulte", "announced", 6000, false},
+		{"Anne", "Petit", "", "anne.communication@exemple.fr", "Adulte", "paid", 6000, false},
+		{"Hugo", "Roux", "", "", "Jeune", "due", 3000, false},
+		{"Zoé", "Blanc", "zoe.communication@exemple.fr", "", "Jeune", "", 0, false},
+		{"Marc", "Noir", "marc.communication@exemple.fr", "", "Adulte", "", 0, true},
+	} {
+		p := sqlc.CreateMemberParams{FirstName: r.first, LastName: r.last, BirthDate: "1990-05-10", Now: now}
+		if r.account != "" {
+			p.AccountID = id(accounts[r.account])
+		}
+		if r.email != "" {
+			p.Email = str(r.email)
+		}
+		m, err := q.CreateMember(ctx, p)
+		if err != nil {
+			return err
+		}
+		ms := sqlc.CreateMembershipParams{MemberID: m, SeasonID: s.ID, FeeID: fees[r.fee], CreatedBy: admin, Now: now}
+		if r.pending {
+			ms.Status, ms.DeclaredKind, ms.RequestedBy = "pending", str("first"), p.AccountID
+		} else {
+			ms.Status, ms.Kind, ms.AmountCents, ms.DecidedBy, ms.DecidedAt = "validated", str("first"), id(r.amount), admin, str(now)
+			if r.payment != "" {
+				ref := membership.NextReference(prefix, refs)
+				refs = append(refs, ref)
+				ms.PaymentReference, ms.PaymentStatus = str(ref), str("due")
+			}
+		}
+		msID, err := q.CreateMembership(ctx, ms)
+		if err != nil {
+			return err
+		}
+		switch r.payment {
+		case "announced":
+			if _, err := q.AnnouncePaymentOfAccount(ctx, sqlc.AnnouncePaymentOfAccountParams{
+				Method: str("cheque"), Now: now, ID: msID, AccountID: p.AccountID,
+			}); err != nil {
+				return err
+			}
+		case "paid":
+			if _, err := q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
+				Method: str("cheque"), PaidOn: str(today.String()), ActorID: admin, Now: str(now), ID: msID,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
