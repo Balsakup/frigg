@@ -57,6 +57,8 @@ export default [
         ]),
         route("parametres", "routes/app/admin/settings-layout.tsx", [
           index("routes/app/admin/settings-index.tsx"),
+          route("general", "routes/app/admin/settings-general.tsx"),
+          route("apparence", "routes/app/admin/settings-appearance.tsx"),
           route("paiements", "routes/app/admin/settings-payments.tsx"),
         ]),
         ...adminComingSoon.map((p) =>

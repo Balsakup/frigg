@@ -472,4 +472,5 @@ func (s *server) registerMemberships(api huma.API) {
 	s.registerMyMemberships(api)
 	s.registerAdminMemberships(api)
 	s.registerSettings(api)
+	s.registerGeneralSettings(api)
 }

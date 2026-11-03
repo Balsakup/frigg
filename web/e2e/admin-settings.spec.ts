@@ -70,6 +70,6 @@ test.describe("paramètres — moyens de paiement (006)", () => {
 
     // L'adresse de la rubrique mène à sa première section.
     await page.goto("/admin/parametres");
-    await expect(page).toHaveURL("/admin/parametres/paiements");
+    await expect(page).toHaveURL("/admin/parametres/general");
   });
 });

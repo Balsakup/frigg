@@ -25,9 +25,51 @@ type AccountsFt struct {
 }
 
 type Association struct {
-	ID        int64
-	Name      sql.NullString
-	UpdatedAt string
+	ID           int64
+	Name         sql.NullString
+	UpdatedAt    string
+	Tagline      sql.NullString
+	ShortName    sql.NullString
+	Purpose      sql.NullString
+	Rna          sql.NullString
+	Siret        sql.NullString
+	FoundedOn    sql.NullString
+	AddressLine1 sql.NullString
+	AddressLine2 sql.NullString
+	PostalCode   sql.NullString
+	City         sql.NullString
+	ContactEmail sql.NullString
+	Phone        sql.NullString
+	Website      sql.NullString
+	FacebookUrl  sql.NullString
+	InstagramUrl sql.NullString
+	LinkedinUrl  sql.NullString
+	YoutubeUrl   sql.NullString
+	MastodonUrl  sql.NullString
+	BlueskyUrl   sql.NullString
+	PrimaryColor sql.NullString
+	AccentColor  sql.NullString
+}
+
+type AssociationLogo struct {
+	ID              int64
+	OriginalName    string
+	SourceType      string
+	SourceSizeBytes int64
+	WebName         string
+	WebType         string
+	WebSizeBytes    int64
+	WebWidth        int64
+	WebHeight       int64
+	WebSha256       string
+	EmailName       string
+	EmailType       string
+	EmailSizeBytes  int64
+	EmailWidth      int64
+	EmailHeight     int64
+	EmailSha256     string
+	UploadedAt      string
+	UploadedBy      sql.NullInt64
 }
 
 type Communication struct {
@@ -195,6 +237,8 @@ type OutboundEmail struct {
 	SentAt          sql.NullString
 	CommunicationID sql.NullInt64
 	FromName        sql.NullString
+	Wrap            int64
+	Footer          sql.NullString
 }
 
 type PaymentAlert struct {

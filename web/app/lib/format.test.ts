@@ -11,6 +11,7 @@ import {
   membershipStatusLabel,
   paymentMethodLabel,
   paymentStatusLabel,
+  phoneHref,
   previousSeasonLabel,
   seasonStatusLabel,
 } from "./format";
@@ -106,5 +107,11 @@ describe("formatBytes", () => {
     expect(formatBytes(12 * 1024)).toBe("12 Ko");
     expect(formatBytes(1.2 * 1024 * 1024)).toBe("1,2 Mo");
     expect(formatBytes(10 * 1024 * 1024)).toBe("10,0 Mo");
+  });
+});
+
+describe("phoneHref", () => {
+  it("produit une adresse tel: internationale", () => {
+    expect(phoneHref("0123456789")).toBe("tel:+33123456789");
   });
 });

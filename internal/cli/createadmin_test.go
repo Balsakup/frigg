@@ -38,7 +38,8 @@ func TestCreateAdmin(t *testing.T) {
 	if a.Role != auth.RoleAdmin || !a.EmailVerifiedAt.Valid || !auth.VerifyPassword("Motdepasse1", a.PasswordHash) {
 		t.Fatalf("compte inattendu : %+v", a)
 	}
-	name, _ := store.Read.GetAssociation(ctx)
+	row, _ := store.Read.GetAssociation(ctx)
+	name := row.Name
 	if name.String != "Les Sentiers du Val" {
 		t.Fatalf("nom de l'association : %q", name.String)
 	}
@@ -47,8 +48,8 @@ func TestCreateAdmin(t *testing.T) {
 	if err := CreateAdmin(ctx, store, AdminInput{Email: "thomas@exemple.fr", Password: "Motdepasse1"}); err != nil {
 		t.Fatalf("second administrateur : %v", err)
 	}
-	if name, _ := store.Read.GetAssociation(ctx); name.String != "Les Sentiers du Val" {
-		t.Fatalf("nom modifié : %q", name.String)
+	if row, _ := store.Read.GetAssociation(ctx); row.Name.String != "Les Sentiers du Val" {
+		t.Fatalf("nom modifié : %q", row.Name.String)
 	}
 }
 

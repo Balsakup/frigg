@@ -9,6 +9,7 @@
   --on-brand: 255 255 255;
   --accent: 196 72 34;
   --on-accent: 255 255 255;
+  --accent-ink: 182 59 18;
   --ink: 24 31 41;
   --muted: 82 90 103;
   --line: 221 225 231;
@@ -32,6 +33,7 @@
   --color-on-brand: rgb(var(--on-brand));
   --color-accent: rgb(var(--accent));
   --color-on-accent: rgb(var(--on-accent));
+  --color-accent-ink: rgb(var(--accent-ink));
   --color-ink: rgb(var(--ink));
   --color-muted: rgb(var(--muted));
   --color-line: rgb(var(--line));

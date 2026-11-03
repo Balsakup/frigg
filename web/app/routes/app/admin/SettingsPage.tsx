@@ -5,7 +5,11 @@ import { Page } from "~/shell/Page";
 
 // Sections des paramètres, dans l'ordre d'affichage. Ajouter une section :
 // une entrée ici et une route sous « parametres » dans routes.ts.
-export const settingsSections = [{ path: "/admin/parametres/paiements", label: "Paiements" }];
+export const settingsSections = [
+  { path: "/admin/parametres/general", label: "Général" },
+  { path: "/admin/parametres/apparence", label: "Apparence" },
+  { path: "/admin/parametres/paiements", label: "Paiements" },
+];
 
 // Gabarit commun des sous-pages des paramètres : en-tête « Paramètres », liste
 // de liens vers les sections (aria-current sur la section affichée), puis le

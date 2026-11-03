@@ -38,6 +38,8 @@ type Deps struct {
 	HelloAsso *helloasso.Client
 	// Files range les pièces jointes des communications (specs/009-bulk-email).
 	Files *communication.FileStore
+	// LogoFiles range les variantes du logo (specs/010-general-settings).
+	LogoFiles *communication.FileStore
 }
 
 // NewHelloAssoClient construit le client HelloAsso depuis la configuration, ou
@@ -106,6 +108,8 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerPaymentAlerts(api)
 	s.registerHelloAssoWebhook(api)
 	s.registerCommunications(api)
+	s.registerIdentity(api)
+	s.registerAppearance(api)
 	s.mountDocs(mux, api)
 	return api
 }

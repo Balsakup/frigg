@@ -89,8 +89,8 @@ func main() {
 	if len(os.Args) == 3 {
 		mode = os.Args[2]
 	}
-	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication") {
-		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication]")
+	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres") {
+		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication|parametres]")
 		os.Exit(2)
 	}
 	if err := run(os.Args[1], mode); err != nil {
@@ -165,7 +165,9 @@ func run(path, mode string) error {
 			ExpiresAt: time.Now().UTC().Add(7 * 24 * time.Hour).Format("2006-01-02T15:04:05Z"),
 			Now:       now,
 		})
-		if err != nil || mode == "" {
+		// « parametres » (010) : comptes de base seulement, sur une instance dédiée
+		// car le nom, les couleurs et le logo sont globaux.
+		if err != nil || mode == "" || mode == "parametres" {
 			return err
 		}
 		if mode == "communication" {
@@ -226,7 +228,7 @@ func seedMemberships(ctx context.Context, q *sqlc.Queries, hash, now string) err
 	if err := q.UpdatePaymentSettings(ctx, sqlc.UpdatePaymentSettingsParams{
 		CashEnabled: 1, CashInstructions: sql.NullString{String: "Au local de l'association,\nle samedi de 10 h à 12 h.", Valid: true},
 		ChequeEnabled: 1, ChequePayee: sql.NullString{String: "Les Sentiers du Val", Valid: true},
-		ChequeAddress: sql.NullString{String: "12 rue des Lilas\n35000 Rennes", Valid: true},
+		ChequeAddress:   sql.NullString{String: "12 rue des Lilas\n35000 Rennes", Valid: true},
 		TransferEnabled: 1, TransferHolder: sql.NullString{String: "Les Sentiers du Val", Valid: true},
 		TransferIban: sql.NullString{String: "FR7630006000011234567890189", Valid: true},
 		TransferBic:  sql.NullString{String: "BNPAFRPP", Valid: true},

@@ -7,6 +7,7 @@ interface PageProps {
   title: string;
   /** Titre du document s'il diffère du titre de la page (sous-pages). */
   documentTitle?: string;
+  subtitle?: string | null;
   intro?: string;
   actions?: ReactNode;
   breadcrumbs?: boolean;
@@ -18,6 +19,7 @@ interface PageProps {
 export function Page({
   title,
   documentTitle,
+  subtitle,
   intro,
   actions,
   breadcrumbs = true,
@@ -31,7 +33,7 @@ export function Page({
   return (
     <>
       {breadcrumbs ? <Breadcrumbs /> : null}
-      <PageHeader title={title} intro={intro} actions={actions} />
+      <PageHeader title={title} subtitle={subtitle} intro={intro} actions={actions} />
       <div className="mt-6">{children}</div>
     </>
   );

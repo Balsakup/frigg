@@ -46,6 +46,12 @@ func (s *SMTPSender) Send(ctx context.Context, to string, msg Message) error {
 	m.Subject(msg.Subject)
 	m.SetBodyString(gomail.TypeTextPlain, msg.Text)
 	m.AddAlternativeString(gomail.TypeTextHTML, msg.HTML)
+	for _, a := range msg.Inline {
+		// Content-ID dérivé du nom : <logo>, référencé par cid:logo.
+		if err := m.EmbedReader(a.Name, bytes.NewReader(a.Data), gomail.WithFileContentType(gomail.ContentType(a.ContentType))); err != nil {
+			return fmt.Errorf("image embarquée : %w", err)
+		}
+	}
 	for _, a := range msg.Attachments {
 		if err := m.AttachReader(a.Name, bytes.NewReader(a.Data), gomail.WithFileContentType(gomail.ContentType(a.ContentType))); err != nil {
 			return fmt.Errorf("pièce jointe : %w", err)

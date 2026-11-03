@@ -67,14 +67,14 @@ export function RadioGroup<V extends string>({
             className={cn(
               "flex cursor-pointer items-start gap-2.5",
               cards &&
-                "rounded-md border border-line-strong bg-surface p-3 has-[[data-checked]]:border-brand has-[[data-checked]]:bg-brand/5",
+                "rounded-md border border-line-strong bg-surface p-3 has-[[data-checked]]:border-brand-ink has-[[data-checked]]:bg-brand/5",
             )}
           >
             <Radio.Root
               value={o.value}
-              className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong bg-surface data-[checked]:border-brand"
+              className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong bg-surface data-[checked]:border-brand-ink"
             >
-              <Radio.Indicator className="h-2.5 w-2.5 rounded-full bg-brand" />
+              <Radio.Indicator className="h-2.5 w-2.5 rounded-full bg-brand-ink" />
             </Radio.Root>
             <span className="min-w-0 [overflow-wrap:anywhere]">
               <span className={cards ? "font-bold" : undefined}>{o.label}</span>

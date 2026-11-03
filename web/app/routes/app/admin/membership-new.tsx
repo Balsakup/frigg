@@ -200,7 +200,7 @@ export default function MembershipNew() {
           <label className="flex items-center gap-2.5 font-bold">
             <input
               type="checkbox"
-              className="h-5 w-5 shrink-0 accent-brand"
+              className="h-5 w-5 shrink-0 accent-brand-ink"
               checked={paid}
               onChange={(e) => setPaid(e.target.checked)}
             />

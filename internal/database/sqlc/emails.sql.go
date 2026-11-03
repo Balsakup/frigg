@@ -20,9 +20,9 @@ func (q *Queries) DeleteEmailsByRecipient(ctx context.Context, recipient string)
 }
 
 const enqueueCommunicationEmail = `-- name: EnqueueCommunicationEmail :one
-INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name)
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name, wrap, footer)
 VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5,
-        ?6, ?7)
+        ?6, ?7, ?8, ?9)
 RETURNING id
 `
 
@@ -34,6 +34,8 @@ type EnqueueCommunicationEmailParams struct {
 	Now             string
 	CommunicationID sql.NullInt64
 	FromName        sql.NullString
+	Wrap            int64
+	Footer          sql.NullString
 }
 
 func (q *Queries) EnqueueCommunicationEmail(ctx context.Context, arg EnqueueCommunicationEmailParams) (int64, error) {
@@ -45,6 +47,8 @@ func (q *Queries) EnqueueCommunicationEmail(ctx context.Context, arg EnqueueComm
 		arg.Now,
 		arg.CommunicationID,
 		arg.FromName,
+		arg.Wrap,
+		arg.Footer,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -52,8 +56,9 @@ func (q *Queries) EnqueueCommunicationEmail(ctx context.Context, arg EnqueueComm
 }
 
 const enqueueEmail = `-- name: EnqueueEmail :exec
-INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at)
-VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5)
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, wrap, footer)
+VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?5,
+        ?6, ?7)
 `
 
 type EnqueueEmailParams struct {
@@ -62,6 +67,8 @@ type EnqueueEmailParams struct {
 	BodyText  string
 	BodyHtml  string
 	Now       string
+	Wrap      int64
+	Footer    sql.NullString
 }
 
 func (q *Queries) EnqueueEmail(ctx context.Context, arg EnqueueEmailParams) error {
@@ -71,12 +78,14 @@ func (q *Queries) EnqueueEmail(ctx context.Context, arg EnqueueEmailParams) erro
 		arg.BodyText,
 		arg.BodyHtml,
 		arg.Now,
+		arg.Wrap,
+		arg.Footer,
 	)
 	return err
 }
 
 const listDueEmails = `-- name: ListDueEmails :many
-SELECT id, recipient, subject, body_text, body_html, status, attempts, next_attempt_at, last_error, created_at, sent_at, communication_id, from_name FROM outbound_emails
+SELECT id, recipient, subject, body_text, body_html, status, attempts, next_attempt_at, last_error, created_at, sent_at, communication_id, from_name, wrap, footer FROM outbound_emails
 WHERE status = 'pending' AND next_attempt_at <= ?1
 ORDER BY next_attempt_at, id
 LIMIT ?2
@@ -110,6 +119,8 @@ func (q *Queries) ListDueEmails(ctx context.Context, arg ListDueEmailsParams) ([
 			&i.SentAt,
 			&i.CommunicationID,
 			&i.FromName,
+			&i.Wrap,
+			&i.Footer,
 		); err != nil {
 			return nil, err
 		}

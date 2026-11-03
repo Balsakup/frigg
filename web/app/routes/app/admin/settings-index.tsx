@@ -1,9 +1,8 @@
 import { redirect } from "react-router";
 
-// « Paramètres » mène à sa première section. Quand les sections seront
-// nombreuses, cette page pourra devenir un sommaire.
+// « Paramètres » mène à sa première section, « Général » (FR-001 de 010).
 export function clientLoader() {
-  return redirect("/admin/parametres/paiements");
+  return redirect("/admin/parametres/general");
 }
 
 export default function SettingsIndex() {

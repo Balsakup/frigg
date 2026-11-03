@@ -1,3 +1,4 @@
+import { ContactCard } from "~/settings/ContactCard";
 import { Page } from "~/shell/Page";
 import { useSession } from "~/shell/useSession";
 
@@ -8,7 +9,11 @@ export const handle = { crumb: "Accueil" };
 export default function MemberHome() {
   const { association } = useSession();
   return (
-    <Page title="Accueil" intro="Vos prochaines activités et les actualités de l'association.">
+    <Page
+      title="Accueil"
+      subtitle={association.tagline}
+      intro="Vos prochaines activités et les actualités de l'association."
+    >
       <section className="max-w-prose rounded-lg border border-line bg-surface p-5">
         <h2 className="font-display text-lg font-bold">Bienvenue</h2>
         <p className="mt-1 text-muted">
@@ -16,6 +21,9 @@ export default function MemberHome() {
           prochaines versions de Frigg.
         </p>
       </section>
+      <div className="mt-6">
+        <ContactCard association={association.name} />
+      </div>
     </Page>
   );
 }

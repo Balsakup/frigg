@@ -1,5 +1,5 @@
 {{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
 <p style="margin:0 0 12px">L'adhésion de <strong>{{.Member}}</strong> à {{.Association}} pour la saison {{.Season}} a été validée.</p>
 {{if .Link}}<p style="margin:0 0 12px">Montant : <strong>{{.Amount}}</strong><br>Référence de paiement : <strong>{{.Reference}}</strong></p>
-<p style="margin:0 0 20px"><a href="{{.Link}}" style="display:inline-block;background:#1f5278;color:#ffffff;font-weight:700;text-decoration:none;padding:10px 16px;border-radius:6px">Payer l'adhésion</a></p>
+<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Payer l'adhésion</a></p>
 <p style="margin:0 0 12px;color:#525a67;font-size:14px">Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">{{.Link}}</span></p>{{else}}<p style="margin:0 0 12px">Aucun paiement n'est demandé pour cette adhésion.</p>{{end}}{{end}}

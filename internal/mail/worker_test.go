@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/balsakup/frigg/internal/brand"
 	"github.com/balsakup/frigg/internal/communication"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
@@ -225,5 +226,46 @@ func TestWorkerCommunicationThroughput(t *testing.T) {
 	_ = store.ReadDB.QueryRow(`SELECT count(*) FROM outbound_emails WHERE status <> 'sent'`).Scan(&pending)
 	if pending != 0 || len(sender.Messages()) != 500 {
 		t.Fatalf("%d e-mail(s) non envoyé(s), %d envoyés", pending, len(sender.Messages()))
+	}
+}
+
+// L'habillage (nom, couleurs, logo, expéditeur) est celui en vigueur au moment
+// du passage du worker ; les lignes antérieures (wrap = 0) partent telles
+// quelles (specs/010-general-settings › R6).
+func TestWorkerWrapsWithCurrentIdentity(t *testing.T) {
+	ctx := context.Background()
+	store, sender, w, _ := setup(t)
+	id := mail.Identity{Name: "Ancien nom", Palette: brand.Default}
+	w.Identity = func(context.Context) (mail.Identity, error) { return id, nil }
+
+	msg, err := mail.Render("invitation", mail.Data{Association: "Ancien nom", Link: "http://x/#abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mail.Enqueue(ctx, store.Write, "claire@exemple.fr", msg); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.WriteDB.Exec(`INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, from_name)
+		VALUES ('ancien@exemple.fr', 'Ancien', 'texte complet', '<html>complet</html>', 'pending', ?, ?, 'Expéditeur figé')`,
+		time.Now().UTC().Format(mail.TimeFormat), time.Now().UTC().Format(mail.TimeFormat)); err != nil {
+		t.Fatal(err)
+	}
+
+	pale := brand.MustHex("#fff3b0")
+	id = mail.Identity{Name: "Nouveau nom", Palette: brand.Derive(&pale, nil),
+		Logo: &mail.Attachment{Name: "logo.png", ContentType: "image/png", Data: []byte("PNG")}}
+	w.Tick(ctx)
+
+	got, ok := sender.Last("claire@exemple.fr")
+	if !ok {
+		t.Fatal("message non envoyé")
+	}
+	if got.Msg.FromName != "Nouveau nom" || !bytes.Contains([]byte(got.Msg.HTML), []byte("Nouveau nom")) ||
+		!bytes.Contains([]byte(got.Msg.HTML), []byte("background:#fff3b0")) || len(got.Msg.Inline) != 1 {
+		t.Errorf("habillage : expéditeur %q, %d image(s)\n%s", got.Msg.FromName, len(got.Msg.Inline), got.Msg.HTML)
+	}
+	old, ok := sender.Last("ancien@exemple.fr")
+	if !ok || old.Msg.HTML != "<html>complet</html>" || old.Msg.FromName != "Expéditeur figé" || len(old.Msg.Inline) != 0 {
+		t.Errorf("ligne antérieure modifiée : %+v", old.Msg)
 	}
 }

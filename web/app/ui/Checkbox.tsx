@@ -22,7 +22,7 @@ interface CheckboxGroupProps<V extends string> {
 }
 
 const boxClass =
-  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border border-line-strong bg-surface text-white data-[checked]:border-brand data-[checked]:bg-brand data-[disabled]:opacity-50";
+  "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border border-line-strong bg-surface text-white data-[checked]:border-brand-ink data-[checked]:bg-brand-ink data-[disabled]:opacity-50";
 
 // Case à cocher accessible (base-ui), habillée des tokens de l'artefact.
 export function Checkbox({

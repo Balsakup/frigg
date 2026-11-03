@@ -596,6 +596,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/settings/appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Couleurs et logo de l'association */
+        get: operations["get-appearance"];
+        /** Modifier les couleurs */
+        put: operations["update-appearance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/appearance/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Déposer le logo */
+        put: operations["upload-logo"];
+        post?: never;
+        /** Retirer le logo */
+        delete: operations["delete-logo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/appearance/palette": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Palette dérivée de deux couleurs, sans enregistrement */
+        get: operations["preview-palette"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/settings/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Paramètres généraux de l'association */
+        get: operations["get-general-settings"];
+        /** Modifier les paramètres généraux */
+        put: operations["update-general-settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/settings/payment": {
         parameters: {
             query?: never;
@@ -625,6 +696,23 @@ export interface paths {
         put?: never;
         /** Tester la connexion à HelloAsso */
         post: operations["test-helloasso-connection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/association/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Coordonnées et réseaux sociaux de l'association */
+        get: operations["get-association-contact"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -771,6 +859,40 @@ export interface paths {
          * @description Indique si l'instance peut servir des requêtes (serveur démarré, base accessible). Destiné aux vérifications de santé du conteneur, d'un orchestrateur ou d'un reverse proxy.
          */
         get: operations["get-health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identité visuelle de l'association (nom, couleurs, logo) */
+        get: operations["get-identity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/identity/logo/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Logo de l'association */
+        get: operations["get-identity-logo"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1030,6 +1152,18 @@ export interface components {
             /** Format: int64 */
             id: number;
         };
+        Address: {
+            city: string | null;
+            line1: string | null;
+            line2: string | null;
+            postalCode: string | null;
+        };
+        AddressBody: {
+            city?: string | null;
+            line1?: string | null;
+            line2?: string | null;
+            postalCode?: string | null;
+        };
         AdminAccount: {
             /** Format: date-time */
             createdAt: string;
@@ -1273,8 +1407,26 @@ export interface components {
              */
             method: "card" | "cash" | "cheque" | "transfer";
         };
+        Appearance: {
+            /** @description null : couleur par défaut de Frigg */
+            accentColor: string | null;
+            logo: components["schemas"]["Logo"];
+            palette: components["schemas"]["Palette"];
+            /** @description null : couleur par défaut de Frigg */
+            primaryColor: string | null;
+        };
         Association: {
+            /** @description Adresse de la variante interface du logo */
+            logoUrl: string | null;
             name: string;
+            tagline: string | null;
+        };
+        AssociationContact: {
+            address: components["schemas"]["Address"];
+            contactEmail: string | null;
+            phone: string | null;
+            social: components["schemas"]["SocialLinks"];
+            website: string | null;
         };
         Attachment: {
             contentType: string;
@@ -1510,6 +1662,37 @@ export interface components {
              */
             renewal: number;
         };
+        GeneralSettings: {
+            address: components["schemas"]["Address"];
+            contactEmail: string | null;
+            /** @description Date de création, AAAA-MM-JJ */
+            foundedOn: string | null;
+            name: string;
+            /** @description Forme nationale à 10 chiffres */
+            phone: string | null;
+            purpose: string | null;
+            rna: string | null;
+            shortName: string | null;
+            siret: string | null;
+            social: components["schemas"]["SocialLinks"];
+            tagline: string | null;
+            website: string | null;
+        };
+        GeneralSettingsBody: {
+            address?: components["schemas"]["AddressBody"];
+            contactEmail?: string | null;
+            /** @description AAAA-MM-JJ */
+            foundedOn?: string | null;
+            name: string;
+            phone?: string | null;
+            purpose?: string | null;
+            rna?: string | null;
+            shortName?: string | null;
+            siret?: string | null;
+            social?: components["schemas"]["SocialLinksBody"];
+            tagline?: string | null;
+            website?: string | null;
+        };
         HealthOutputBody: {
             /**
              * @description État de l'instance
@@ -1526,6 +1709,11 @@ export interface components {
             error: "unauthorized" | "forbidden" | "not_found" | "unavailable" | "unexpected" | null;
             ok: boolean;
             organizationName: string | null;
+        };
+        Identity: {
+            logoUrl: string | null;
+            name: string;
+            palette: components["schemas"]["Palette"];
         };
         Invitation: {
             /** Format: date-time */
@@ -1554,6 +1742,16 @@ export interface components {
             email: string;
             /** @description Mot de passe */
             password: string;
+        };
+        Logo: {
+            /** Format: int64 */
+            height: number;
+            originalName: string;
+            /** Format: date-time */
+            uploadedAt: string;
+            url: string;
+            /** Format: int64 */
+            width: number;
         };
         Member: {
             address: components["schemas"]["PostalAddress"];
@@ -1886,6 +2084,17 @@ export interface components {
             /** @description Payée dans l'environnement de test HelloAsso */
             test: boolean;
         };
+        Palette: {
+            accent: string;
+            accentInk: string;
+            /** @description Fond plein (boutons, élément actif) */
+            brand: string;
+            /** @description Texte et repères dans la teinte principale */
+            brandInk: string;
+            onAccent: string;
+            /** @description Texte posé sur la couleur principale */
+            onBrand: string;
+        };
         PasswordTokenInputBody: {
             /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
             password: string;
@@ -2115,6 +2324,22 @@ export interface components {
              */
             role: "member" | "admin";
         };
+        SocialLinks: {
+            bluesky: string | null;
+            facebook: string | null;
+            instagram: string | null;
+            linkedin: string | null;
+            mastodon: string | null;
+            youtube: string | null;
+        };
+        SocialLinksBody: {
+            bluesky?: string | null;
+            facebook?: string | null;
+            instagram?: string | null;
+            linkedin?: string | null;
+            mastodon?: string | null;
+            youtube?: string | null;
+        };
         StartCardPayment: {
             /** Format: int64 */
             onlinePaymentId: number;
@@ -2140,6 +2365,10 @@ export interface components {
             holder: string | null;
             iban: string | null;
             instructions: string | null;
+        };
+        UpdateAppearanceInputBody: {
+            accentColor: string | null;
+            primaryColor: string | null;
         };
         UpdateSeasonInputBody: {
             /**
@@ -3758,6 +3987,225 @@ export interface operations {
             };
         };
     };
+    "get-appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appearance"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-appearance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAppearanceInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appearance"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "upload-logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appearance"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-palette": {
+        parameters: {
+            query?: {
+                primary?: string;
+                accent?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Palette"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-general-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-general-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneralSettingsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-payment-settings": {
         parameters: {
             query?: never;
@@ -3836,6 +4284,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentSettings"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-association-contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssociationContact"];
                 };
             };
             /** @description Error */
@@ -4098,6 +4575,68 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Identity"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-identity-logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le logo (PNG ou JPEG) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

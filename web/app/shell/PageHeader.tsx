@@ -3,13 +3,15 @@ import { useLocation } from "react-router";
 
 interface PageHeaderProps {
   title: string;
+  /** Phrase d'accroche sous le titre (tagline de l'association, 010). */
+  subtitle?: string | null;
   intro?: string;
   actions?: ReactNode;
 }
 
 // En-tête de page ; le titre reçoit le focus à chaque navigation pour que les
 // lecteurs d'écran annoncent la nouvelle page.
-export function PageHeader({ title, intro, actions }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, intro, actions }: PageHeaderProps) {
   const ref = useRef<HTMLHeadingElement>(null);
   const { pathname } = useLocation();
   const first = useRef(true);
@@ -32,6 +34,9 @@ export function PageHeader({ title, intro, actions }: PageHeaderProps) {
         >
           {title}
         </h1>
+        {subtitle ? (
+          <p className="mt-1 max-w-prose font-display text-lg text-brand-ink">{subtitle}</p>
+        ) : null}
         {intro ? <p className="mt-1 max-w-prose text-muted">{intro}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}

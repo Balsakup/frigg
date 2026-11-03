@@ -5,11 +5,14 @@ package mail
 import (
 	"bytes"
 	"embed"
+	"encoding/base64"
 	"fmt"
 	htmltemplate "html/template"
 	"regexp"
 	"strings"
 	texttemplate "text/template"
+
+	"github.com/balsakup/frigg/internal/brand"
 )
 
 //go:embed templates
@@ -20,11 +23,15 @@ type Message struct {
 	Subject string
 	Text    string
 	HTML    string
+	// Footer remplace la mention de pied par défaut ; appliqué par Wrap.
+	Footer string
 	// FromName est le nom d'affichage de l'expéditeur ; vide : adresse seule.
 	FromName string
 	// Attachments sont les pièces jointes, chargées par le worker au moment de
 	// l'envoi (communications, specs/009-bulk-email).
 	Attachments []Attachment
+	// Inline sont les images embarquées (logo, cid:logo), ajoutées par Wrap.
+	Inline []Attachment
 }
 
 // Attachment est une pièce jointe prête à être envoyée.
@@ -57,14 +64,16 @@ type Data struct {
 
 var htmlFuncs = htmltemplate.FuncMap{"paragraphs": Paragraphs}
 
-// Render rend le gabarit name : name.txt.tmpl définit "subject" et "body",
-// name.html.tmpl définit "body" ; tous deux sont insérés dans le layout.
+// Render rend le contenu du gabarit name : name.txt.tmpl définit "subject"
+// et "body", name.html.tmpl définit "body". Le gabarit commun (en-tête aux
+// couleurs de l'association, logo, pied) est appliqué au moment de l'envoi par
+// Wrap (specs/010-general-settings › R6).
 func Render(name string, data Data) (Message, error) {
-	txt, err := texttemplate.ParseFS(templates, "templates/layout.txt.tmpl", "templates/"+name+".txt.tmpl")
+	txt, err := texttemplate.ParseFS(templates, "templates/"+name+".txt.tmpl")
 	if err != nil {
 		return Message{}, fmt.Errorf("gabarit texte %s : %w", name, err)
 	}
-	html, err := htmltemplate.New("layout.html.tmpl").Funcs(htmlFuncs).ParseFS(templates, "templates/layout.html.tmpl", "templates/"+name+".html.tmpl")
+	html, err := htmltemplate.New(name+".html.tmpl").Funcs(htmlFuncs).ParseFS(templates, "templates/partials.html.tmpl", "templates/"+name+".html.tmpl")
 	if err != nil {
 		return Message{}, fmt.Errorf("gabarit HTML %s : %w", name, err)
 	}
@@ -73,17 +82,88 @@ func Render(name string, data Data) (Message, error) {
 	if err := txt.ExecuteTemplate(&subject, "subject", data); err != nil {
 		return Message{}, err
 	}
-	if err := txt.ExecuteTemplate(&text, "layout", data); err != nil {
+	if err := txt.ExecuteTemplate(&text, "body", data); err != nil {
 		return Message{}, err
 	}
-	if err := html.ExecuteTemplate(&body, "layout", data); err != nil {
+	if err := html.ExecuteTemplate(&body, "body", data); err != nil {
 		return Message{}, err
 	}
 	return Message{
 		Subject: strings.TrimSpace(subject.String()),
-		Text:    strings.TrimSpace(text.String()) + "\n",
-		HTML:    body.String(),
+		Text:    strings.TrimSpace(text.String()),
+		HTML:    strings.TrimSpace(body.String()),
+		Footer:  data.Footer,
 	}, nil
+}
+
+// Identity est l'identité visuelle appliquée aux e-mails à l'envoi.
+type Identity struct {
+	Name    string
+	Palette brand.Palette
+	// Logo est la variante e-mail du logo, nil sans logo.
+	Logo *Attachment
+}
+
+// LogoContentID est l'identifiant de l'image embarquée du logo.
+const LogoContentID = "logo"
+
+var (
+	layoutText = texttemplate.Must(texttemplate.ParseFS(templates, "templates/layout.txt.tmpl"))
+	layoutHTML = htmltemplate.Must(htmltemplate.ParseFS(templates, "templates/layout.html.tmpl"))
+)
+
+type layoutData struct {
+	Association string
+	Footer      string
+	Body        any
+	HasLogo     bool
+	LogoSrc     htmltemplate.URL
+}
+
+// Wrap applique le gabarit commun au contenu rendu par Render : nom de
+// l'association en en-tête et en expéditeur, couleurs de la palette, logo
+// embarqué (cid:logo) s'il existe, mention de pied.
+func Wrap(msg Message, id Identity) (Message, error) {
+	return wrap(msg, id, "cid:"+LogoContentID)
+}
+
+// WrapPreview est Wrap pour un aperçu affiché dans le navigateur : le logo est
+// intégré en data: URI au lieu d'une image embarquée.
+func WrapPreview(msg Message, id Identity) (Message, error) {
+	src := ""
+	if id.Logo != nil {
+		src = "data:" + id.Logo.ContentType + ";base64," + base64.StdEncoding.EncodeToString(id.Logo.Data)
+	}
+	out, err := wrap(msg, id, src)
+	out.Inline = nil
+	return out, err
+}
+
+func wrap(msg Message, id Identity, logoSrc string) (Message, error) {
+	d := layoutData{Association: id.Name, Footer: msg.Footer, HasLogo: id.Logo != nil, LogoSrc: htmltemplate.URL(logoSrc)}
+	var text, html bytes.Buffer
+	d.Body = msg.Text
+	if err := layoutText.ExecuteTemplate(&text, "layout", d); err != nil {
+		return Message{}, err
+	}
+	// Le contenu HTML a déjà été produit et échappé par Render.
+	d.Body = htmltemplate.HTML(msg.HTML)
+	if err := layoutHTML.ExecuteTemplate(&html, "layout", d); err != nil {
+		return Message{}, err
+	}
+	p := id.Palette
+	colors := strings.NewReplacer(
+		"<<brand>>", p.Brand.Hex(), "<<on-brand>>", p.OnBrand.Hex(), "<<brand-ink>>", p.BrandInk.Hex(),
+	)
+	out := msg
+	out.Text = strings.TrimSpace(text.String()) + "\n"
+	out.HTML = colors.Replace(html.String())
+	out.FromName = id.Name
+	out.Inline = nil
+	if id.Logo != nil {
+		out.Inline = []Attachment{{Name: LogoContentID, ContentType: id.Logo.ContentType, Data: id.Logo.Data}}
+	}
+	return out, nil
 }
 
 var urlRe = regexp.MustCompile(`https?://[^\s<>"']+`)
@@ -122,7 +202,7 @@ func writeLinked(b *strings.Builder, line string) {
 		}
 		b.WriteString(htmltemplate.HTMLEscapeString(line[last:start]))
 		u := htmltemplate.HTMLEscapeString(line[start:end])
-		b.WriteString(`<a href="` + u + `" rel="noopener" style="color:#1d4ed8">` + u + `</a>`)
+		b.WriteString(`<a href="` + u + `" rel="noopener" style="color:<<brand-ink>>">` + u + `</a>`)
 		last = end
 	}
 	b.WriteString(htmltemplate.HTMLEscapeString(line[last:]))

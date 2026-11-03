@@ -10,15 +10,79 @@ import (
 	"database/sql"
 )
 
-const getAssociation = `-- name: GetAssociation :one
-SELECT name FROM association WHERE id = 1
+const deleteAssociationLogo = `-- name: DeleteAssociationLogo :exec
+DELETE FROM association_logo WHERE id = 1
 `
 
-func (q *Queries) GetAssociation(ctx context.Context) (sql.NullString, error) {
+func (q *Queries) DeleteAssociationLogo(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAssociationLogo)
+	return err
+}
+
+const getAssociation = `-- name: GetAssociation :one
+SELECT id, name, updated_at, tagline, short_name, purpose, rna, siret, founded_on, address_line1, address_line2, postal_code, city, contact_email, phone, website, facebook_url, instagram_url, linkedin_url, youtube_url, mastodon_url, bluesky_url, primary_color, accent_color FROM association WHERE id = 1
+`
+
+func (q *Queries) GetAssociation(ctx context.Context) (Association, error) {
 	row := q.db.QueryRowContext(ctx, getAssociation)
-	var name sql.NullString
-	err := row.Scan(&name)
-	return name, err
+	var i Association
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.UpdatedAt,
+		&i.Tagline,
+		&i.ShortName,
+		&i.Purpose,
+		&i.Rna,
+		&i.Siret,
+		&i.FoundedOn,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.PostalCode,
+		&i.City,
+		&i.ContactEmail,
+		&i.Phone,
+		&i.Website,
+		&i.FacebookUrl,
+		&i.InstagramUrl,
+		&i.LinkedinUrl,
+		&i.YoutubeUrl,
+		&i.MastodonUrl,
+		&i.BlueskyUrl,
+		&i.PrimaryColor,
+		&i.AccentColor,
+	)
+	return i, err
+}
+
+const getAssociationLogo = `-- name: GetAssociationLogo :one
+SELECT id, original_name, source_type, source_size_bytes, web_name, web_type, web_size_bytes, web_width, web_height, web_sha256, email_name, email_type, email_size_bytes, email_width, email_height, email_sha256, uploaded_at, uploaded_by FROM association_logo WHERE id = 1
+`
+
+func (q *Queries) GetAssociationLogo(ctx context.Context) (AssociationLogo, error) {
+	row := q.db.QueryRowContext(ctx, getAssociationLogo)
+	var i AssociationLogo
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalName,
+		&i.SourceType,
+		&i.SourceSizeBytes,
+		&i.WebName,
+		&i.WebType,
+		&i.WebSizeBytes,
+		&i.WebWidth,
+		&i.WebHeight,
+		&i.WebSha256,
+		&i.EmailName,
+		&i.EmailType,
+		&i.EmailSizeBytes,
+		&i.EmailWidth,
+		&i.EmailHeight,
+		&i.EmailSha256,
+		&i.UploadedAt,
+		&i.UploadedBy,
+	)
+	return i, err
 }
 
 const setAssociationName = `-- name: SetAssociationName :exec
@@ -32,5 +96,162 @@ type SetAssociationNameParams struct {
 
 func (q *Queries) SetAssociationName(ctx context.Context, arg SetAssociationNameParams) error {
 	_, err := q.db.ExecContext(ctx, setAssociationName, arg.Name, arg.UpdatedAt)
+	return err
+}
+
+const updateAssociationColors = `-- name: UpdateAssociationColors :exec
+UPDATE association SET
+    primary_color = ?1,
+    accent_color = ?2,
+    updated_at = ?3
+WHERE id = 1
+`
+
+type UpdateAssociationColorsParams struct {
+	PrimaryColor sql.NullString
+	AccentColor  sql.NullString
+	UpdatedAt    string
+}
+
+func (q *Queries) UpdateAssociationColors(ctx context.Context, arg UpdateAssociationColorsParams) error {
+	_, err := q.db.ExecContext(ctx, updateAssociationColors, arg.PrimaryColor, arg.AccentColor, arg.UpdatedAt)
+	return err
+}
+
+const updateGeneralSettings = `-- name: UpdateGeneralSettings :exec
+UPDATE association SET
+    name = ?1,
+    tagline = ?2,
+    short_name = ?3,
+    purpose = ?4,
+    rna = ?5,
+    siret = ?6,
+    founded_on = ?7,
+    address_line1 = ?8,
+    address_line2 = ?9,
+    postal_code = ?10,
+    city = ?11,
+    contact_email = ?12,
+    phone = ?13,
+    website = ?14,
+    facebook_url = ?15,
+    instagram_url = ?16,
+    linkedin_url = ?17,
+    youtube_url = ?18,
+    mastodon_url = ?19,
+    bluesky_url = ?20,
+    updated_at = ?21
+WHERE id = 1
+`
+
+type UpdateGeneralSettingsParams struct {
+	Name         sql.NullString
+	Tagline      sql.NullString
+	ShortName    sql.NullString
+	Purpose      sql.NullString
+	Rna          sql.NullString
+	Siret        sql.NullString
+	FoundedOn    sql.NullString
+	AddressLine1 sql.NullString
+	AddressLine2 sql.NullString
+	PostalCode   sql.NullString
+	City         sql.NullString
+	ContactEmail sql.NullString
+	Phone        sql.NullString
+	Website      sql.NullString
+	FacebookUrl  sql.NullString
+	InstagramUrl sql.NullString
+	LinkedinUrl  sql.NullString
+	YoutubeUrl   sql.NullString
+	MastodonUrl  sql.NullString
+	BlueskyUrl   sql.NullString
+	UpdatedAt    string
+}
+
+func (q *Queries) UpdateGeneralSettings(ctx context.Context, arg UpdateGeneralSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateGeneralSettings,
+		arg.Name,
+		arg.Tagline,
+		arg.ShortName,
+		arg.Purpose,
+		arg.Rna,
+		arg.Siret,
+		arg.FoundedOn,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.PostalCode,
+		arg.City,
+		arg.ContactEmail,
+		arg.Phone,
+		arg.Website,
+		arg.FacebookUrl,
+		arg.InstagramUrl,
+		arg.LinkedinUrl,
+		arg.YoutubeUrl,
+		arg.MastodonUrl,
+		arg.BlueskyUrl,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const upsertAssociationLogo = `-- name: UpsertAssociationLogo :exec
+INSERT INTO association_logo (id, original_name, source_type, source_size_bytes,
+    web_name, web_type, web_size_bytes, web_width, web_height, web_sha256,
+    email_name, email_type, email_size_bytes, email_width, email_height, email_sha256,
+    uploaded_at, uploaded_by)
+VALUES (1, ?1, ?2, ?3,
+    ?4, ?5, ?6, ?7, ?8, ?9,
+    ?10, ?11, ?12, ?13, ?14, ?15,
+    ?16, ?17)
+ON CONFLICT (id) DO UPDATE SET
+    original_name = excluded.original_name, source_type = excluded.source_type, source_size_bytes = excluded.source_size_bytes,
+    web_name = excluded.web_name, web_type = excluded.web_type, web_size_bytes = excluded.web_size_bytes,
+    web_width = excluded.web_width, web_height = excluded.web_height, web_sha256 = excluded.web_sha256,
+    email_name = excluded.email_name, email_type = excluded.email_type, email_size_bytes = excluded.email_size_bytes,
+    email_width = excluded.email_width, email_height = excluded.email_height, email_sha256 = excluded.email_sha256,
+    uploaded_at = excluded.uploaded_at, uploaded_by = excluded.uploaded_by
+`
+
+type UpsertAssociationLogoParams struct {
+	OriginalName    string
+	SourceType      string
+	SourceSizeBytes int64
+	WebName         string
+	WebType         string
+	WebSizeBytes    int64
+	WebWidth        int64
+	WebHeight       int64
+	WebSha256       string
+	EmailName       string
+	EmailType       string
+	EmailSizeBytes  int64
+	EmailWidth      int64
+	EmailHeight     int64
+	EmailSha256     string
+	UploadedAt      string
+	UploadedBy      sql.NullInt64
+}
+
+func (q *Queries) UpsertAssociationLogo(ctx context.Context, arg UpsertAssociationLogoParams) error {
+	_, err := q.db.ExecContext(ctx, upsertAssociationLogo,
+		arg.OriginalName,
+		arg.SourceType,
+		arg.SourceSizeBytes,
+		arg.WebName,
+		arg.WebType,
+		arg.WebSizeBytes,
+		arg.WebWidth,
+		arg.WebHeight,
+		arg.WebSha256,
+		arg.EmailName,
+		arg.EmailType,
+		arg.EmailSizeBytes,
+		arg.EmailWidth,
+		arg.EmailHeight,
+		arg.EmailSha256,
+		arg.UploadedAt,
+		arg.UploadedBy,
+	)
 	return err
 }

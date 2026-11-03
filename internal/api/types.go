@@ -24,7 +24,9 @@ type Account struct {
 
 // Association est la représentation publique de l'association.
 type Association struct {
-	Name string `json:"name"`
+	Name    string  `json:"name"`
+	Tagline *string `json:"tagline"`
+	LogoURL *string `json:"logoUrl" doc:"Adresse de la variante interface du logo"`
 }
 
 // Session décrit la personne connectée et son association.

@@ -33,7 +33,7 @@ export function Switch({
           onCheckedChange={(c) => onCheckedChange(c)}
           aria-describedby={described || undefined}
           aria-invalid={error ? true : undefined}
-          className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-line-strong bg-ink/10 transition-colors data-[checked]:border-brand data-[checked]:bg-brand data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border border-line-strong bg-ink/10 transition-colors data-[checked]:border-brand-ink data-[checked]:bg-brand-ink data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <BaseSwitch.Thumb className="m-0.5 block h-[18px] w-[18px] rounded-full bg-surface shadow transition-transform motion-reduce:transition-none data-[checked]:translate-x-5" />
         </BaseSwitch.Root>

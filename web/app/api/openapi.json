@@ -47,6 +47,76 @@
         ],
         "type": "object"
       },
+      "Address": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "line1",
+          "line2",
+          "postalCode",
+          "city"
+        ],
+        "type": "object"
+      },
+      "AddressBody": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "maxLength": 100,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line1": {
+            "maxLength": 100,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line2": {
+            "maxLength": 100,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "AdminAccount": {
         "additionalProperties": false,
         "properties": {
@@ -810,15 +880,99 @@
         ],
         "type": "object"
       },
-      "Association": {
+      "Appearance": {
         "additionalProperties": false,
         "properties": {
-          "name": {
-            "type": "string"
+          "accentColor": {
+            "description": "null : couleur par défaut de Frigg",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logo": {
+            "$ref": "#/components/schemas/Logo"
+          },
+          "palette": {
+            "$ref": "#/components/schemas/Palette"
+          },
+          "primaryColor": {
+            "description": "null : couleur par défaut de Frigg",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
-          "name"
+          "primaryColor",
+          "accentColor",
+          "palette",
+          "logo"
+        ],
+        "type": "object"
+      },
+      "Association": {
+        "additionalProperties": false,
+        "properties": {
+          "logoUrl": {
+            "description": "Adresse de la variante interface du logo",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "tagline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "tagline",
+          "logoUrl"
+        ],
+        "type": "object"
+      },
+      "AssociationContact": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "contactEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "social": {
+            "$ref": "#/components/schemas/SocialLinks"
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "contactEmail",
+          "phone",
+          "website",
+          "social"
         ],
         "type": "object"
       },
@@ -1530,6 +1684,174 @@
         ],
         "type": "object"
       },
+      "GeneralSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "contactEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "foundedOn": {
+            "description": "Date de création, AAAA-MM-JJ",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "description": "Forme nationale à 10 chiffres",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rna": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shortName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "siret": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "social": {
+            "$ref": "#/components/schemas/SocialLinks"
+          },
+          "tagline": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "tagline",
+          "shortName",
+          "purpose",
+          "rna",
+          "siret",
+          "foundedOn",
+          "address",
+          "contactEmail",
+          "phone",
+          "website",
+          "social"
+        ],
+        "type": "object"
+      },
+      "GeneralSettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/AddressBody"
+          },
+          "contactEmail": {
+            "maxLength": 254,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "foundedOn": {
+            "description": "AAAA-MM-JJ",
+            "maxLength": 10,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "maxLength": 120,
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 30,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "purpose": {
+            "maxLength": 2000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rna": {
+            "maxLength": 20,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shortName": {
+            "maxLength": 20,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "siret": {
+            "maxLength": 30,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "social": {
+            "$ref": "#/components/schemas/SocialLinksBody"
+          },
+          "tagline": {
+            "maxLength": 150,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "website": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "HealthOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1589,6 +1911,29 @@
           "ok",
           "organizationName",
           "error"
+        ],
+        "type": "object"
+      },
+      "Identity": {
+        "additionalProperties": false,
+        "properties": {
+          "logoUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "palette": {
+            "$ref": "#/components/schemas/Palette"
+          }
+        },
+        "required": [
+          "name",
+          "logoUrl",
+          "palette"
         ],
         "type": "object"
       },
@@ -1697,6 +2042,37 @@
         "required": [
           "email",
           "password"
+        ],
+        "type": "object"
+      },
+      "Logo": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "originalName": {
+            "type": "string"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "url",
+          "originalName",
+          "width",
+          "height",
+          "uploadedAt"
         ],
         "type": "object"
       },
@@ -2737,6 +3113,41 @@
         ],
         "type": "object"
       },
+      "Palette": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "type": "string"
+          },
+          "accentInk": {
+            "type": "string"
+          },
+          "brand": {
+            "description": "Fond plein (boutons, élément actif)",
+            "type": "string"
+          },
+          "brandInk": {
+            "description": "Texte et repères dans la teinte principale",
+            "type": "string"
+          },
+          "onAccent": {
+            "type": "string"
+          },
+          "onBrand": {
+            "description": "Texte posé sur la couleur principale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "brandInk",
+          "onBrand",
+          "accent",
+          "accentInk",
+          "onAccent"
+        ],
+        "type": "object"
+      },
       "PasswordTokenInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -3528,6 +3939,104 @@
         ],
         "type": "object"
       },
+      "SocialLinks": {
+        "additionalProperties": false,
+        "properties": {
+          "bluesky": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facebook": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instagram": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mastodon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "youtube": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "facebook",
+          "instagram",
+          "linkedin",
+          "youtube",
+          "mastodon",
+          "bluesky"
+        ],
+        "type": "object"
+      },
+      "SocialLinksBody": {
+        "additionalProperties": false,
+        "properties": {
+          "bluesky": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facebook": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instagram": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "linkedin": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mastodon": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "youtube": {
+            "maxLength": 300,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
       "StartCardPayment": {
         "additionalProperties": false,
         "properties": {
@@ -3646,6 +4155,30 @@
           "iban",
           "bic",
           "instructions"
+        ],
+        "type": "object"
+      },
+      "UpdateAppearanceInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accentColor": {
+            "maxLength": 7,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primaryColor": {
+            "maxLength": 7,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "primaryColor",
+          "accentColor"
         ],
         "type": "object"
       },
@@ -6324,6 +6857,310 @@
         ]
       }
     },
+    "/admin/settings/appearance": {
+      "get": {
+        "operationId": "get-appearance",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appearance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Couleurs et logo de l'association",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "put": {
+        "operationId": "update-appearance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAppearanceInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appearance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les couleurs",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/settings/appearance/logo": {
+      "delete": {
+        "operationId": "delete-logo",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retirer le logo",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "put": {
+        "operationId": "upload-logo",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appearance"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Déposer le logo",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/settings/appearance/palette": {
+      "get": {
+        "operationId": "preview-palette",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "primary",
+            "schema": {
+              "maxLength": 7,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "accent",
+            "schema": {
+              "maxLength": 7,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Palette"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Palette dérivée de deux couleurs, sans enregistrement",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/settings/general": {
+      "get": {
+        "operationId": "get-general-settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Paramètres généraux de l'association",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "put": {
+        "operationId": "update-general-settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeneralSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettings"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les paramètres généraux",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
     "/admin/settings/payment": {
       "get": {
         "operationId": "get-payment-settings",
@@ -6437,6 +7274,42 @@
         "summary": "Tester la connexion à HelloAsso",
         "tags": [
           "Paramètres"
+        ]
+      }
+    },
+    "/association/contact": {
+      "get": {
+        "operationId": "get-association-contact",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssociationContact"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Coordonnées et réseaux sociaux de l'association",
+        "tags": [
+          "association"
         ]
       }
     },
@@ -6743,6 +7616,95 @@
         "summary": "État de santé de l'instance",
         "tags": [
           "Santé"
+        ]
+      }
+    },
+    "/identity": {
+      "get": {
+        "operationId": "get-identity",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Identity"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Identité visuelle de l'association (nom, couleurs, logo)",
+        "tags": [
+          "association"
+        ]
+      }
+    },
+    "/identity/logo/{name}": {
+      "get": {
+        "operationId": "get-identity-logo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Le logo (PNG ou JPEG)"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Logo de l'association",
+        "tags": [
+          "association"
         ]
       }
     },

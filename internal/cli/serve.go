@@ -50,6 +50,11 @@ func Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Variantes du logo de l'association (specs/010-general-settings).
+	logoFiles, err := communication.NewFileStore(filepath.Join(cfg.DataDir, "logo"))
+	if err != nil {
+		return err
+	}
 	worker := &mail.Worker{
 		Files:   files,
 		Queries: store.Write,
@@ -60,7 +65,6 @@ func Serve(ctx context.Context) error {
 		Interval: cfg.MailPollInterval,
 		Logger:   logger,
 	}
-	go worker.Run(ctx)
 
 	deps := api.Deps{
 		Store:     store,
@@ -70,6 +74,15 @@ func Serve(ctx context.Context) error {
 		Logger:    logger,
 		HelloAsso: api.NewHelloAssoClient(cfg, nil),
 		Files:     files,
+		LogoFiles: logoFiles,
+	}
+	// Nom, couleurs et logo appliqués aux e-mails au moment de l'envoi.
+	worker.Identity = api.MailIdentity(deps)
+	go worker.Run(ctx)
+	if n, err := api.PurgeLogoOrphans(ctx, deps); err != nil {
+		logger.Warn("balayage des fichiers de logo impossible", "error", err)
+	} else if n > 0 {
+		logger.Warn("anciens fichiers de logo supprimés", "count", n)
 	}
 	go api.NewCommunicationAttachmentSweeper(deps).Run(ctx)
 	if deps.HelloAsso != nil {

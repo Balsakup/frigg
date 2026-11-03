@@ -54,6 +54,8 @@ type Env struct {
 	Sweeper *api.OnlinePaymentSweeper
 	// Files range les pièces jointes des communications (répertoire temporaire).
 	Files *communication.FileStore
+	// LogoFiles range les variantes du logo (répertoire temporaire).
+	LogoFiles *communication.FileStore
 	// AttachmentSweeper purge les pièces jointes abandonnées.
 	AttachmentSweeper *api.CommunicationAttachmentSweeper
 	seq               atomic.Int64
@@ -98,7 +100,11 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := &Env{t: t, Store: store, Mail: &mailtest.Sender{}, Logs: logs, Files: files}
+	logoFiles, err := communication.NewFileStore(filepath.Join(t.TempDir(), "logo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := &Env{t: t, Store: store, Mail: &mailtest.Sender{}, Logs: logs, Files: files, LogoFiles: logoFiles}
 	env.worker = &mail.Worker{Queries: store.Write, Sender: env.Mail, Interval: time.Hour, Logger: logger, Files: files}
 
 	cfg := config.Config{BaseURL: "http://frigg.test", CookieSecure: false}
@@ -115,7 +121,9 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 		Now:       env.now,
 		HelloAsso: api.NewHelloAssoClient(cfg, env.now),
 		Files:     files,
+		LogoFiles: logoFiles,
 	}
+	env.worker.Identity = api.MailIdentity(deps)
 	env.AttachmentSweeper = api.NewCommunicationAttachmentSweeper(deps)
 	if deps.HelloAsso != nil {
 		env.Sweeper = api.NewOnlinePaymentSweeper(deps)

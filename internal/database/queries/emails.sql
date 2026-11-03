@@ -1,6 +1,7 @@
 -- name: EnqueueEmail :exec
-INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at)
-VALUES (sqlc.arg(recipient), sqlc.arg(subject), sqlc.arg(body_text), sqlc.arg(body_html), 'pending', sqlc.arg(now), sqlc.arg(now));
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, wrap, footer)
+VALUES (sqlc.arg(recipient), sqlc.arg(subject), sqlc.arg(body_text), sqlc.arg(body_html), 'pending', sqlc.arg(now), sqlc.arg(now),
+        sqlc.arg(wrap), sqlc.narg(footer));
 
 -- name: ListDueEmails :many
 SELECT * FROM outbound_emails
@@ -27,7 +28,7 @@ DELETE FROM outbound_emails WHERE status = 'sent' AND sent_at < sqlc.arg(before)
 DELETE FROM outbound_emails WHERE recipient = sqlc.arg(recipient);
 
 -- name: EnqueueCommunicationEmail :one
-INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name)
+INSERT INTO outbound_emails (recipient, subject, body_text, body_html, status, next_attempt_at, created_at, communication_id, from_name, wrap, footer)
 VALUES (sqlc.arg(recipient), sqlc.arg(subject), sqlc.arg(body_text), sqlc.arg(body_html), 'pending', sqlc.arg(now), sqlc.arg(now),
-        sqlc.arg(communication_id), sqlc.narg(from_name))
+        sqlc.arg(communication_id), sqlc.narg(from_name), sqlc.arg(wrap), sqlc.narg(footer))
 RETURNING id;

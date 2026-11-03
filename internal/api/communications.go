@@ -342,10 +342,11 @@ func checkMessage(subject, body *string) error {
 
 // associationName lit le nom de l'association.
 func associationName(ctx context.Context, q *sqlc.Queries) (string, error) {
-	name, err := q.GetAssociation(ctx)
+	row, err := q.GetAssociation(ctx)
 	if err != nil {
 		return "", err
 	}
+	name := row.Name
 	if name.Valid {
 		return name.String, nil
 	}
@@ -358,7 +359,6 @@ func renderCommunication(association, seasonLabel, subject, body string) (mail.M
 		Association: association, Season: seasonLabel, Subject: subject, Body: body,
 		Footer: "Vous recevez ce message en tant qu'adhérent de " + association + " pour la saison " + seasonLabel + ".",
 	})
-	msg.FromName = association
 	return msg, err
 }
 
@@ -381,6 +381,14 @@ func (s *server) previewCommunication(ctx context.Context, in *PreviewInput) (*P
 	}
 	msg, err := renderCommunication(association, info.ref.Label, b.Subject, b.Body)
 	if err != nil {
+		return nil, s.internalError(ctx, "rendu d'une communication impossible", err)
+	}
+	// Aperçu habillé avec l'identité courante (010 › R6), logo en data: URI.
+	id, err := s.mailIdentity(ctx, s.Store.Read)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture de l'identité de l'association impossible", err)
+	}
+	if msg, err = mail.WrapPreview(msg, id); err != nil {
 		return nil, s.internalError(ctx, "rendu d'une communication impossible", err)
 	}
 	return &PreviewOutput{Body: Preview{Subject: msg.Subject, Text: msg.Text, HTML: msg.HTML}}, nil
@@ -457,7 +465,8 @@ func (s *server) sendCommunication(ctx context.Context, in *SendCommunicationInp
 		for _, rc := range r.audience.Recipients {
 			emailID, err := q.EnqueueCommunicationEmail(ctx, sqlc.EnqueueCommunicationEmailParams{
 				Recipient: rc.Email, Subject: msg.Subject, BodyText: msg.Text, BodyHtml: msg.HTML, Now: now,
-				CommunicationID: nid(id), FromName: ns(truncateRunes(association, 120)),
+				// Nom d'expéditeur, couleurs et logo appliqués à l'envoi (010 › R6).
+				CommunicationID: nid(id), Wrap: 1, Footer: mail.NullString(msg.Footer),
 			})
 			if err != nil {
 				return err

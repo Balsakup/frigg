@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/balsakup/frigg/internal/brand"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 )
 
@@ -28,6 +29,9 @@ type Worker struct {
 	// Files lit les pièces jointes des communications (specs/009-bulk-email) ;
 	// nil : un e-mail de communication portant des pièces échoue.
 	Files AttachmentFiles
+	// Identity renvoie l'identité visuelle en vigueur (nom, couleurs, logo),
+	// lue une fois par passage ; nil : identité de Frigg sans nom.
+	Identity func(ctx context.Context) (Identity, error)
 }
 
 // AttachmentFiles lit un fichier enregistré en vérifiant sa taille et son
@@ -65,23 +69,46 @@ func (w *Worker) Tick(ctx context.Context) {
 		w.Logger.Error("lecture de la file d'e-mails impossible", "error", err)
 		return
 	}
-	// Pièces jointes lues une fois par communication et par lot.
-	cache := map[int64][]Attachment{}
-	for _, e := range due {
-		if ctx.Err() != nil {
-			return
+	if len(due) > 0 {
+		id := w.identity(ctx)
+		// Pièces jointes lues une fois par communication et par lot.
+		cache := map[int64][]Attachment{}
+		for _, e := range due {
+			if ctx.Err() != nil {
+				return
+			}
+			w.deliver(ctx, e, id, cache)
 		}
-		w.deliver(ctx, e, cache)
 	}
 	if err := w.Queries.PurgeSentEmails(ctx, sql.NullString{String: now.Add(-sentRetention).Format(TimeFormat), Valid: true}); err != nil {
 		w.Logger.Error("purge des e-mails envoyés impossible", "error", err)
 	}
 }
 
-func (w *Worker) deliver(ctx context.Context, e sqlc.OutboundEmail, cache map[int64][]Attachment) {
-	msg := Message{Subject: e.Subject, Text: e.BodyText, HTML: e.BodyHtml, FromName: e.FromName.String}
+// identity lit l'identité visuelle ; en cas d'erreur, l'envoi continue avec
+// l'identité par défaut.
+func (w *Worker) identity(ctx context.Context) Identity {
+	def := Identity{Palette: brand.Default}
+	if w.Identity == nil {
+		return def
+	}
+	id, err := w.Identity(ctx)
+	if err != nil {
+		w.Logger.Error("lecture de l'identité de l'association impossible", "error", err)
+		return def
+	}
+	return id
+}
+
+func (w *Worker) deliver(ctx context.Context, e sqlc.OutboundEmail, id Identity, cache map[int64][]Attachment) {
+	msg := Message{Subject: e.Subject, Text: e.BodyText, HTML: e.BodyHtml, FromName: e.FromName.String, Footer: e.Footer.String}
 	var err error
-	if e.CommunicationID.Valid {
+	if e.Wrap == 1 {
+		// Nom, couleurs et logo en vigueur à l'envoi ; le nom d'expéditeur
+		// stocké n'est lu que pour les lignes antérieures (wrap = 0).
+		msg, err = Wrap(msg, id)
+	}
+	if err == nil && e.CommunicationID.Valid {
 		msg.Attachments, err = w.attachments(ctx, e.CommunicationID.Int64, cache)
 	}
 	if err == nil {

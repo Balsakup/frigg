@@ -105,21 +105,26 @@ func (s *server) getSession(ctx context.Context, _ *struct{}) (*SessionOutput, e
 }
 
 func (s *server) sessionOutput(ctx context.Context, account sqlc.Account) (*SessionOutput, error) {
-	name, err := s.associationName(ctx)
+	row, err := s.Store.Read.GetAssociation(ctx)
 	if err != nil {
-		return nil, err
+		return nil, s.internalError(ctx, "lecture de l'association impossible", err)
 	}
-	return &SessionOutput{Body: Session{Account: toAccount(account), Association: Association{Name: name}}}, nil
+	a := Association{Name: displayName(row), Tagline: nsPtr(row.Tagline)}
+	logo, err := currentLogo(ctx, s.Store.Read)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture du logo impossible", err)
+	}
+	if logo != nil {
+		a.LogoURL = logoURL(logo.WebName)
+	}
+	return &SessionOutput{Body: Session{Account: toAccount(account), Association: a}}, nil
 }
 
-// associationName renvoie le nom de l'association, ou « Mon association ».
-func (s *server) associationName(ctx context.Context) (string, error) {
-	name, err := s.Store.Read.GetAssociation(ctx)
-	if err != nil {
-		return "", s.internalError(ctx, "lecture de l'association impossible", err)
+// displayName renvoie le nom de l'association, ou « Mon association » s'il n'a
+// jamais été défini.
+func displayName(a sqlc.Association) string {
+	if !a.Name.Valid {
+		return defaultAssociationName
 	}
-	if !name.Valid {
-		return defaultAssociationName, nil
-	}
-	return name.String, nil
+	return a.Name.String
 }

@@ -14,7 +14,9 @@ import "@fontsource/atkinson-hyperlegible/400-italic.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "@fontsource-variable/bricolage-grotesque/opsz.css";
 import "./app.css";
+import { identityQuery } from "./api/identity";
 import { queryClient } from "./api/query-client";
+import { BrandStyle } from "./shell/BrandStyle";
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: "Frigg" }];
@@ -39,9 +41,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// L'identité visuelle (nom, logo, couleurs) est chargée avant le premier
+// rendu : aucun clignotement des couleurs de Frigg (010 › R5). Pendant ce
+// temps, HydrateFallback, neutre, s'affiche.
+export async function clientLoader() {
+  await queryClient.ensureQueryData(identityQuery);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <BrandStyle />
       <Outlet />
     </QueryClientProvider>
   );

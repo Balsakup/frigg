@@ -44,10 +44,11 @@ func CreateAdmin(ctx context.Context, store *database.Store, in AdminInput) erro
 	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 
 	return store.WriteTx(ctx, func(q *sqlc.Queries) error {
-		name, err := q.GetAssociation(ctx)
+		row, err := q.GetAssociation(ctx)
 		if err != nil {
 			return err
 		}
+		name := row.Name
 		if !name.Valid {
 			assoc := strings.TrimSpace(in.AssociationName)
 			if assoc == "" || len([]rune(assoc)) > 120 {
@@ -115,10 +116,11 @@ func CreateAdminCommand(ctx context.Context, args []string, stdout, stderr io.Wr
 	}
 
 	var in AdminInput
-	name, err := store.Read.GetAssociation(ctx)
+	row, err := store.Read.GetAssociation(ctx)
 	if err != nil {
 		return err
 	}
+	name := row.Name
 	if !name.Valid {
 		if in.AssociationName, err = ask("Nom de l'association : "); err != nil {
 			return err

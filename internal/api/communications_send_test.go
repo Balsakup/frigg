@@ -33,7 +33,7 @@ func TestSendCommunication(t *testing.T) {
 	if c.Subject != "Rappel : cotisation 2026-2027" || !slices.Equal(c.Target.Situations, []string{"announced", "due"}) {
 		t.Errorf("objet ou cible : %q %v", c.Subject, c.Target.Situations)
 	}
-	if n := countRows(t, f.env, `SELECT count(*) FROM outbound_emails WHERE communication_id = ? AND from_name = 'Club de Frigg'`, c.ID); n != 2 {
+	if n := countRows(t, f.env, `SELECT count(*) FROM outbound_emails WHERE communication_id = ? AND from_name IS NULL AND wrap = 1 AND footer LIKE '%2026-2027%'`, c.ID); n != 2 {
 		t.Errorf("%d e-mail(s) en file", n)
 	}
 

@@ -217,7 +217,7 @@ function PaymentSection({ membership: m }: { membership: MyMembership }) {
   return (
     <section
       aria-labelledby="paiement"
-      className="rounded-lg border border-brand/40 bg-surface p-5"
+      className="rounded-lg border border-brand-ink/40 bg-surface p-5"
     >
       <h2 id="paiement" className="font-display text-lg font-bold">
         Paiement

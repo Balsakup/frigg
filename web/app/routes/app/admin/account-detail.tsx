@@ -415,9 +415,9 @@ function ManagedMembers({ members, choice, onChoice, error, alert }: ManagedMemb
             <label key={value} className="flex cursor-pointer items-center gap-2">
               <Radio.Root
                 value={value}
-                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong bg-surface data-[checked]:border-brand"
+                className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-line-strong bg-surface data-[checked]:border-brand-ink"
               >
-                <Radio.Indicator className="h-2.5 w-2.5 rounded-full bg-brand" />
+                <Radio.Indicator className="h-2.5 w-2.5 rounded-full bg-brand-ink" />
               </Radio.Root>
               {label}
             </label>

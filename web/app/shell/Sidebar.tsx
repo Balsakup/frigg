@@ -5,6 +5,7 @@ import { Link, NavLink, useLocation } from "react-router";
 import { cn } from "~/lib/cn";
 import { Button } from "~/ui/Button";
 import { Icon } from "~/ui/Icon";
+import { AssociationMark } from "./AssociationMark";
 import { entriesFor, type NavEntry, spaceFromPath } from "./navigation";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { UserMenu } from "./UserMenu";
@@ -73,16 +74,19 @@ function SidebarContent({ collapsed, mobile, onNavigate }: ContentProps) {
             collapsed && "justify-center",
           )}
         >
-          <span
-            aria-hidden="true"
-            className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-md bg-brand font-display text-sm font-bold text-on-brand"
-          >
-            {initials(association.name)}
-          </span>
+          <AssociationMark name={association.name} logoUrl={association.logoUrl} />
           <span className={cn("min-w-0 leading-tight", collapsed && "sr-only")}>
-            <span className="block truncate font-display text-[15px] font-bold">
+            <span
+              className="block truncate font-display text-[15px] font-bold"
+              title={association.name}
+            >
               {association.name}
             </span>
+            {association.tagline ? (
+              <span className="block truncate text-xs text-ink" title={association.tagline}>
+                {association.tagline}
+              </span>
+            ) : null}
             <span className="block text-xs text-muted">
               {space === "admin" ? "Espace administration" : "Espace membre"}
             </span>
@@ -200,11 +204,4 @@ function NavList({
       })}
     </ul>
   );
-}
-
-function initials(name: string) {
-  const words = name.split(/\s+/).filter((w) => w.length > 2 || /^[A-ZÀ-Ý]/.test(w));
-  return (
-    words.length >= 2 ? words[0][0] + words[words.length - 1][0] : name.slice(0, 2)
-  ).toUpperCase();
 }

@@ -119,3 +119,8 @@ export function formatBytes(n: number) {
   if (n < 1024 * 1024) return `${Math.round(n / 1024)} Ko`;
   return `${(n / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
 }
+
+// Adresse « tel: » d'un numéro national français.
+export function phoneHref(national: string) {
+  return /^0\d{9}$/.test(national) ? `tel:+33${national.slice(1)}` : `tel:${national}`;
+}

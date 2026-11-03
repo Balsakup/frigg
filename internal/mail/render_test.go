@@ -3,6 +3,8 @@ package mail
 import (
 	"strings"
 	"testing"
+
+	"github.com/balsakup/frigg/internal/brand"
 )
 
 func TestRenderMembershipTemplates(t *testing.T) {
@@ -54,10 +56,14 @@ func TestRenderMembershipTemplates(t *testing.T) {
 
 func TestRenderCommunication(t *testing.T) {
 	body := "Bonjour,\r\n\r\n<script>alert(1)</script> et <b>gras</b>\nVoir https://exemple.test/a?b=1&c=2.\n\n\njavascript:alert(1)"
-	msg, err := Render("communication", Data{
+	content, err := Render("communication", Data{
 		Association: "Club de Frigg", Subject: "Rappel : cotisation", Body: body,
 		Footer: "Vous recevez ce message en tant qu'adhérent de Club de Frigg pour la saison 2026-2027.",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := Wrap(content, Identity{Name: "Club de Frigg", Palette: brand.Default})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +90,78 @@ func TestRenderCommunication(t *testing.T) {
 		}
 	}
 	other, err := Render("membership-paid", Data{Association: "Club", Member: "Léo"})
+	if err == nil {
+		other, err = Wrap(other, Identity{Name: "Club", Palette: brand.Default})
+	}
 	if err != nil || !strings.Contains(other.Text, "Merci de ne pas y répondre") || !strings.Contains(other.HTML, "Merci de ne pas y répondre") {
 		t.Errorf("pied par défaut absent des autres gabarits (%v)", err)
+	}
+}
+
+var contentTemplates = []string{
+	"invitation", "password-reset", "email-verification", "membership-validated",
+	"membership-refused", "membership-cancelled", "membership-paid", "communication", "test",
+}
+
+// Render ne produit que le contenu ; Wrap applique l'en-tête, les couleurs de
+// la palette et le logo (010 › R6, SC-008).
+func TestWrapAllTemplates(t *testing.T) {
+	pale := brand.MustHex("#fff3b0")
+	p := brand.Derive(&pale, nil)
+	logo := &Attachment{Name: "logo.png", ContentType: "image/png", Data: []byte("PNG")}
+	data := Data{Association: "Club", Link: "https://frigg.example/x#t", Member: "Léo", Season: "2026-2027",
+		Amount: "40,00 €", Reference: "R", Reason: "Motif", Method: "chèque", Subject: "Objet", Body: "Texte"}
+	for _, name := range contentTemplates {
+		content, err := Render(name, data)
+		if err != nil {
+			t.Fatalf("%s : %v", name, err)
+		}
+		if strings.Contains(content.HTML, "<html") || strings.Contains(content.HTML, "Merci de ne pas y répondre") {
+			t.Errorf("%s : Render produit plus que le contenu", name)
+		}
+		for _, withLogo := range []bool{false, true} {
+			id := Identity{Name: "Les Sentiers du Val", Palette: p}
+			if withLogo {
+				id.Logo = logo
+			}
+			msg, err := Wrap(content, id)
+			if err != nil {
+				t.Fatalf("%s : %v", name, err)
+			}
+			if !strings.Contains(msg.HTML, "background:"+p.Brand.Hex()) || !strings.Contains(msg.HTML, "color:"+p.OnBrand.Hex()) {
+				t.Errorf("%s : bandeau sans les couleurs de la palette", name)
+			}
+			if strings.Contains(msg.HTML, "#1f5278") || strings.Contains(msg.HTML, "<<") || strings.Contains(msg.HTML, "ZgotmplZ") {
+				t.Errorf("%s : couleur codée en dur ou jeton restant\n%s", name, msg.HTML)
+			}
+			if strings.Contains(content.HTML, "{{.Link}}") || (data.Link != "" && strings.Contains(msg.HTML, `href="https://frigg.example/x#t" style="display:inline-block`) &&
+				!strings.Contains(msg.HTML, "background:"+p.Brand.Hex()+";color:"+p.OnBrand.Hex())) {
+				t.Errorf("%s : bouton sans les couleurs de la palette", name)
+			}
+			if !strings.Contains(msg.HTML, "Les Sentiers du Val") || !strings.HasPrefix(msg.Text, "Les Sentiers du Val") {
+				t.Errorf("%s : nom absent", name)
+			}
+			if msg.FromName != "Les Sentiers du Val" {
+				t.Errorf("%s : expéditeur %q", name, msg.FromName)
+			}
+			hasImg := strings.Contains(msg.HTML, "<img")
+			if withLogo != hasImg || (withLogo && (!strings.Contains(msg.HTML, `src="cid:logo"`) || !strings.Contains(msg.HTML, `alt=""`) || len(msg.Inline) != 1 || msg.Inline[0].Name != "logo")) {
+				t.Errorf("%s (logo %v) : image %v, pièces embarquées %d", name, withLogo, hasImg, len(msg.Inline))
+			}
+		}
+	}
+}
+
+func TestWrapFooterAndPreview(t *testing.T) {
+	content, _ := Render("test", Data{Link: "https://x"})
+	content.Footer = "Pied propre"
+	msg, _ := Wrap(content, Identity{Name: "Club", Palette: brand.Default})
+	if !strings.Contains(msg.HTML, "Pied propre") || strings.Contains(msg.HTML, "Merci de ne pas y répondre") ||
+		!strings.Contains(msg.Text, "Pied propre") {
+		t.Errorf("pied : %s", msg.Text)
+	}
+	prev, _ := WrapPreview(content, Identity{Name: "Club", Palette: brand.Default, Logo: &Attachment{ContentType: "image/png", Data: []byte("PNG")}})
+	if !strings.Contains(prev.HTML, `src="data:image/png;base64,UE5H"`) || len(prev.Inline) != 0 {
+		t.Errorf("aperçu : %s", prev.HTML)
 	}
 }

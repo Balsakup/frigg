@@ -79,7 +79,8 @@ docker cp frigg:/data/backups/frigg-$(date +%F).db .
 
 La sauvegarde, lisible par son seul propriétaire, contient toute la base ;
 sauvegardez aussi le répertoire `files/` du volume (il contient notamment les
-pièces jointes des communications, dans `files/communications/`). Pour restaurer, arrêtez le
+pièces jointes des communications, dans `files/communications/`, et le logo de
+l'association, dans `files/logo/`). Pour restaurer, arrêtez le
 conteneur et remplacez la base depuis un conteneur temporaire :
 
 ```sh
@@ -204,6 +205,33 @@ ouverte ou close, par exemple pour relancer les cotisations impayées :
 
 Le nom de l'association apparaît comme expéditeur ; les réponses arrivent à
 l'adresse `FRIGG_MAIL_FROM`.
+
+### Paramètres de l'association
+
+*Administration › Paramètres* regroupe les réglages de l'association.
+
+**Général** : nom (obligatoire), tagline affichée sous le nom dans le menu et
+sur l'accueil des membres, nom court, objet, identité légale et coordonnées.
+Chaque champ renseigné est vérifié : numéro RNA (`W` suivi de 9 chiffres),
+SIRET (14 chiffres et clé de contrôle), date de création passée, code postal à
+5 chiffres, téléphone français (enregistré au format `01 23 45 67 89`),
+adresses web complètes en `https://`. Les coordonnées et les liens des réseaux
+sociaux (Facebook, Instagram, LinkedIn, YouTube, Mastodon, Bluesky) sont
+présentés aux membres dans un encart « Contacter l'association » ; l'identité
+légale reste réservée aux administrateurs.
+
+**Apparence** : logo et couleurs de l'association.
+
+- Le logo accepte une image PNG, JPEG ou WebP de 1 Mo au plus (SVG refusé).
+  Il est réencodé à l'enregistrement, ce qui retire les métadonnées de la
+  photo (EXIF, position GPS).
+- Couleur principale et couleur d'accent : les textes posés sur ces couleurs
+  ou écrits dans ces teintes sont assombris automatiquement pour garder un
+  contraste d'au moins 4,5:1. Les couleurs de succès, d'avertissement et
+  d'erreur ne changent pas.
+- Le nom, le logo et les couleurs habillent toute l'application, y compris
+  l'écran de connexion (seules informations de l'association visibles sans
+  être connecté), et les e-mails envoyés, au moment de leur envoi.
 
 ## Contribuer
 

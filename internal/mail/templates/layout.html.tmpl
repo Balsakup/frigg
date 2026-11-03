@@ -2,9 +2,16 @@
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
 <body style="margin:0;padding:24px;background:#f5f6f8;color:#181f29;font-family:'Segoe UI',system-ui,sans-serif;font-size:16px;line-height:1.5">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dde1e7;border-radius:8px;padding:24px">
-    <p style="margin:0 0 16px;font-weight:700;font-size:18px">{{.Association}}</p>
-    {{template "body" .}}
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #dde1e7;border-radius:8px;overflow:hidden">
+    <div style="background:<<brand>>;color:<<on-brand>>;padding:16px 24px">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+        {{if .HasLogo}}<td style="padding:0 12px 0 0;vertical-align:middle"><img src="{{.LogoSrc}}" alt="" height="48" style="display:block;height:48px;width:auto;border:0;background:#ffffff;border-radius:4px"></td>{{end}}
+        <td style="vertical-align:middle;font-weight:700;font-size:18px;color:<<on-brand>>">{{.Association}}</td>
+      </tr></table>
+    </div>
+    <div style="padding:24px">
+    {{.Body}}
+    </div>
   </div>
   <p style="max-width:560px;margin:16px auto 0;color:#525a67;font-size:14px">{{if .Footer}}{{.Footer}}{{else}}Message envoyé automatiquement par Frigg pour {{.Association}}. Merci de ne pas y répondre.{{end}}</p>
 </body>

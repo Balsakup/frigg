@@ -25,6 +25,12 @@ const cardSettingsSpec = /card-settings\.spec\.ts/;
 const communicationPort = 8094;
 const communicationDb = "../data/e2e/frigg-communication.db";
 const communicationSpecs = /communications\.spec\.ts/;
+// Cinquième serveur pour les paramètres généraux (010) : le nom, les couleurs et
+// le logo sont globaux et changeraient l'affichage des autres tests.
+const generalPort = 8095;
+const generalDb = "../data/e2e/frigg-parametres.db";
+const generalSpec = /general-settings\.spec\.ts/;
+const appearanceSpec = /appearance\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -59,7 +65,15 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: [membershipSpecs, settingsSpec, cardSpecs, cardSettingsSpec, communicationSpecs],
+      testIgnore: [
+        membershipSpecs,
+        settingsSpec,
+        cardSpecs,
+        cardSettingsSpec,
+        communicationSpecs,
+        generalSpec,
+        appearanceSpec,
+      ],
     },
     {
       name: "adhesions",
@@ -90,6 +104,19 @@ export default defineConfig({
       name: "communication",
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${communicationPort}` },
       testMatch: communicationSpecs,
+    },
+    {
+      name: "parametres-generaux",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${generalPort}` },
+      testMatch: generalSpec,
+    },
+    // L'apparence change les couleurs et le logo de toute l'instance : elle passe
+    // après les paramètres généraux.
+    {
+      name: "apparence",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${generalPort}` },
+      testMatch: appearanceSpec,
+      dependencies: ["parametres-generaux"],
     },
   ],
   webServer: [
@@ -128,6 +155,12 @@ export default defineConfig({
       url: `http://localhost:${communicationPort}`,
       reuseExistingServer: false,
       env: serverEnv(communicationDb, communicationPort, "../data/e2e/files-communication"),
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${generalDb} parametres && ../bin/frigg serve`,
+      url: `http://localhost:${generalPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(generalDb, generalPort, "../data/e2e/files-parametres"),
     },
   ],
 });
