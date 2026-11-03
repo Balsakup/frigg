@@ -78,7 +78,8 @@ docker cp frigg:/data/backups/frigg-$(date +%F).db .
 ```
 
 La sauvegarde, lisible par son seul propriétaire, contient toute la base ;
-sauvegardez aussi le répertoire `files/` du volume. Pour restaurer, arrêtez le
+sauvegardez aussi le répertoire `files/` du volume (il contient notamment les
+pièces jointes des communications, dans `files/communications/`). Pour restaurer, arrêtez le
 conteneur et remplacez la base depuis un conteneur temporaire :
 
 ```sh
@@ -180,6 +181,29 @@ ci-dessous, Frigg fonctionne normalement et ne propose pas la carte.
 Changer de secret change l'adresse de notification : déclarez la nouvelle
 adresse dans HelloAsso. Les remboursements se font dans l'espace HelloAsso ;
 Frigg signale aux administrateurs ceux qui sont à faire.
+
+### Communication
+
+*Administration › Communication* envoie un e-mail aux adhérents d'une saison
+ouverte ou close, par exemple pour relancer les cotisations impayées :
+
+- **cible** : « Tous les adhérents », « À jour » (payée ou gratuite),
+  « En impayé » (paiement annoncé ou à payer), ou une cible personnalisée par
+  situation de paiement et par tarif. Seules les adhésions validées comptent ;
+- **adresse retenue** : celle du compte qui gère la fiche, sinon celle de la
+  fiche. Une même adresse ne reçoit qu'un exemplaire (un parent pour plusieurs
+  enfants) ; les adhérents sans adresse sont listés avant l'envoi ;
+- **pièces jointes** : 5 fichiers au plus, 5 Mo par fichier et 10 Mo au
+  total, aux formats PDF, JPEG, PNG, Word (.docx), Excel (.xlsx) et
+  OpenDocument (.odt, .ods). Le type est vérifié sur le contenu ; les
+  documents à macros sont refusés. Les fichiers d'une préparation abandonnée
+  sont supprimés après 24 heures ;
+- les e-mails partent en arrière-plan par le serveur SMTP configuré, au rythme
+  de `FRIGG_MAIL_POLL_INTERVAL` (20 e-mails par passage) ; l'historique indique
+  pour chaque destinataire si l'e-mail est parti, en attente ou en échec.
+
+Le nom de l'association apparaît comme expéditeur ; les réponses arrivent à
+l'adresse `FRIGG_MAIL_FROM`.
 
 ## Contribuer
 
