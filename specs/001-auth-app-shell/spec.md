@@ -411,6 +411,10 @@ avec le nouveau.
   s'affiche à défaut ; la page de paramètres permettra de le modifier. Logo et
   couleurs personnalisées relèvent de cette même fonctionnalité de paramétrage ;
   les couleurs par défaut de l'artefact s'appliquent.
+  *Note (2026-11-03)* : livré par
+  [010-general-settings](../010-general-settings/spec.md). Le nom, le logo et
+  les couleurs de l'association remplacent désormais l'identité de Frigg sur
+  les écrans hors session (amendement 1.8.0 du principe II).
 - Au-delà de l'invitation, la gestion des comptes par un administrateur
   (liste des comptes, désactivation, changement de rôle, suppression) relève
   d'une fonctionnalité ultérieure ; les cas limites
