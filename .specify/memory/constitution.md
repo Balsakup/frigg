@@ -47,7 +47,16 @@ L'application entière est protégée par authentification : refus par défaut.
       du prestataire pendant la vérification, afin qu'il la renvoie ;
     - dans tous les cas, la réponse MUST NOT révéler de donnée de
       l'association, de version, de configuration ni de détail d'erreur
-      interne.
+      interne ;
+  - l'**identité visuelle** de l'association, en lecture seule (`GET`), pour
+    habiller les écrans hors session ci-dessus. Elle se limite au nom, aux
+    couleurs de l'association et au fichier du logo :
+    - aucune autre donnée de l'association (tagline, objet, identité légale,
+      coordonnées, réseaux sociaux, saisons, tarifs, membres…) ni aucune donnée
+      de version ou de configuration MUST NOT être ajoutée à cette réponse ; une
+      extension de son contenu exige un amendement ;
+    - le logo est servi sous son nom généré, avec son type validé, sans révéler
+      son nom d'origine ni les métadonnées de dépôt.
 - Cette liste d'exceptions est explicite et centralisée dans le code ; une
   nouvelle route publique MUST faire l'objet d'un amendement de cette
   constitution.
@@ -55,11 +64,15 @@ L'application entière est protégée par authentification : refus par défaut.
   l'interface ne constitue jamais une protection.
 - Les fichiers statiques du frontend embarqué peuvent être servis sans session
   (le shell de connexion doit pouvoir se charger), mais ils MUST NOT contenir de
-  données de l'association. Les fichiers déposés (logo excepté, s'il est affiché
-  sur l'écran de connexion) sont servis uniquement à une session autorisée.
+  données de l'association : l'identité visuelle est obtenue à l'exécution par
+  la route ci-dessus. Les fichiers déposés, logo excepté, sont servis
+  uniquement à une session autorisée.
 
 **Rationale** : les données d'une association (membres, coordonnées, paiements)
-sont personnelles ; aucune ne doit être lisible sans identification.
+sont personnelles ; aucune ne doit être lisible sans identification. Le nom, le
+logo et les couleurs sont en revanche des informations que l'association affiche
+publiquement sur tous ses supports : les montrer sur l'écran de connexion ne
+divulgue rien, et la liste fermée de ces champs empêche toute dérive.
 
 ### III. Deux rôles : l'administrateur est un membre
 
@@ -377,4 +390,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.7.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-02
+**Version**: 1.8.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-03
