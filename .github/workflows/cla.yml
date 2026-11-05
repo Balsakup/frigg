@@ -8,15 +8,20 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 jobs:
   cla:
     runs-on: ubuntu-latest
+    # Droits exigés par l'action : actions pour relancer le contrôle de la PR
+    # après signature, contents pour écrire signatures/cla.json, pull-requests
+    # pour commenter, statuses pour le statut du commit. Aucun checkout du code
+    # de la PR : pull_request_target n'exécute jamais le code du fork.
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
     if: >-
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&
@@ -24,7 +29,7 @@ jobs:
          github.event.comment.body == 'J''ai lu le CLA de Frigg et je l''accepte.'))
     steps:
       - name: Vérifie le CLA
-        uses: contributor-assistant/github-action@v2.6.1
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
