@@ -474,17 +474,31 @@ WHERE (CAST(?1 AS INTEGER) IS NULL OR ms.season_id = CAST(?1 AS INTEGER))
        OR (ms.payment_status = 'paid' AND ms.paid_method = CAST(?7 AS TEXT)))
   AND (CAST(?8 AS INTEGER) IS NULL
        OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL))
+  AND NOT EXISTS (
+      SELECT 1 FROM json_each(coalesce(CAST(?9 AS TEXT), '[]')) ff
+      WHERE CASE json_extract(ff.value, '$.op')
+          WHEN 'true' THEN NOT EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'false' THEN EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'empty' THEN EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field'))
+          WHEN 'choice' THEN NOT EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field')
+                AND fv.value_choice_id = json_extract(ff.value, '$.choice'))
+          ELSE 1 END)
 `
 
 type ListMembershipsParams struct {
-	SeasonID   sql.NullInt64
-	Status     sql.NullString
-	Payment    sql.NullString
-	MemberID   sql.NullInt64
-	Query      sql.NullString
-	OrderID    sql.NullInt64
-	PaidMethod sql.NullString
-	OpenAlerts sql.NullInt64
+	SeasonID     sql.NullInt64
+	Status       sql.NullString
+	Payment      sql.NullString
+	MemberID     sql.NullInt64
+	Query        sql.NullString
+	OrderID      sql.NullInt64
+	PaidMethod   sql.NullString
+	OpenAlerts   sql.NullInt64
+	FieldFilters sql.NullString
 }
 
 type ListMembershipsRow struct {
@@ -497,7 +511,7 @@ type ListMembershipsRow struct {
 
 // ListMemberships returns every matching row: sorting without accents and
 // paging are done in Go (R10). The text query matches the payment reference
-// or the member record.
+// or the member record. field_filters: see ListMembers (research.md 011 R6).
 func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams) ([]ListMembershipsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listMemberships,
 		arg.SeasonID,
@@ -508,6 +522,7 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 		arg.OrderID,
 		arg.PaidMethod,
 		arg.OpenAlerts,
+		arg.FieldFilters,
 	)
 	if err != nil {
 		return nil, err

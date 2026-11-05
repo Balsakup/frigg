@@ -32,6 +32,7 @@ export function membershipPageQuery(query: {
   payment?: "due" | "announced" | "paid" | "free";
   paidMethod?: "card" | "cash" | "cheque" | "transfer";
   alerts?: "open";
+  field?: string[];
   member?: number;
   q?: string;
   page?: number;
@@ -66,6 +67,8 @@ export async function invalidateMemberships(qc: QueryClient) {
       ["get", "/admin/memberships/dashboard"],
       ["get", "/admin/members/{id}"],
       ["get", "/admin/seasons/{id}/fees"],
+      // Compteurs d'adhésions sans valeur des champs personnalisés (011).
+      ["get", "/admin/custom-fields"],
     ].map((queryKey) => qc.invalidateQueries({ queryKey })),
   );
 }

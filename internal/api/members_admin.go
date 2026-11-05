@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/member"
@@ -64,7 +65,8 @@ func (s *server) registerAdminMembers(api huma.API) {
 }
 
 type ListMembersInput struct {
-	Q        string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis"`
+	Q        string   `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis ; ou fragment de la valeur d'un champ personnalisé de type texte court"`
+	Field    []string `query:"field,explode" maxItems:"10" doc:"Filtre par champ personnalisé oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable"`
 	Account  string `query:"account" pattern:"^(none|[0-9]+)$" doc:"none : fiches sans compte ; identifiant : fiches de ce compte"`
 	Page     int64  `query:"page" minimum:"1" default:"1" doc:"Numéro de page"`
 	PageSize int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25" doc:"Nombre de fiches par page"`
@@ -128,6 +130,11 @@ func (s *server) listMembers(ctx context.Context, in *ListMembersInput) (*AdminM
 		id, _ := strconv.ParseInt(in.Account, 10, 64)
 		params.AccountID = sql.NullInt64{Int64: id, Valid: true}
 	}
+	filters, err := fieldFilters(ctx, s.Store.Read, customfield.ScopeMember, in.Field)
+	if err != nil {
+		return nil, s.txError(ctx, "lecture des champs personnalisés impossible", err)
+	}
+	params.FieldFilters = filters
 	rows, err := s.Store.Read.ListMembers(ctx, params)
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des membres impossible", err)
@@ -161,6 +168,9 @@ func (s *server) memberOutput(ctx context.Context, id int64) (*AdminMemberOutput
 		return nil, s.internalError(ctx, "lecture de la fiche impossible", err)
 	}
 	out := toAdminMember(fromGetRow(r), s.today())
+	if out.CustomFields, err = readMemberFields(ctx, s.Store.Read, id, customfield.Admin); err != nil {
+		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
+	}
 	ms, err := s.memberMemberships(ctx, id)
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
@@ -195,10 +205,15 @@ func checkTargetAccount(ctx context.Context, q *sqlc.Queries, id *int64) error {
 func (s *server) createMember(ctx context.Context, in *CreateMemberInput) (*AdminMemberOutput, error) {
 	c, err := validateMember(in.Body.MemberBody, s.today())
 	if err != nil {
-		return nil, err
+		details, ferr := checkFields(ctx, s.Store.Read, customfield.ScopeMember, 0, in.Body.CustomFields, customfield.Admin)
+		if ferr != nil {
+			return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", ferr)
+		}
+		return nil, withFieldErrors(err, details)
 	}
 	account := nullID(in.Body.AccountID)
 	var id int64
+	var changed int
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		if err := checkTargetAccount(ctx, q, in.Body.AccountID); err != nil {
 			return err
@@ -218,12 +233,16 @@ func (s *server) createMember(ctx context.Context, in *CreateMemberInput) (*Admi
 			Email: f.Email, Phone: f.Phone, AddressLine1: f.AddressLine1, AddressLine2: f.AddressLine2,
 			PostalCode: f.Postal, City: f.City, Now: nowString(),
 		})
+		if err != nil {
+			return err
+		}
+		changed, err = writeFields(ctx, q, customfield.ScopeMember, id, in.Body.CustomFields, customfield.Admin)
 		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "création de la fiche impossible", err)
 	}
-	s.logMemberAction(ctx, "member.create", id, account, "admin")
+	s.logMemberAction(ctx, "member.create", id, account, "admin", "custom_fields", changed)
 	if account.Valid {
 		s.logMemberAction(ctx, "member.attach", id, account, "admin")
 	}
@@ -233,10 +252,15 @@ func (s *server) createMember(ctx context.Context, in *CreateMemberInput) (*Admi
 func (s *server) updateMember(ctx context.Context, in *UpdateMemberInput) (*AdminMemberOutput, error) {
 	c, err := validateMember(in.Body.MemberBody, s.today())
 	if err != nil {
-		return nil, err
+		details, ferr := checkFields(ctx, s.Store.Read, customfield.ScopeMember, in.ID, in.Body.CustomFields, customfield.Admin)
+		if ferr != nil {
+			return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", ferr)
+		}
+		return nil, withFieldErrors(err, details)
 	}
 	account := nullID(in.Body.AccountID)
 	attached := false
+	changed := 0
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		row, err := q.GetMember(ctx, in.ID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -277,12 +301,16 @@ func (s *server) updateMember(ctx context.Context, in *UpdateMemberInput) (*Admi
 			PostalCode: f.Postal, City: f.City, Now: nowString(),
 			ID: in.ID,
 		})
+		if err != nil {
+			return err
+		}
+		changed, err = writeFields(ctx, q, customfield.ScopeMember, in.ID, in.Body.CustomFields, customfield.Admin)
 		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "modification de la fiche impossible", err)
 	}
-	s.logMemberAction(ctx, "member.update", in.ID, account, "admin")
+	s.logMemberAction(ctx, "member.update", in.ID, account, "admin", "custom_fields", changed)
 	if attached {
 		s.logMemberAction(ctx, "member.attach", in.ID, account, "admin")
 	}

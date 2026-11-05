@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/balsakup/frigg/internal/api"
@@ -70,5 +71,27 @@ func TestMembersIsolation(t *testing.T) {
 		if res := b.Do("GET", path, nil); res.Status != http.StatusForbidden {
 			t.Errorf("%s pour un membre : %d, attendu 403", path, res.Status)
 		}
+	}
+}
+
+// TestMemberCustomFieldsIsolation : un compte ne peut pas écrire les champs
+// personnalisés de la fiche d'un autre compte (FR-022).
+func TestMemberCustomFieldsIsolation(t *testing.T) {
+	f := newMemberFieldsFixture(t)
+	m := createMine(t, f.owner, memberBody("Lucas", "Moreau", "2012-05-20",
+		"customFields", []map[string]any{cfText(f.licence.ID, "1234567")}))
+	other := f.env.LoggedIn(f.env.Seed(auth.RoleMember, true))
+	res := other.Do("PUT", myMemberPath(m.ID), memberBody("Pirate", "Pirate", "2000-01-01",
+		"customFields", []map[string]any{cfText(f.licence.ID, "0000000")}))
+	expectProblem(t, res, http.StatusNotFound, api.MsgMemberGone)
+	// Même réponse quand la fiche est aussi invalide (aucune lecture de la fiche d'autrui).
+	res = other.Do("PUT", myMemberPath(m.ID), memberBody("", "Pirate", "2000-01-01",
+		"customFields", []map[string]any{cfText(f.licence.ID, "0000000")}))
+	if strings.Contains(res.Body, "customFields") {
+		t.Fatalf("erreurs de champs sur la fiche d'un autre compte : %s", res.Body)
+	}
+	mine := expectMember(t, f.owner.Do("GET", myMemberPath(m.ID), nil), http.StatusOK).Member
+	if v := findValue(t, mine.CustomFields, f.licence.ID); *v.Text != "1234567" {
+		t.Fatalf("valeur modifiée par un autre compte : %+v", v)
 	}
 }

@@ -90,6 +90,7 @@ function MyMemberView({ member }: { member: Member }) {
       <MemberMemberships member={member} />
       <MyMemberForm
         defaultValues={{ ...memberToForm(member), isSelf: member.isSelf }}
+        customFields={member.customFields ?? []}
         canMarkSelf={member.isSelf || (list.data?.actions.markSelf ?? false)}
         accountEmail={account.email}
         submitLabel="Enregistrer"

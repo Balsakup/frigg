@@ -124,3 +124,10 @@ export function formatBytes(n: number) {
 export function phoneHref(national: string) {
   return /^0\d{9}$/.test(national) ? `tel:+33${national.slice(1)}` : `tel:${national}`;
 }
+
+const numberFormat = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 10 });
+
+// Nombre au format français, par exemple « 1 234,5 ».
+export function formatNumber(n: number) {
+  return numberFormat.format(n);
+}

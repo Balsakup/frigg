@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/member"
 	"github.com/balsakup/frigg/internal/membership"
@@ -65,6 +66,14 @@ func (s *server) registerMyMemberships(api huma.API) {
 		Summary:     "Annuler une demande d'adhésion en attente",
 		Tags:        []string{tagMyMemberships},
 	}, s.cancelMyMembership)
+
+	register(api, auth.Member, huma.Operation{
+		OperationID: "update-my-membership-fields",
+		Method:      http.MethodPut,
+		Path:        "/me/memberships/{id}/fields",
+		Summary:     "Modifier les champs personnalisés d'une adhésion",
+		Tags:        []string{tagMyMemberships},
+	}, s.updateMyMembershipFields)
 
 	register(api, auth.Member, huma.Operation{
 		OperationID: "announce-my-payment",
@@ -130,6 +139,8 @@ type MyMembership struct {
 	Actions        MyMembershipActions `json:"actions"`
 	PaymentMethods []PaymentMethodInfo `json:"paymentMethods" doc:"Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier"`
 	CardPayment    *CardPaymentState   `json:"cardPayment" doc:"Dernière tentative de paiement par carte"`
+	// CustomFields n'est renseigné que sur l'adhésion, pas dans la liste (011).
+	CustomFields []FieldValue `json:"customFields,omitempty" required:"false" doc:"Champs personnalisés d'adhésion lisibles dans cet espace"`
 }
 
 // MyMembershipSeason regroupe les adhésions d'une saison.
@@ -149,6 +160,8 @@ type MyMembershipBody struct {
 	SeasonID     int64  `json:"seasonId"`
 	FeeID        int64  `json:"feeId"`
 	DeclaredKind string `json:"declaredKind" enum:"first,renewal"`
+	// CustomFields : champs d'adhésion remplis par le membre (011).
+	CustomFields []FieldInput `json:"customFields,omitempty" required:"false" maxItems:"30" doc:"Champs personnalisés d'adhésion remplis par le membre"`
 }
 
 // AnnounceBody est le moyen de paiement choisi.
@@ -169,6 +182,11 @@ type MembershipIDInput struct {
 }
 
 type CreateMyMembershipInput struct{ Body MyMembershipBody }
+
+type MyMembershipFieldsInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body CustomFieldsBody
+}
 
 type AnnounceMyPaymentInput struct {
 	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
@@ -367,7 +385,11 @@ func (s *server) myMembershipOutput(ctx context.Context, q *sqlc.Queries, id int
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 	}
-	return &MyMembershipOutput{Body: myMembership(m, snapshotOf(r.Membership, seasons), settings, latest)}, nil
+	out := myMembership(m, snapshotOf(r.Membership, seasons), settings, latest)
+	if out.CustomFields, err = readMembershipFields(ctx, q, id, customfield.Owner, fieldsWritable(r.Membership.Status)); err != nil {
+		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
+	}
+	return &MyMembershipOutput{Body: out}, nil
 }
 
 func (s *server) getMyMembership(ctx context.Context, in *MembershipIDInput) (*MyMembershipOutput, error) {
@@ -408,7 +430,8 @@ func (s *server) createMyMembership(ctx context.Context, in *CreateMyMembershipI
 			return activeConflict(err)
 		}
 		created = sqlc.Membership{ID: id, MemberID: in.Body.MemberID, SeasonID: in.Body.SeasonID}
-		return nil
+		_, err = writeFields(ctx, q, customfield.ScopeMembership, id, in.Body.CustomFields, customfield.Owner)
+		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "demande d'adhésion impossible", err)
@@ -490,5 +513,24 @@ func (s *server) announceMyPayment(ctx context.Context, in *AnnounceMyPaymentInp
 		return nil, err
 	}
 	s.logMembershipAction(ctx, "membership.payment_announce", m, "me", "method", in.Body.Method)
+	return s.myMembershipOutput(ctx, s.Store.Read, in.ID)
+}
+
+// updateMyMembershipFields enregistre les champs d'adhésion remplis par le
+// membre, tant que l'adhésion est en attente ou validée (US3).
+func (s *server) updateMyMembershipFields(ctx context.Context, in *MyMembershipFieldsInput) (*MyMembershipOutput, error) {
+	fields := 0
+	m, err := s.myMembershipWrite(ctx, in.ID, func(q *sqlc.Queries, m sqlc.Membership, _ membership.Snapshot) error {
+		if !fieldsWritable(m.Status) {
+			return huma.Error409Conflict(MsgMembershipFieldsLocked)
+		}
+		var err error
+		fields, err = writeFields(ctx, q, customfield.ScopeMembership, m.ID, in.Body.CustomFields, customfield.Owner)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.fields", m, "me", "custom_fields", fields)
 	return s.myMembershipOutput(ctx, s.Store.Read, in.ID)
 }

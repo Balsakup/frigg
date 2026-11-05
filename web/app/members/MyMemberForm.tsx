@@ -1,7 +1,15 @@
 import type { ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { type Control, type FieldErrors, useForm } from "react-hook-form";
 import { Link } from "react-router";
+import type { FieldInput, FieldValue, FormField } from "~/api/custom-fields";
 import { applyProblemToForm, isProblem } from "~/api/problem";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import {
+  customFieldPaths,
+  toFormValues,
+  toInputs,
+  type WithCustomFields,
+} from "~/customfields/form";
 import { Alert } from "~/ui/Alert";
 import { Button, buttonClasses } from "~/ui/Button";
 import { DuplicateConfirm } from "./DuplicateConfirm";
@@ -12,14 +20,20 @@ export interface MyMemberFormValues extends MemberFormValues {
   isSelf: boolean;
 }
 
+type FormValues = MyMemberFormValues & WithCustomFields;
+
 interface MyMemberFormProps {
   defaultValues: MyMemberFormValues;
   /** Case « Il s'agit de moi » proposée. */
   canMarkSelf: boolean;
   /** Adresse du compte, proposée quand on coche « Il s'agit de moi ». */
   accountEmail: string;
+  /** Champs personnalisés de membre lisibles dans l'espace membre. */
+  customFields: (FormField | FieldValue)[];
   submitLabel: string;
-  onSubmit: (body: ReturnType<typeof formToBody> & { isSelf: boolean }) => Promise<void>;
+  onSubmit: (
+    body: ReturnType<typeof formToBody> & { isSelf: boolean; customFields: FieldInput[] },
+  ) => Promise<void>;
   /** Actions supplémentaires (suppression). */
   extra?: ReactNode;
 }
@@ -29,21 +43,32 @@ export function MyMemberForm({
   defaultValues,
   canMarkSelf,
   accountEmail,
+  customFields,
   submitLabel,
   onSubmit,
   extra,
 }: MyMemberFormProps) {
-  const { register, handleSubmit, setError, setValue, getValues, watch, formState } =
-    useForm<MyMemberFormValues>({ defaultValues });
+  const { register, handleSubmit, setError, setValue, getValues, watch, control, formState } =
+    useForm<FormValues>({
+      defaultValues: { ...defaultValues, customFields: toFormValues(customFields) },
+    });
   const isSelf = watch("isSelf");
   const selfField = register("isSelf");
 
   const submit = handleSubmit(async (values) => {
     try {
-      await onSubmit({ ...formToBody(values), isSelf: values.isSelf });
+      await onSubmit({
+        ...formToBody(values),
+        isSelf: values.isSelf,
+        customFields: toInputs(customFields, values.customFields),
+      });
     } catch (error) {
       if (!isProblem(error)) throw error;
-      applyProblemToForm(error, setError, [...memberFieldNames, "isSelf"]);
+      applyProblemToForm(error, setError, [
+        ...memberFieldNames,
+        "isSelf",
+        ...customFieldPaths(customFields),
+      ]);
     }
   });
 
@@ -81,6 +106,11 @@ export function MyMemberForm({
           </div>
         ) : null}
         <MemberFields register={register} errors={formState.errors} autocompleteSelf={isSelf} />
+        <CustomFieldInputs
+          fields={customFields}
+          control={control as unknown as Control<WithCustomFields>}
+          errors={formState.errors as FieldErrors<WithCustomFields>}
+        />
         <DuplicateConfirm register={register} errors={formState.errors} />
         <div className="flex flex-wrap gap-2">
           <Button type="submit" aria-disabled={formState.isSubmitting}>

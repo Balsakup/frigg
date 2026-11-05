@@ -2,8 +2,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
+import { customFieldsQuery } from "~/api/custom-fields";
 import { memberListQuery } from "~/api/members";
 import { queryClient } from "~/api/query-client";
+import { CustomFieldFilters, filterableFields } from "~/customfields/CustomFieldFilters";
 import { hasSearchableTerm, SEARCH_MIN_LENGTH } from "~/lib/account-filters";
 import { formatAge } from "~/lib/format";
 import {
@@ -25,7 +27,10 @@ import type { Route } from "./+types/members";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const filters = parseMemberFilters(new URL(request.url).searchParams);
-  await queryClient.ensureQueryData(memberListQuery(filters)).catch(() => undefined);
+  await Promise.all([
+    queryClient.ensureQueryData(memberListQuery(filters)).catch(() => undefined),
+    queryClient.ensureQueryData(customFieldsQuery()).catch(() => undefined),
+  ]);
   return null;
 }
 
@@ -42,6 +47,8 @@ export default function Members() {
   const filters = parseMemberFilters(searchParams);
   const [draft, setDraft] = useState(filters.q);
   const list = useQuery({ ...memberListQuery(filters), placeholderData: keepPreviousData });
+  const definitions = useQuery(customFieldsQuery());
+  const filterable = filterableFields(definitions.data?.member);
 
   const navigate = (next: MemberFilters, replace = false) => {
     setSearchParams(toMemberSearchParams(next), { replace, preventScrollReset: true });
@@ -56,7 +63,7 @@ export default function Members() {
 
   const clear = () => {
     setDraft("");
-    navigate({ q: "", noAccount: false, page: 1 });
+    navigate({ q: "", noAccount: false, fields: [], page: 1 });
   };
 
   const tooShort = draft.trim() !== "" && !hasSearchableTerm(draft);
@@ -105,7 +112,7 @@ export default function Members() {
               hint={
                 tooShort
                   ? `Saisissez au moins ${SEARCH_MIN_LENGTH} caractères.`
-                  : "Nom, prénom, adresse électronique ou téléphone."
+                  : "Nom, prénom, adresse électronique, téléphone ou champ personnalisé texte."
               }
             />
             <Select
@@ -116,6 +123,15 @@ export default function Members() {
                 navigate({ ...filters, q: draft, noAccount: v === "none", page: 1 })
               }
             />
+            {filterable.length ? (
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 lg:grid-cols-4">
+                <CustomFieldFilters
+                  fields={filterable}
+                  value={filters.fields ?? []}
+                  onChange={(fields) => navigate({ ...filters, q: draft, fields, page: 1 })}
+                />
+              </div>
+            ) : null}
           </search>
           <div className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-2">
             <p role="status" className="text-sm text-muted">

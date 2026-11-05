@@ -59,6 +59,7 @@ export default [
           index("routes/app/admin/settings-index.tsx"),
           route("general", "routes/app/admin/settings-general.tsx"),
           route("apparence", "routes/app/admin/settings-appearance.tsx"),
+          route("champs", "routes/app/admin/settings-custom-fields.tsx"),
           route("paiements", "routes/app/admin/settings-payments.tsx"),
         ]),
         ...adminComingSoon.map((p) =>

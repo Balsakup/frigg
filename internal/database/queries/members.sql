@@ -37,7 +37,9 @@ WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id);
 DELETE FROM members WHERE id = sqlc.arg(id) AND account_id = sqlc.arg(account_id);
 
 -- Admin queries. ListMembers returns every matching row: sorting without
--- accents and paging are done in Go (R7).
+-- accents and paging are done in Go (R7). The text query also matches short
+-- text custom field values of active fields; field_filters is a JSON list of
+-- custom field filters read with json_each (research.md 011 R5, R6).
 
 -- name: ListMembers :many
 SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,
@@ -47,9 +49,26 @@ SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,
 FROM members m
 LEFT JOIN accounts a ON a.id = m.account_id
 WHERE (CAST(sqlc.narg(query) AS TEXT) IS NULL
-       OR m.id IN (SELECT rowid FROM members_fts WHERE members_fts MATCH CAST(sqlc.narg(query) AS TEXT)))
+       OR m.id IN (SELECT rowid FROM members_fts WHERE members_fts MATCH CAST(sqlc.narg(query) AS TEXT))
+       OR m.id IN (SELECT v.member_id FROM member_field_values v
+                   JOIN custom_fields cf ON cf.id = v.field_id AND cf.archived_at IS NULL
+                   WHERE v.id IN (SELECT rowid FROM member_field_values_fts
+                                  WHERE member_field_values_fts MATCH CAST(sqlc.narg(query) AS TEXT))))
   AND (CAST(sqlc.narg(no_account) AS INTEGER) IS NULL OR m.account_id IS NULL)
-  AND (CAST(sqlc.narg(account_id) AS INTEGER) IS NULL OR m.account_id = CAST(sqlc.narg(account_id) AS INTEGER));
+  AND (CAST(sqlc.narg(account_id) AS INTEGER) IS NULL OR m.account_id = CAST(sqlc.narg(account_id) AS INTEGER))
+  AND NOT EXISTS (
+      SELECT 1 FROM json_each(coalesce(CAST(sqlc.narg(field_filters) AS TEXT), '[]')) ff
+      WHERE CASE json_extract(ff.value, '$.op')
+          WHEN 'true' THEN NOT EXISTS (SELECT 1 FROM member_field_values fv
+              WHERE fv.member_id = m.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'false' THEN EXISTS (SELECT 1 FROM member_field_values fv
+              WHERE fv.member_id = m.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'empty' THEN EXISTS (SELECT 1 FROM member_field_values fv
+              WHERE fv.member_id = m.id AND fv.field_id = json_extract(ff.value, '$.field'))
+          WHEN 'choice' THEN NOT EXISTS (SELECT 1 FROM member_field_values fv
+              WHERE fv.member_id = m.id AND fv.field_id = json_extract(ff.value, '$.field')
+                AND fv.value_choice_id = json_extract(ff.value, '$.choice'))
+          ELSE 1 END);
 
 -- name: GetMember :one
 SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,

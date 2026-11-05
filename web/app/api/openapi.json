@@ -216,6 +216,17 @@
       "AdminCreateBody": {
         "additionalProperties": false,
         "properties": {
+          "customFields": {
+            "description": "Champs personnalisés d'adhésion",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "feeId": {
             "format": "int64",
             "type": "integer"
@@ -270,6 +281,16 @@
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "customFields": {
+            "description": "Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage",
+            "items": {
+              "$ref": "#/components/schemas/FieldValue"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "email": {
             "type": [
@@ -359,6 +380,17 @@
           "confirmDuplicate": {
             "description": "Vrai : enregistrer malgré un doublon probable",
             "type": "boolean"
+          },
+          "customFields": {
+            "description": "Champs personnalisés saisis ; un champ absent n'est pas modifié",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "email": {
             "description": "Absente ou vide : aucune",
@@ -456,6 +488,17 @@
             "description": "Vrai : enregistrer malgré un doublon probable",
             "type": "boolean"
           },
+          "customFields": {
+            "description": "Champs personnalisés saisis ; un champ absent n'est pas modifié",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "email": {
             "description": "Absente ou vide : aucune",
             "maxLength": 254,
@@ -540,6 +583,16 @@
           },
           "createdBy": {
             "$ref": "#/components/schemas/AccountRef"
+          },
+          "customFields": {
+            "description": "Champs personnalisés d'adhésion, dans l'ordre d'affichage",
+            "items": {
+              "$ref": "#/components/schemas/FieldValue"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "decidedAt": {
             "format": "date-time",
@@ -667,6 +720,7 @@
           "onlinePayments",
           "alerts",
           "cardPaymentPending",
+          "customFields",
           "id",
           "member",
           "season",
@@ -1264,6 +1318,40 @@
         ],
         "type": "object"
       },
+      "Choice": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "ChoiceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
       "Communication": {
         "additionalProperties": false,
         "properties": {
@@ -1511,6 +1599,67 @@
         ],
         "type": "object"
       },
+      "CreateCustomFieldBody": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "description": "Libellés des choix, dans l'ordre (liste de choix seulement)",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 60,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "help": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "scope": {
+            "enum": [
+              "member",
+              "membership"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "admin",
+              "visible",
+              "editable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "label",
+          "type",
+          "visibility",
+          "required"
+        ],
+        "type": "object"
+      },
       "CreateInvitationInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1531,6 +1680,53 @@
         },
         "required": [
           "email"
+        ],
+        "type": "object"
+      },
+      "CustomFieldList": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinition"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "membership": {
+            "items": {
+              "$ref": "#/components/schemas/FieldDefinition"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "member",
+          "membership"
+        ],
+        "type": "object"
+      },
+      "CustomFieldsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customFields": {
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "customFields"
         ],
         "type": "object"
       },
@@ -1681,6 +1877,272 @@
         "required": [
           "first",
           "renewal"
+        ],
+        "type": "object"
+      },
+      "FieldDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "type": "boolean"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "help": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "missingCount": {
+            "description": "Champ obligatoire actif : fiches, ou adhésions en attente ou validées de la saison en cours, sans valeur ; null sinon",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "scope": {
+            "enum": [
+              "member",
+              "membership"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": "string"
+          },
+          "valueCount": {
+            "description": "Nombre de valeurs enregistrées",
+            "format": "int64",
+            "type": "integer"
+          },
+          "visibility": {
+            "enum": [
+              "admin",
+              "visible",
+              "editable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "label",
+          "type",
+          "visibility",
+          "required",
+          "help",
+          "choices",
+          "archived",
+          "valueCount",
+          "missingCount"
+        ],
+        "type": "object"
+      },
+      "FieldInput": {
+        "additionalProperties": false,
+        "properties": {
+          "checked": {
+            "type": "boolean"
+          },
+          "choiceId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "date": {
+            "description": "AAAA-MM-JJ ; vide : efface la valeur",
+            "maxLength": 10,
+            "type": "string"
+          },
+          "fieldId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "text": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldId"
+        ],
+        "type": "object"
+      },
+      "FieldValue": {
+        "additionalProperties": false,
+        "properties": {
+          "checked": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "choiceId": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "choices": {
+            "description": "Vide sauf pour une liste de choix",
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "date": {
+            "format": "date",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "editable": {
+            "description": "Vrai : modifiable dans cet espace",
+            "type": "boolean"
+          },
+          "help": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "number": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "text": {
+            "description": "Texte court ou long",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "number",
+          "date",
+          "checked",
+          "choiceId",
+          "id",
+          "label",
+          "type",
+          "help",
+          "required",
+          "editable",
+          "choices"
+        ],
+        "type": "object"
+      },
+      "FormField": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "description": "Vide sauf pour une liste de choix",
+            "items": {
+              "$ref": "#/components/schemas/Choice"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "editable": {
+            "description": "Vrai : modifiable dans cet espace",
+            "type": "boolean"
+          },
+          "help": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "type",
+          "help",
+          "required",
+          "editable",
+          "choices"
         ],
         "type": "object"
       },
@@ -2094,6 +2556,16 @@
           "createdAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "customFields": {
+            "description": "Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage",
+            "items": {
+              "$ref": "#/components/schemas/FieldValue"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "email": {
             "type": [
@@ -2615,6 +3087,34 @@
         ],
         "type": "object"
       },
+      "MyCustomFieldList": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "membership": {
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "member",
+          "membership"
+        ],
+        "type": "object"
+      },
       "MyMemberActions": {
         "additionalProperties": false,
         "properties": {
@@ -2655,6 +3155,17 @@
           "confirmDuplicate": {
             "description": "Vrai : enregistrer malgré un doublon probable",
             "type": "boolean"
+          },
+          "customFields": {
+            "description": "Champs personnalisés saisis ; un champ absent n'est pas modifié",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "email": {
             "description": "Absente ou vide : aucune",
@@ -2738,6 +3249,16 @@
           "cardPayment": {
             "$ref": "#/components/schemas/CardPaymentState",
             "description": "Dernière tentative de paiement par carte"
+          },
+          "customFields": {
+            "description": "Champs personnalisés d'adhésion lisibles dans cet espace",
+            "items": {
+              "$ref": "#/components/schemas/FieldValue"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "decidedAt": {
             "format": "date-time",
@@ -2864,6 +3385,17 @@
       "MyMembershipBody": {
         "additionalProperties": false,
         "properties": {
+          "customFields": {
+            "description": "Champs personnalisés d'adhésion remplis par le membre",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "declaredKind": {
             "enum": [
               "first",
@@ -3641,6 +4173,34 @@
         ],
         "type": "object"
       },
+      "ReorderCustomFieldsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "member",
+              "membership"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "ids"
+        ],
+        "type": "object"
+      },
       "Season": {
         "additionalProperties": false,
         "properties": {
@@ -4182,6 +4742,59 @@
         ],
         "type": "object"
       },
+      "UpdateCustomFieldBody": {
+        "additionalProperties": false,
+        "properties": {
+          "choices": {
+            "description": "Choix existants (avec id) et nouveaux ; un choix absent est retiré",
+            "items": {
+              "$ref": "#/components/schemas/ChoiceBody"
+            },
+            "maxItems": 60,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "help": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "admin",
+              "visible",
+              "editable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "type",
+          "visibility",
+          "required"
+        ],
+        "type": "object"
+      },
       "UpdateSeasonInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -4198,6 +4811,38 @@
         },
         "required": [
           "endsOn"
+        ],
+        "type": "object"
+      },
+      "ValidateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customFields": {
+            "description": "Champs personnalisés d'adhésion ; un champ absent n'est pas modifié",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 30,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "feeId",
+          "kind"
         ],
         "type": "object"
       }
@@ -5092,6 +5737,329 @@
         ]
       }
     },
+    "/admin/custom-fields": {
+      "get": {
+        "operationId": "list-custom-fields",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lister les champs personnalisés",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "post": {
+        "operationId": "create-custom-field",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomFieldBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldDefinition"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ajouter un champ personnalisé",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/custom-fields/order": {
+      "put": {
+        "operationId": "reorder-custom-fields",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderCustomFieldsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Réordonner les champs personnalisés",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/custom-fields/{id}": {
+      "delete": {
+        "operationId": "delete-custom-field",
+        "parameters": [
+          {
+            "description": "Identifiant du champ",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du champ",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer un champ personnalisé",
+        "tags": [
+          "Paramètres"
+        ]
+      },
+      "put": {
+        "operationId": "update-custom-field",
+        "parameters": [
+          {
+            "description": "Identifiant du champ",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du champ",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomFieldBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldDefinition"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier un champ personnalisé",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/custom-fields/{id}/archive": {
+      "post": {
+        "operationId": "archive-custom-field",
+        "parameters": [
+          {
+            "description": "Identifiant du champ",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du champ",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldDefinition"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Archiver un champ personnalisé",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
+    "/admin/custom-fields/{id}/restore": {
+      "post": {
+        "operationId": "restore-custom-field",
+        "parameters": [
+          {
+            "description": "Identifiant du champ",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du champ",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldDefinition"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rétablir un champ personnalisé",
+        "tags": [
+          "Paramètres"
+        ]
+      }
+    },
     "/admin/invitations": {
       "get": {
         "operationId": "list-invitations",
@@ -5268,14 +6236,31 @@
         "operationId": "list-members",
         "parameters": [
           {
-            "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis",
+            "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis ; ou fragment de la valeur d'un champ personnalisé de type texte court",
             "explode": false,
             "in": "query",
             "name": "q",
             "schema": {
-              "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis",
+              "description": "Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis ; ou fragment de la valeur d'un champ personnalisé de type texte court",
               "maxLength": 100,
               "type": "string"
+            }
+          },
+          {
+            "description": "Filtre par champ personnalisé oui/non ou liste de choix : \u003cchamp\u003e:true, \u003cchamp\u003e:false, \u003cchamp\u003e:empty ou \u003cchamp\u003e:c\u003cchoix\u003e ; répétable",
+            "explode": true,
+            "in": "query",
+            "name": "field",
+            "schema": {
+              "description": "Filtre par champ personnalisé oui/non ou liste de choix : \u003cchamp\u003e:true, \u003cchamp\u003e:false, \u003cchamp\u003e:empty ou \u003cchamp\u003e:c\u003cchoix\u003e ; répétable",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": [
+                "array",
+                "null"
+              ]
             }
           },
           {
@@ -5631,6 +6616,23 @@
                 "open"
               ],
               "type": "string"
+            }
+          },
+          {
+            "description": "Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : \u003cchamp\u003e:true, \u003cchamp\u003e:false, \u003cchamp\u003e:empty ou \u003cchamp\u003e:c\u003cchoix\u003e ; répétable",
+            "explode": true,
+            "in": "query",
+            "name": "field",
+            "schema": {
+              "description": "Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : \u003cchamp\u003e:true, \u003cchamp\u003e:false, \u003cchamp\u003e:empty ou \u003cchamp\u003e:c\u003cchoix\u003e ; répétable",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": [
+                "array",
+                "null"
+              ]
             }
           },
           {
@@ -6033,6 +7035,65 @@
         ]
       }
     },
+    "/admin/memberships/{id}/fields": {
+      "put": {
+        "operationId": "update-membership-fields",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFieldsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les champs personnalisés d'une adhésion",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
     "/admin/memberships/{id}/payment": {
       "delete": {
         "operationId": "cancel-membership-payment",
@@ -6218,7 +7279,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DecisionBody"
+                "$ref": "#/components/schemas/ValidateBody"
               }
             }
           },
@@ -7708,6 +8769,42 @@
         ]
       }
     },
+    "/me/custom-fields": {
+      "get": {
+        "operationId": "list-my-custom-fields",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCustomFieldList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Champs personnalisés des formulaires de l'espace membre",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
     "/me/email-verification": {
       "post": {
         "operationId": "resend-email-verification",
@@ -8294,6 +9391,65 @@
           }
         ],
         "summary": "Vérifier un paiement par carte au retour de HelloAsso",
+        "tags": [
+          "Mes adhésions"
+        ]
+      }
+    },
+    "/me/memberships/{id}/fields": {
+      "put": {
+        "operationId": "update-my-membership-fields",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFieldsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier les champs personnalisés d'une adhésion",
         "tags": [
           "Mes adhésions"
         ]

@@ -1,7 +1,7 @@
 // Commande e2eseed : prépare une base jetable pour les tests de bout en bout.
 // Elle ne fait pas partie du binaire frigg.
 //
-// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication]
+// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication|parametres|champs]
 //
 // Le mode « adhesions » prépare la base du second serveur e2e : une saison
 // ouverte contenant la date du jour, des tarifs, des fiches, des adhésions et
@@ -14,6 +14,11 @@
 // Le mode « communication » prépare le jeu de quickstart.md 009 › validation
 // manuelle : une saison ouverte et des adhérents dans chaque situation de
 // paiement (specs/009-bulk-email, tâche T030).
+//
+// Le mode « champs » ajoute au jeu des adhésions des champs personnalisés
+// d'exemple (numéro de licence fédérale, licence payée…) et leurs valeurs
+// (specs/011-custom-fields, tâche T052) : les champs sont globaux et changent
+// les formulaires des autres tests.
 package main
 
 import (
@@ -89,7 +94,7 @@ func main() {
 	if len(os.Args) == 3 {
 		mode = os.Args[2]
 	}
-	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres") {
+	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres" && mode != "champs") {
 		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication|parametres]")
 		os.Exit(2)
 	}
@@ -173,10 +178,16 @@ func run(path, mode string) error {
 		if mode == "communication" {
 			return seedCommunication(ctx, q, hash, now)
 		}
-		if err := seedMemberships(ctx, q, hash, now); err != nil || mode != "carte" {
+		if err := seedMemberships(ctx, q, hash, now); err != nil {
 			return err
 		}
-		return seedCard(ctx, q, hash, now)
+		switch mode {
+		case "carte":
+			return seedCard(ctx, q, hash, now)
+		case "champs":
+			return seedCustomFields(ctx, q, hash, now)
+		}
+		return nil
 	})
 }
 
@@ -519,4 +530,79 @@ func seedCommunication(ctx context.Context, q *sqlc.Queries, hash, now string) e
 		}
 	}
 	return nil
+}
+
+// Comptes du serveur des champs personnalisés (011) : un compte par test.
+var customFieldAccounts = []struct {
+	email, role string
+	members     [][2]string
+}{
+	{"admin-champs-definition@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-champs-membres@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-champs-adhesions@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-champs-filtres@exemple.fr", auth.RoleAdmin, nil},
+	{"admin-champs-suppression@exemple.fr", auth.RoleAdmin, nil},
+	{"membre-champs@exemple.fr", auth.RoleMember, [][2]string{{"Lucas", "Moreau"}}},
+	{"membre-champs-adhesion@exemple.fr", auth.RoleMember, [][2]string{{"Emma", "Lambert"}}},
+}
+
+// seedCustomFields crée les champs d'exemple de la spec 011 et quelques
+// valeurs : licence de Lucas Moreau (1234567) et licence payée pour
+// l'adhésion de Hugo Bernard (identifiant 1).
+func seedCustomFields(ctx context.Context, q *sqlc.Queries, hash, now string) error {
+	members := map[string]int64{}
+	for _, a := range customFieldAccounts {
+		acc, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{
+			Email: a.email, PasswordHash: hash, Role: a.role, CreatedAt: now,
+			EmailVerifiedAt: sql.NullString{String: now, Valid: true},
+		})
+		if err != nil {
+			return fmt.Errorf("compte %s : %w", a.email, err)
+		}
+		for _, m := range a.members {
+			r, err := q.CreateMemberForAccount(ctx, sqlc.CreateMemberForAccountParams{
+				AccountID: sql.NullInt64{Int64: acc.ID, Valid: true}, FirstName: m[0], LastName: m[1],
+				BirthDate: "2012-05-20", Now: now,
+			})
+			if err != nil {
+				return err
+			}
+			members[m[0]] = r.ID
+		}
+	}
+	field := func(scope, label, typ, visibility string, required int64, help string, position int64) (int64, error) {
+		f, err := q.CreateCustomField(ctx, sqlc.CreateCustomFieldParams{
+			Scope: scope, Label: label, Type: typ, Visibility: visibility, Required: required,
+			Help: sql.NullString{String: help, Valid: help != ""}, Position: position, Now: now,
+		})
+		return f.ID, err
+	}
+	licence, err := field("member", "Numéro de licence fédérale", "short_text", "editable", 0, "Figure sur votre licence, 7 chiffres.", 1)
+	if err != nil {
+		return err
+	}
+	if _, err := field("member", "Remarque du bureau", "long_text", "admin", 0, "", 2); err != nil {
+		return err
+	}
+	paid, err := field("membership", "A payé sa licence fédérale", "bool", "admin", 0, "", 1)
+	if err != nil {
+		return err
+	}
+	size, err := field("membership", "Taille de t-shirt", "choice", "editable", 1, "Pour le t-shirt offert aux adhérents.", 2)
+	if err != nil {
+		return err
+	}
+	for i, label := range []string{"S", "M", "L"} {
+		if err := q.CreateCustomFieldChoice(ctx, sqlc.CreateCustomFieldChoiceParams{FieldID: size, Label: label, Position: int64(i + 1)}); err != nil {
+			return err
+		}
+	}
+	if err := q.UpsertMemberFieldValue(ctx, sqlc.UpsertMemberFieldValueParams{
+		OwnerID: members["Lucas"], FieldID: licence, ValueText: sql.NullString{String: "1234567", Valid: true}, Now: now,
+	}); err != nil {
+		return err
+	}
+	return q.UpsertMembershipFieldValue(ctx, sqlc.UpsertMembershipFieldValueParams{
+		OwnerID: 1, FieldID: paid, ValueBool: sql.NullInt64{Int64: 1, Valid: true}, Now: now,
+	})
 }

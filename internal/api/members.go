@@ -56,6 +56,8 @@ type Member struct {
 	IsSelf    bool           `json:"isSelf" doc:"Fiche du titulaire du compte (« Vous »)"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
+	// CustomFields n'est renseigné que sur la fiche, pas dans les listes (011).
+	CustomFields []FieldValue `json:"customFields,omitempty" required:"false" doc:"Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage"`
 }
 
 // MemberAccount est le compte qui gère une fiche.
@@ -93,6 +95,8 @@ type MemberBody struct {
 	PostalCode       string `json:"postalCode,omitempty" required:"false" maxLength:"10"`
 	City             string `json:"city,omitempty" required:"false" maxLength:"100"`
 	ConfirmDuplicate bool   `json:"confirmDuplicate,omitempty" required:"false" doc:"Vrai : enregistrer malgré un doublon probable"`
+	// CustomFields : valeurs saisies ; un champ absent n'est pas modifié (011).
+	CustomFields []FieldInput `json:"customFields,omitempty" required:"false" maxItems:"30" doc:"Champs personnalisés saisis ; un champ absent n'est pas modifié"`
 }
 
 // memberRecord est une fiche lue en base, avec son compte éventuel.

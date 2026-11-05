@@ -111,6 +111,27 @@ type CommunicationRecipient struct {
 	SentAt          sql.NullString
 }
 
+type CustomField struct {
+	ID         int64
+	Scope      string
+	Label      string
+	Type       string
+	Visibility string
+	Required   int64
+	Help       sql.NullString
+	Position   int64
+	ArchivedAt sql.NullString
+	CreatedAt  string
+	UpdatedAt  string
+}
+
+type CustomFieldChoice struct {
+	ID       int64
+	FieldID  int64
+	Label    string
+	Position int64
+}
+
 type Invitation struct {
 	ID        int64
 	Email     string
@@ -138,6 +159,23 @@ type Member struct {
 	City         sql.NullString
 	CreatedAt    string
 	UpdatedAt    string
+}
+
+type MemberFieldValue struct {
+	ID            int64
+	MemberID      int64
+	FieldID       int64
+	ValueText     sql.NullString
+	ValueLong     sql.NullString
+	ValueNumber   sql.NullFloat64
+	ValueDate     sql.NullString
+	ValueBool     sql.NullInt64
+	ValueChoiceID sql.NullInt64
+	UpdatedAt     string
+}
+
+type MemberFieldValuesFt struct {
+	ValueText string
 }
 
 type MembersFt struct {
@@ -186,6 +224,19 @@ type MembershipFee struct {
 	CreatedAt          string
 	UpdatedAt          string
 	RenewalAmountCents sql.NullInt64
+}
+
+type MembershipFieldValue struct {
+	ID            int64
+	MembershipID  int64
+	FieldID       int64
+	ValueText     sql.NullString
+	ValueLong     sql.NullString
+	ValueNumber   sql.NullFloat64
+	ValueDate     sql.NullString
+	ValueBool     sql.NullInt64
+	ValueChoiceID sql.NullInt64
+	UpdatedAt     string
 }
 
 type MembershipsFt struct {

@@ -7,6 +7,9 @@ import { type AdminMembership, invalidateMemberships, membershipQuery } from "~/
 import { isProblem, type Problem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import { CustomFieldValues } from "~/customfields/CustomFieldValues";
+import { useCustomFieldsForm } from "~/customfields/useCustomFieldsForm";
 import {
   formatAmount,
   formatDate,
@@ -263,6 +266,8 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
           ) : null}
         </section>
 
+        <MembershipCustomFields membership={m} onDone={done} onError={failed} />
+
         {m.payment ? (
           <section
             aria-labelledby="paiement"
@@ -396,6 +401,9 @@ function DecisionDialog({
   const update = $api.useMutation("put", "/admin/memberships/{id}");
   const fee = (m.seasonFees ?? []).find((f) => f.id === feeId);
   const isValidate = mode === "validate";
+  // Les champs personnalisés font partie de la validation (011, US3).
+  const fields = isValidate ? (m.customFields ?? []) : [];
+  const custom = useCustomFieldsForm(fields);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -407,15 +415,21 @@ function DecisionDialog({
       return;
     }
     const args = { params: { path: { id: m.id } }, body: { feeId: fee.id, kind } };
+    custom.clearErrors();
     try {
-      if (isValidate) await validate.mutateAsync(args);
+      if (isValidate)
+        await validate.mutateAsync({
+          ...args,
+          body: { ...args.body, customFields: custom.inputs() },
+        });
       else await update.mutateAsync(args);
     } catch (err) {
       const p = err as Problem;
       if (isProblem(p) && p.status === 422) {
+        const placed = custom.applyProblem(p);
         setErrors({
           feeId: p.errors?.find((x) => x.location === "body.feeId")?.message,
-          root: p.detail,
+          root: placed ? undefined : p.detail,
         });
         return;
       }
@@ -437,6 +451,7 @@ function DecisionDialog({
           setFeeId(m.fee.id);
           setKind(initialKind);
           setErrors({});
+          custom.reset(fields);
         }
         setOpen(o);
       }}
@@ -468,6 +483,7 @@ function DecisionDialog({
           options={kindOptions}
         />
         <AmountSummary fee={fee} kind={kind} />
+        <CustomFieldInputs fields={fields} control={custom.control} errors={custom.errors} />
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Dialog.Close render={<Button variant="secondary">Annuler</Button>} />
           <Button type="submit" aria-disabled={validate.isPending || update.isPending}>
@@ -817,6 +833,63 @@ function OnlinePayments({ membership: m, onDone, onError }: ActionProps) {
           ))}
         </Table>
       </div>
+    </section>
+  );
+}
+
+// Champs personnalisés d'adhésion (011, US3) : modifiables tant que
+// l'adhésion est en attente ou validée, payée ou non ; en lecture sinon.
+function MembershipCustomFields({ membership: m, onDone, onError }: ActionProps) {
+  const fields = m.customFields ?? [];
+  const writable = fields.some((f) => f.editable);
+  const custom = useCustomFieldsForm(fields);
+  const save = $api.useMutation("put", "/admin/memberships/{id}/fields");
+  if (fields.length === 0) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    custom.clearErrors();
+    try {
+      const saved = await save.mutateAsync({
+        params: { path: { id: m.id } },
+        body: { customFields: custom.inputs() },
+      });
+      custom.reset(saved.customFields ?? []);
+    } catch (err) {
+      if (isProblem(err) && err.status === 422 && custom.applyProblem(err)) return;
+      await onError(err);
+      return;
+    }
+    await onDone("Informations complémentaires enregistrées.");
+  };
+
+  return (
+    <section
+      aria-labelledby="informations-complementaires"
+      className="rounded-lg border border-line bg-surface p-5"
+    >
+      <h2 id="informations-complementaires" className="font-display text-lg font-bold">
+        Informations complémentaires
+      </h2>
+      {writable ? (
+        <form onSubmit={submit} noValidate className="mt-3 flex flex-col gap-5">
+          <CustomFieldInputs
+            fields={fields}
+            control={custom.control}
+            errors={custom.errors}
+            legend="Champs de l'adhésion"
+          />
+          <div>
+            <Button type="submit" variant="secondary" aria-disabled={save.isPending}>
+              Enregistrer les informations
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="mt-3">
+          <CustomFieldValues fields={fields} />
+        </div>
+      )}
     </section>
   );
 }

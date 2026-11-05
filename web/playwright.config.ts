@@ -31,6 +31,11 @@ const generalPort = 8095;
 const generalDb = "../data/e2e/frigg-parametres.db";
 const generalSpec = /general-settings\.spec\.ts/;
 const appearanceSpec = /appearance\.spec\.ts/;
+// Sixième serveur pour les champs personnalisés (011) : les champs sont globaux
+// et changeraient les formulaires des autres tests.
+const customFieldsPort = 8096;
+const customFieldsDb = "../data/e2e/frigg-champs.db";
+const customFieldsSpec = /custom-fields\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -73,6 +78,7 @@ export default defineConfig({
         communicationSpecs,
         generalSpec,
         appearanceSpec,
+        customFieldsSpec,
       ],
     },
     {
@@ -118,6 +124,11 @@ export default defineConfig({
       testMatch: appearanceSpec,
       dependencies: ["parametres-generaux"],
     },
+    {
+      name: "champs",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${customFieldsPort}` },
+      testMatch: customFieldsSpec,
+    },
   ],
   webServer: [
     {
@@ -161,6 +172,12 @@ export default defineConfig({
       url: `http://localhost:${generalPort}`,
       reuseExistingServer: false,
       env: serverEnv(generalDb, generalPort, "../data/e2e/files-parametres"),
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${customFieldsDb} champs && ../bin/frigg serve`,
+      url: `http://localhost:${customFieldsPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(customFieldsDb, customFieldsPort, "../data/e2e/files-champs"),
     },
   ],
 });

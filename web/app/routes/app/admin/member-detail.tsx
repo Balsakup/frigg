@@ -165,6 +165,7 @@ function MemberView({ member }: { member: AdminMember }) {
 
       <AdminMemberForm
         defaultValues={{ ...memberToForm(member), accountId: account }}
+        customFields={member.customFields ?? []}
         isSelf={member.isSelf}
         submitLabel="Enregistrer"
         onSubmit={async (body) => {

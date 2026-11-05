@@ -5,6 +5,9 @@ import { invalidateMemberships, type MyMembership, myMembershipQuery } from "~/a
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import { CustomFieldValues } from "~/customfields/CustomFieldValues";
+import { useCustomFieldsForm } from "~/customfields/useCustomFieldsForm";
 import {
   formatAmount,
   formatDate,
@@ -139,6 +142,7 @@ function MembershipView({ membership: m }: { membership: MyMembership }) {
         <CardReturn membership={m} />
         {m.actions.pay ? <PaymentSection membership={m} /> : null}
         {details}
+        <MyMembershipCustomFields membership={m} />
         {!m.actions.pay ? <PaymentStatus membership={m} /> : null}
       </div>
     </Page>
@@ -376,5 +380,84 @@ function CardReturn({ membership: m }: { membership: MyMembership }) {
       </p>
       {messages[state]}
     </>
+  );
+}
+
+// Champs personnalisés d'adhésion visibles par le membre (011, US3) : les
+// champs remplis par le membre restent modifiables tant que l'adhésion est
+// en attente ou validée.
+function MyMembershipCustomFields({ membership: m }: { membership: MyMembership }) {
+  const qc = useQueryClient();
+  const fields = m.customFields ?? [];
+  const editable = fields.filter((f) => f.editable);
+  const readOnly = fields.filter((f) => !f.editable);
+  const custom = useCustomFieldsForm(editable);
+  const save = $api.useMutation("put", "/me/memberships/{id}/fields");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  if (fields.length === 0) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("");
+    setError("");
+    custom.clearErrors();
+    try {
+      await save.mutateAsync({
+        params: { path: { id: m.id } },
+        body: { customFields: custom.inputs() },
+      });
+    } catch (err) {
+      if (isProblem(err) && err.status === 422 && custom.applyProblem(err)) return;
+      setError(isProblem(err) && err.detail ? err.detail : "Une erreur inattendue s'est produite.");
+      await invalidateMemberships(qc);
+      return;
+    }
+    await invalidateMemberships(qc);
+    setStatus("Informations enregistrées.");
+  };
+
+  return (
+    <section
+      aria-labelledby="informations-complementaires"
+      className="rounded-lg border border-line bg-surface p-5"
+    >
+      <h2 id="informations-complementaires" className="font-display text-lg font-bold">
+        Informations complémentaires
+      </h2>
+      <p role="status" className="sr-only">
+        {status}
+      </p>
+      {status ? (
+        <Alert kind="success" className="mt-3">
+          {status}
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert kind="danger" role="alert" className="mt-3">
+          {error}
+        </Alert>
+      ) : null}
+      {readOnly.length ? (
+        <div className="mt-3">
+          <CustomFieldValues fields={readOnly} />
+        </div>
+      ) : null}
+      {editable.length ? (
+        <form onSubmit={submit} noValidate className="mt-4 flex flex-col gap-5">
+          <CustomFieldInputs
+            fields={editable}
+            control={custom.control}
+            errors={custom.errors}
+            legend="À compléter"
+          />
+          <div>
+            <Button type="submit" variant="secondary" aria-disabled={save.isPending}>
+              Enregistrer les informations
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </section>
   );
 }

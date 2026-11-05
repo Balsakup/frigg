@@ -227,6 +227,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lister les champs personnalisés */
+        get: operations["list-custom-fields"];
+        put?: never;
+        /** Ajouter un champ personnalisé */
+        post: operations["create-custom-field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/custom-fields/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Réordonner les champs personnalisés */
+        put: operations["reorder-custom-fields"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/custom-fields/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifier un champ personnalisé */
+        put: operations["update-custom-field"];
+        post?: never;
+        /** Supprimer un champ personnalisé */
+        delete: operations["delete-custom-field"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/custom-fields/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archiver un champ personnalisé */
+        post: operations["archive-custom-field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/custom-fields/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rétablir un champ personnalisé */
+        post: operations["restore-custom-field"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/invitations": {
         parameters: {
             query?: never;
@@ -414,6 +501,23 @@ export interface paths {
         put?: never;
         /** Vérifier auprès de HelloAsso les paiements par carte en cours */
         post: operations["verify-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifier les champs personnalisés d'une adhésion */
+        put: operations["update-membership-fields"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -901,6 +1005,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Champs personnalisés des formulaires de l'espace membre */
+        get: operations["list-my-custom-fields"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/email-verification": {
         parameters: {
             query?: never;
@@ -1058,6 +1179,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/memberships/{id}/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Modifier les champs personnalisés d'une adhésion */
+        put: operations["update-my-membership-fields"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/memberships/{id}/payment": {
         parameters: {
             query?: never;
@@ -1192,6 +1330,8 @@ export interface components {
             total: number;
         };
         AdminCreateBody: {
+            /** @description Champs personnalisés d'adhésion */
+            customFields?: components["schemas"]["FieldInput"][] | null;
             /** Format: int64 */
             feeId: number;
             /** @enum {string} */
@@ -1216,6 +1356,8 @@ export interface components {
             birthDate: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage */
+            customFields?: components["schemas"]["FieldValue"][] | null;
             email: string | null;
             firstName: string;
             /** Format: int64 */
@@ -1243,6 +1385,8 @@ export interface components {
             city?: string;
             /** @description Vrai : enregistrer malgré un doublon probable */
             confirmDuplicate?: boolean;
+            /** @description Champs personnalisés saisis ; un champ absent n'est pas modifié */
+            customFields?: components["schemas"]["FieldInput"][] | null;
             /** @description Absente ou vide : aucune */
             email?: string;
             firstName: string;
@@ -1274,6 +1418,8 @@ export interface components {
             city?: string;
             /** @description Vrai : enregistrer malgré un doublon probable */
             confirmDuplicate?: boolean;
+            /** @description Champs personnalisés saisis ; un champ absent n'est pas modifié */
+            customFields?: components["schemas"]["FieldInput"][] | null;
             /** @description Absente ou vide : aucune */
             email?: string;
             /**
@@ -1305,6 +1451,8 @@ export interface components {
             cancelledBy: components["schemas"]["AccountRef"];
             cardPaymentPending: boolean;
             createdBy: components["schemas"]["AccountRef"];
+            /** @description Champs personnalisés d'adhésion, dans l'ordre d'affichage */
+            customFields: components["schemas"]["FieldValue"][] | null;
             /** Format: date-time */
             decidedAt: string | null;
             decidedBy: components["schemas"]["AccountRef"];
@@ -1507,6 +1655,16 @@ export interface components {
             instructions: string | null;
             payee: string | null;
         };
+        Choice: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
+        ChoiceBody: {
+            /** Format: int64 */
+            id?: number;
+            label: string;
+        };
         Communication: {
             attachments: components["schemas"]["Attachment"][] | null;
             /** Format: int64 */
@@ -1581,6 +1739,19 @@ export interface components {
              */
             outcome: "return" | "error" | "back";
         };
+        CreateCustomFieldBody: {
+            /** @description Libellés des choix, dans l'ordre (liste de choix seulement) */
+            choices?: string[] | null;
+            help?: string;
+            label: string;
+            required: boolean;
+            /** @enum {string} */
+            scope: "member" | "membership";
+            /** @enum {string} */
+            type: "short_text" | "long_text" | "number" | "date" | "bool" | "choice";
+            /** @enum {string} */
+            visibility: "admin" | "visible" | "editable";
+        };
         CreateInvitationInputBody: {
             /** @description Adresse électronique de la personne invitée */
             email: string;
@@ -1590,6 +1761,13 @@ export interface components {
              * @enum {string}
              */
             role: "member" | "admin";
+        };
+        CustomFieldList: {
+            member: components["schemas"]["FieldDefinition"][] | null;
+            membership: components["schemas"]["FieldDefinition"][] | null;
+        };
+        CustomFieldsBody: {
+            customFields: components["schemas"]["FieldInput"][] | null;
         };
         DecisionBody: {
             /** Format: int64 */
@@ -1661,6 +1839,76 @@ export interface components {
              * @description Montant d'un renouvellement, en centimes
              */
             renewal: number;
+        };
+        FieldDefinition: {
+            archived: boolean;
+            choices: components["schemas"]["Choice"][] | null;
+            help: string | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /**
+             * Format: int64
+             * @description Champ obligatoire actif : fiches, ou adhésions en attente ou validées de la saison en cours, sans valeur ; null sinon
+             */
+            missingCount: number | null;
+            required: boolean;
+            /** @enum {string} */
+            scope: "member" | "membership";
+            /** @enum {string} */
+            type: "short_text" | "long_text" | "number" | "date" | "bool" | "choice";
+            /**
+             * Format: int64
+             * @description Nombre de valeurs enregistrées
+             */
+            valueCount: number;
+            /** @enum {string} */
+            visibility: "admin" | "visible" | "editable";
+        };
+        FieldInput: {
+            checked?: boolean;
+            /** Format: int64 */
+            choiceId?: number;
+            /** @description AAAA-MM-JJ ; vide : efface la valeur */
+            date?: string;
+            /** Format: int64 */
+            fieldId: number;
+            text?: string;
+        };
+        FieldValue: {
+            checked: boolean | null;
+            /** Format: int64 */
+            choiceId: number | null;
+            /** @description Vide sauf pour une liste de choix */
+            choices: components["schemas"]["Choice"][] | null;
+            /** Format: date */
+            date: string | null;
+            /** @description Vrai : modifiable dans cet espace */
+            editable: boolean;
+            help: string | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+            /** Format: double */
+            number: number | null;
+            required: boolean;
+            /** @description Texte court ou long */
+            text: string | null;
+            /** @enum {string} */
+            type: "short_text" | "long_text" | "number" | "date" | "bool" | "choice";
+        };
+        FormField: {
+            /** @description Vide sauf pour une liste de choix */
+            choices: components["schemas"]["Choice"][] | null;
+            /** @description Vrai : modifiable dans cet espace */
+            editable: boolean;
+            help: string | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+            required: boolean;
+            /** @enum {string} */
+            type: "short_text" | "long_text" | "number" | "date" | "bool" | "choice";
         };
         GeneralSettings: {
             address: components["schemas"]["Address"];
@@ -1764,6 +2012,8 @@ export interface components {
             birthDate: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage */
+            customFields?: components["schemas"]["FieldValue"][] | null;
             email: string | null;
             firstName: string;
             /** Format: int64 */
@@ -1936,6 +2186,10 @@ export interface components {
             /** Format: int64 */
             validated: number;
         };
+        MyCustomFieldList: {
+            member: components["schemas"]["FormField"][] | null;
+            membership: components["schemas"]["FormField"][] | null;
+        };
         MyMemberActions: {
             /** @description Moins de 20 fiches */
             add: boolean;
@@ -1950,6 +2204,8 @@ export interface components {
             city?: string;
             /** @description Vrai : enregistrer malgré un doublon probable */
             confirmDuplicate?: boolean;
+            /** @description Champs personnalisés saisis ; un champ absent n'est pas modifié */
+            customFields?: components["schemas"]["FieldInput"][] | null;
             /** @description Absente ou vide : aucune */
             email?: string;
             firstName: string;
@@ -1978,6 +2234,8 @@ export interface components {
             cancelledAt: string | null;
             /** @description Dernière tentative de paiement par carte */
             cardPayment: components["schemas"]["CardPaymentState"];
+            /** @description Champs personnalisés d'adhésion lisibles dans cet espace */
+            customFields?: components["schemas"]["FieldValue"][] | null;
             /** Format: date-time */
             decidedAt: string | null;
             /**
@@ -2016,6 +2274,8 @@ export interface components {
             payByCard: boolean;
         };
         MyMembershipBody: {
+            /** @description Champs personnalisés d'adhésion remplis par le membre */
+            customFields?: components["schemas"]["FieldInput"][] | null;
             /** @enum {string} */
             declaredKind: "first" | "renewal";
             /** Format: int64 */
@@ -2222,6 +2482,11 @@ export interface components {
             /** Format: date */
             receivedOn: string;
         };
+        ReorderCustomFieldsBody: {
+            ids: number[] | null;
+            /** @enum {string} */
+            scope: "member" | "membership";
+        };
         Season: {
             actions: components["schemas"]["SeasonActions"];
             /** Format: date-time */
@@ -2370,6 +2635,17 @@ export interface components {
             accentColor: string | null;
             primaryColor: string | null;
         };
+        UpdateCustomFieldBody: {
+            /** @description Choix existants (avec id) et nouveaux ; un choix absent est retiré */
+            choices?: components["schemas"]["ChoiceBody"][] | null;
+            help?: string;
+            label: string;
+            required: boolean;
+            /** @enum {string} */
+            type: "short_text" | "long_text" | "number" | "date" | "bool" | "choice";
+            /** @enum {string} */
+            visibility: "admin" | "visible" | "editable";
+        };
         UpdateSeasonInputBody: {
             /**
              * Format: date
@@ -2381,6 +2657,14 @@ export interface components {
              * @description Nouveau premier jour (première saison en brouillon uniquement) ; absent = inchangé
              */
             startsOn?: string;
+        };
+        ValidateBody: {
+            /** @description Champs personnalisés d'adhésion ; un champ absent n'est pas modifié */
+            customFields?: components["schemas"]["FieldInput"][] | null;
+            /** Format: int64 */
+            feeId: number;
+            /** @enum {string} */
+            kind: "first" | "renewal";
         };
     };
     responses: never;
@@ -2888,6 +3172,231 @@ export interface operations {
             };
         };
     };
+    "list-custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-custom-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCustomFieldBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldDefinition"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reorder-custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderCustomFieldsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-custom-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du champ */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCustomFieldBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldDefinition"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-custom-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du champ */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "archive-custom-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du champ */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldDefinition"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-custom-field": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du champ */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldDefinition"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-invitations": {
         parameters: {
             query?: never;
@@ -3015,8 +3524,10 @@ export interface operations {
     "list-members": {
         parameters: {
             query?: {
-                /** @description Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis */
+                /** @description Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis ; ou fragment de la valeur d'un champ personnalisé de type texte court */
                 q?: string;
+                /** @description Filtre par champ personnalisé oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable */
+                field?: string[] | null;
                 /** @description none : fiches sans compte ; identifiant : fiches de ce compte */
                 account?: string;
                 /** @description Numéro de page */
@@ -3195,6 +3706,8 @@ export interface operations {
                 paidMethod?: "card" | "cash" | "cheque" | "transfer";
                 /** @description open : adhésions portant un signalement de paiement à traiter */
                 alerts?: "open";
+                /** @description Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable */
+                field?: string[] | null;
                 page?: number;
                 pageSize?: number;
             };
@@ -3453,6 +3966,42 @@ export interface operations {
             };
         };
     };
+    "update-membership-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "record-membership-payment": {
         parameters: {
             query?: never;
@@ -3569,7 +4118,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecisionBody"];
+                "application/json": components["schemas"]["ValidateBody"];
             };
         };
         responses: {
@@ -4646,6 +5195,35 @@ export interface operations {
             };
         };
     };
+    "list-my-custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyCustomFieldList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "resend-email-verification": {
         parameters: {
             query?: never;
@@ -5046,6 +5624,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfirmCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-my-membership-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldsBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyMembership"];
                 };
             };
             /** @description Error */

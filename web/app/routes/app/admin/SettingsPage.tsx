@@ -8,6 +8,7 @@ import { Page } from "~/shell/Page";
 export const settingsSections = [
   { path: "/admin/parametres/general", label: "Général" },
   { path: "/admin/parametres/apparence", label: "Apparence" },
+  { path: "/admin/parametres/champs", label: "Champs personnalisés" },
   { path: "/admin/parametres/paiements", label: "Paiements" },
 ];
 

@@ -1,10 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { myCustomFieldsQuery } from "~/api/custom-fields";
 import { invalidateMemberships, membershipOfferQuery } from "~/api/memberships";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import { useCustomFieldsForm } from "~/customfields/useCustomFieldsForm";
 import type { MembershipKind } from "~/lib/format";
 import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
 import { Page } from "~/shell/Page";
@@ -16,7 +19,10 @@ import { Select } from "~/ui/Select";
 export const handle = { crumb: "Demander une adhésion" };
 
 export async function clientLoader() {
-  await queryClient.ensureQueryData(membershipOfferQuery()).catch(() => undefined);
+  await Promise.all([
+    queryClient.ensureQueryData(membershipOfferQuery()).catch(() => undefined),
+    queryClient.ensureQueryData(myCustomFieldsQuery()).catch(() => undefined),
+  ]);
   return null;
 }
 
@@ -35,6 +41,11 @@ export default function MembershipRequest() {
   const [params] = useSearchParams();
   const offer = useQuery(membershipOfferQuery());
   const create = $api.useMutation("post", "/me/memberships");
+  // Seuls les champs remplis par le membre sont proposés à la demande ; les
+  // champs visibles apparaissent ensuite sur le détail de l'adhésion (011).
+  const definitions = useQuery(myCustomFieldsQuery());
+  const fields = (definitions.data?.membership ?? []).filter((f) => f.editable);
+  const custom = useCustomFieldsForm(fields);
   const seasons = offer.data?.seasons ?? [];
   const members = offer.data?.members ?? [];
 
@@ -55,7 +66,7 @@ export default function MembershipRequest() {
   const fee = season?.fees?.find((f) => f.id === feeId);
   const chosenMember = available.some((m) => m.id === memberId) ? memberId : null;
 
-  if (offer.isPending) return null;
+  if (offer.isPending || definitions.isPending) return null;
   if (!season || available.length === 0) {
     return (
       <Page title="Demander une adhésion">
@@ -80,19 +91,28 @@ export default function MembershipRequest() {
     if (!fee) missing.feeId = "Choisissez un tarif.";
     if (!kind) missing.declaredKind = "Indiquez s'il s'agit d'un renouvellement.";
     setErrors(missing);
+    custom.clearErrors();
     if (Object.keys(missing).length > 0 || chosenMember === null || !fee || !kind) return;
     try {
       await create.mutateAsync({
-        body: { memberId: chosenMember, seasonId: season.id, feeId: fee.id, declaredKind: kind },
+        body: {
+          memberId: chosenMember,
+          seasonId: season.id,
+          feeId: fee.id,
+          declaredKind: kind,
+          customFields: custom.inputs(),
+        },
       });
     } catch (err) {
       if (!isProblem(err)) throw err;
       const next: Errors = {};
+      const placed = custom.applyProblem(err);
       for (const fe of err.errors ?? []) {
+        if (fe.location?.startsWith("body.customFields.")) continue;
         const field = fe.location?.replace("body.", "") as keyof Errors | undefined;
         if (field && field !== "root") next[field] = fe.message;
       }
-      if (Object.keys(next).length === 0)
+      if (Object.keys(next).length === 0 && !placed)
         next.root = err.detail ?? "Une erreur inattendue s'est produite.";
       setErrors(next);
       await qc.invalidateQueries({ queryKey: membershipOfferQuery().queryKey });
@@ -163,6 +183,8 @@ export default function MembershipRequest() {
             error={errors.declaredKind}
             options={kindOptions}
           />
+
+          <CustomFieldInputs fields={fields} control={custom.control} errors={custom.errors} />
 
           <div className="rounded-lg border border-line bg-canvas p-4">
             <AmountSummary fee={fee} kind={kind} />

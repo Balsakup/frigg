@@ -70,7 +70,7 @@ WHERE ms.id = sqlc.arg(id);
 
 -- ListMemberships returns every matching row: sorting without accents and
 -- paging are done in Go (R10). The text query matches the payment reference
--- or the member record.
+-- or the member record. field_filters: see ListMembers (research.md 011 R6).
 
 -- name: ListMemberships :many
 SELECT sqlc.embed(ms), f.label AS fee_label, m.first_name, m.last_name, m.birth_date
@@ -91,7 +91,20 @@ WHERE (CAST(sqlc.narg(season_id) AS INTEGER) IS NULL OR ms.season_id = CAST(sqlc
   AND (CAST(sqlc.narg(paid_method) AS TEXT) IS NULL
        OR (ms.payment_status = 'paid' AND ms.paid_method = CAST(sqlc.narg(paid_method) AS TEXT)))
   AND (CAST(sqlc.narg(open_alerts) AS INTEGER) IS NULL
-       OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL));
+       OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL))
+  AND NOT EXISTS (
+      SELECT 1 FROM json_each(coalesce(CAST(sqlc.narg(field_filters) AS TEXT), '[]')) ff
+      WHERE CASE json_extract(ff.value, '$.op')
+          WHEN 'true' THEN NOT EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'false' THEN EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
+          WHEN 'empty' THEN EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field'))
+          WHEN 'choice' THEN NOT EXISTS (SELECT 1 FROM membership_field_values fv
+              WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field')
+                AND fv.value_choice_id = json_extract(ff.value, '$.choice'))
+          ELSE 1 END);
 
 -- name: ValidateMembership :execrows
 UPDATE memberships

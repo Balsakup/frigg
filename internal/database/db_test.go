@@ -307,3 +307,103 @@ func TestAssociationSettingsMigration(t *testing.T) {
 		t.Fatalf("réapplication : %v", err)
 	}
 }
+
+// Champs personnalisés (011) : contraintes des valeurs, contrainte différée
+// sur les choix, cascades et cohérence de l'index FTS.
+func TestCustomFieldsMigration(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(filepath.Join(t.TempDir(), "frigg.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	fsys, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, store.WriteDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	db := store.WriteDB
+	const ts = "2026-09-01T10:00:00Z"
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err != nil {
+			t.Fatalf("%v\n%s", err, q)
+		}
+	}
+	exec(`INSERT INTO seasons (id, starts_on, ends_on, created_at) VALUES (1, '2026-09-01', '2027-08-31', ?)`, ts)
+	exec(`INSERT INTO membership_fees (id, season_id, label, amount_cents, created_at, updated_at) VALUES (1, 1, 'Adulte', 3000, ?, ?)`, ts, ts)
+	exec(`INSERT INTO members (id, first_name, last_name, birth_date, created_at, updated_at) VALUES (1, 'Lucas', 'Martin', '2012-04-02', ?, ?)`, ts, ts)
+	exec(`INSERT INTO members (id, first_name, last_name, birth_date, created_at, updated_at) VALUES (2, 'Claire', 'Martin', '1980-01-01', ?, ?)`, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, requested_at, updated_at) VALUES (1, 1, 1, 1, 'pending', ?, ?)`, ts, ts)
+
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	exec(`INSERT INTO custom_fields (id, scope, label, type, position, created_at, updated_at) VALUES (1, 'member', 'Licence', 'short_text', 1, ?, ?)`, ts, ts)
+	exec(`INSERT INTO custom_fields (id, scope, label, type, position, created_at, updated_at) VALUES (2, 'membership', 'Taille', 'choice', 1, ?, ?)`, ts, ts)
+	exec(`INSERT INTO custom_field_choices (id, field_id, label, position) VALUES (10, 2, 'S', 1), (11, 2, 'M', 2)`)
+
+	for _, bad := range []string{
+		`INSERT INTO custom_fields (scope, label, type, required, position, created_at, updated_at) VALUES ('member', 'X', 'bool', 1, 2, 'a', 'a')`,
+		`INSERT INTO member_field_values (member_id, field_id, value_text, value_number, updated_at) VALUES (2, 1, 'a', 1, 'a')`,
+		`INSERT INTO member_field_values (member_id, field_id, updated_at) VALUES (2, 1, 'a')`,
+		`INSERT INTO member_field_values (member_id, field_id, value_date, updated_at) VALUES (2, 1, '2026-02-30', 'a')`,
+		`INSERT INTO member_field_values (member_id, field_id, value_text, updated_at) VALUES (2, 1, '', 'a')`,
+	} {
+		if _, err := db.ExecContext(ctx, bad); err == nil {
+			t.Errorf("accepté : %s", bad)
+		}
+	}
+
+	exec(`INSERT INTO member_field_values (member_id, field_id, value_text, updated_at) VALUES (1, 1, '1234567', ?)`, ts)
+	exec(`INSERT INTO member_field_values (member_id, field_id, value_text, updated_at) VALUES (2, 1, '7654321', ?)`, ts)
+	exec(`INSERT INTO membership_field_values (membership_id, field_id, value_choice_id, updated_at) VALUES (1, 2, 10, ?)`, ts)
+
+	var found int64
+	if err := db.QueryRow(`SELECT rowid FROM member_field_values_fts WHERE member_field_values_fts MATCH '"3456"'`).Scan(&found); err != nil {
+		t.Fatalf("recherche trigram : %v", err)
+	}
+
+	// Choix utilisé : refusé à la validation de la transaction.
+	if _, err := db.ExecContext(ctx, `DELETE FROM custom_field_choices WHERE id = 10`); err == nil {
+		t.Error("suppression d'un choix utilisé acceptée")
+	}
+	exec(`DELETE FROM custom_field_choices WHERE id = 11`)
+
+	integrity := func(when string) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, `INSERT INTO member_field_values_fts (member_field_values_fts) VALUES ('integrity-check')`); err != nil {
+			t.Fatalf("index FTS incohérent après %s : %v", when, err)
+		}
+	}
+	exec(`DELETE FROM members WHERE id = 1`)
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM member_field_values WHERE member_id = 1`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("valeurs de la fiche supprimée : %d (%v)", n, err)
+	}
+	integrity("la suppression d'une fiche")
+
+	// Champ portant une valeur de choix : la cascade réussit quel que soit l'ordre.
+	exec(`INSERT INTO members (id, first_name, last_name, birth_date, created_at, updated_at) VALUES (3, 'Léa', 'Roux', '2010-01-01', ?, ?)`, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, requested_at, updated_at) VALUES (2, 3, 1, 1, 'pending', ?, ?)`, ts, ts)
+	exec(`INSERT INTO membership_field_values (membership_id, field_id, value_choice_id, updated_at) VALUES (2, 2, 10, ?)`, ts)
+	exec(`DELETE FROM custom_fields WHERE id = 2`)
+	if err := db.QueryRow(`SELECT (SELECT count(*) FROM membership_field_values) + (SELECT count(*) FROM custom_field_choices)`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("valeurs et choix du champ supprimé : %d (%v)", n, err)
+	}
+	exec(`DELETE FROM custom_fields WHERE id = 1`)
+	integrity("la suppression d'un champ")
+
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatalf("Down de 00011 : %v", err)
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("Up après Down : %v", err)
+	}
+}

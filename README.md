@@ -237,6 +237,30 @@ légale reste réservée aux administrateurs.
   l'écran de connexion (seules informations de l'association visibles sans
   être connecté), et les e-mails envoyés, au moment de leur envoi.
 
+**Champs personnalisés** : informations propres à l'association, ajoutées aux
+fiches des membres ou aux adhésions.
+
+- Un **champ de membre** décrit la personne et se conserve d'une saison à
+  l'autre (par exemple le numéro de licence fédérale). Un **champ
+  d'adhésion** vaut pour une seule adhésion et repart vide à chaque saison
+  (par exemple « A payé sa licence fédérale »).
+- Types : texte court, texte long, nombre, date, oui/non, liste de choix.
+  30 champs actifs au plus par portée (membres ou adhésions).
+- Visibilité, champ par champ : *réservé à l'administration* (jamais transmis
+  à l'espace membre), *visible par le membre* (en lecture seule) ou *rempli
+  par le membre*. Un champ obligatoire n'est exigé que de la personne qui
+  peut le remplir, à l'enregistrement suivant ; un oui/non ne peut pas être
+  obligatoire.
+- Le type d'un champ ne change plus dès qu'une valeur est enregistrée ; un
+  choix utilisé peut être renommé mais pas retiré.
+- **Archiver** retire le champ des formulaires en conservant ses valeurs, qui
+  réapparaissent s'il est rétabli. **Supprimer** efface le champ et toutes
+  ses valeurs, après confirmation.
+- Les listes *Membres* et *Adhésions* se filtrent sur les champs oui/non et
+  liste de choix (par exemple les adhésions de la saison dont la licence
+  n'est pas payée), et la recherche des membres trouve un fragment d'un champ
+  texte court (par exemple une partie du numéro de licence).
+
 ## Contribuer
 
 Les contributions sont les bienvenues. Consultez le

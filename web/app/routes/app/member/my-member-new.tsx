@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
+import { myCustomFieldsQuery } from "~/api/custom-fields";
 import { invalidateMembers, myMemberListQuery } from "~/api/members";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
@@ -12,7 +13,10 @@ import { Alert } from "~/ui/Alert";
 export const handle = { crumb: "Ajouter un membre" };
 
 export async function clientLoader() {
-  await queryClient.ensureQueryData(myMemberListQuery()).catch(() => undefined);
+  await Promise.all([
+    queryClient.ensureQueryData(myMemberListQuery()).catch(() => undefined),
+    queryClient.ensureQueryData(myCustomFieldsQuery()).catch(() => undefined),
+  ]);
   return null;
 }
 
@@ -23,6 +27,7 @@ export default function MyMemberNew() {
   const { account } = useSession();
   const list = useQuery(myMemberListQuery());
   const create = $api.useMutation("post", "/me/members");
+  const fields = useQuery(myCustomFieldsQuery());
 
   if (list.isError) {
     return (
@@ -31,7 +36,7 @@ export default function MyMemberNew() {
       </Alert>
     );
   }
-  if (!list.data) return null;
+  if (!list.data || fields.isPending) return null;
 
   return (
     <Page title="Ajouter un membre" intro="Une personne que vous inscrivez à l'association.">
@@ -44,6 +49,7 @@ export default function MyMemberNew() {
         defaultValues={{ ...emptyMember, isSelf: false }}
         canMarkSelf={list.data.actions.markSelf}
         accountEmail={account.email}
+        customFields={fields.data?.member ?? []}
         submitLabel="Ajouter le membre"
         onSubmit={async (body) => {
           await create.mutateAsync({ body });

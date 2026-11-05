@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
@@ -39,6 +40,7 @@ func (s *server) registerAdminMemberships(api huma.API) {
 	register(api, auth.Admin, op("cancel-membership", http.MethodPost, "/admin/memberships/{id}/cancel", "Annuler une adhésion validée", 0), s.cancelMembership)
 	register(api, auth.Admin, op("record-membership-payment", http.MethodPost, "/admin/memberships/{id}/payment", "Constater le paiement d'une adhésion", 0), s.recordMembershipPayment)
 	register(api, auth.Admin, op("cancel-membership-payment", http.MethodDelete, "/admin/memberships/{id}/payment", "Annuler la constatation du paiement", 0), s.cancelMembershipPayment)
+	register(api, auth.Admin, op("update-membership-fields", http.MethodPut, "/admin/memberships/{id}/fields", "Modifier les champs personnalisés d'une adhésion", 0), s.updateMembershipFields)
 }
 
 // AdminMembershipActions sont les actions proposées à un administrateur.
@@ -71,6 +73,9 @@ type AdminMembership struct {
 	Alerts         []PaymentAlert         `json:"alerts" doc:"Signalements de paiement, non traités d'abord"`
 	// CardPaymentPending : une tentative de moins de 60 minutes est en cours.
 	CardPaymentPending bool `json:"cardPaymentPending"`
+	// CustomFields : champs d'adhésion actifs ; non modifiables si l'adhésion
+	// est refusée ou annulée (011, FR-016).
+	CustomFields []FieldValue `json:"customFields" doc:"Champs personnalisés d'adhésion, dans l'ordre d'affichage"`
 }
 
 // AdminMembershipFee est le tarif d'une ligne de la liste.
@@ -159,6 +164,27 @@ type DecisionBody struct {
 	Kind  string `json:"kind" enum:"first,renewal"`
 }
 
+// ValidateBody ajoute à la décision les champs personnalisés saisis (011).
+type ValidateBody struct {
+	DecisionBody
+	CustomFields []FieldInput `json:"customFields,omitempty" required:"false" maxItems:"30" doc:"Champs personnalisés d'adhésion ; un champ absent n'est pas modifié"`
+}
+
+// CustomFieldsBody est une saisie de champs personnalisés seule.
+type CustomFieldsBody struct {
+	CustomFields []FieldInput `json:"customFields" maxItems:"30"`
+}
+
+type ValidateInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body ValidateBody
+}
+
+type MembershipFieldsInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body CustomFieldsBody
+}
+
 // ReasonBody est un motif de refus ou d'annulation.
 type ReasonBody struct {
 	Reason string `json:"reason" maxLength:"500"`
@@ -178,6 +204,8 @@ type AdminCreateBody struct {
 	FeeID    int64              `json:"feeId"`
 	Kind     string             `json:"kind" enum:"first,renewal"`
 	Paid     *RecordPaymentBody `json:"paid,omitempty" required:"false" doc:"Règlement déjà reçu"`
+	// CustomFields : champs personnalisés d'adhésion saisis (011).
+	CustomFields []FieldInput `json:"customFields,omitempty" required:"false" maxItems:"30" doc:"Champs personnalisés d'adhésion"`
 }
 
 type ListMembershipsInput struct {
@@ -188,7 +216,8 @@ type ListMembershipsInput struct {
 	Q       string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso"`
 	// PaidMethod filtre les adhésions payées par un moyen.
 	PaidMethod string `query:"paidMethod" enum:"card,cash,cheque,transfer"`
-	Alerts     string `query:"alerts" enum:"open" doc:"open : adhésions portant un signalement de paiement à traiter"`
+	Alerts     string   `query:"alerts" enum:"open" doc:"open : adhésions portant un signalement de paiement à traiter"`
+	Field      []string `query:"field,explode" maxItems:"10" doc:"Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable"`
 	Page       int64  `query:"page" minimum:"1" default:"1"`
 	PageSize   int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
 }
@@ -249,6 +278,9 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
 	}
 	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment), PaidMethod: ns(in.PaidMethod)}
+	if params.FieldFilters, err = fieldFilters(ctx, q, customfield.ScopeMembership, in.Field); err != nil {
+		return nil, s.txError(ctx, "lecture des champs personnalisés impossible", err)
+	}
 	if in.Alerts == "open" {
 		params.OpenAlerts = nid(1)
 	}
@@ -483,6 +515,9 @@ func (s *server) adminMembership(ctx context.Context, q *sqlc.Queries, id int64)
 	if err := s.withOnlineAdmin(ctx, q, &out, m); err != nil {
 		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 	}
+	if out.CustomFields, err = readMembershipFields(ctx, q, id, customfield.Admin, fieldsWritable(m.Status)); err != nil {
+		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
+	}
 	return &AdminMembershipOutput{Body: out}, nil
 }
 
@@ -560,13 +595,14 @@ func decide(ctx context.Context, w adminWriteContext, body DecisionBody) (sqlc.M
 	return fee, membership.AppliedAmount(toFee(fee), membership.Kind(body.Kind)), nil
 }
 
-func (s *server) validateMembership(ctx context.Context, in *DecisionInput) (*AdminMembershipOutput, error) {
+func (s *server) validateMembership(ctx context.Context, in *ValidateInput) (*AdminMembershipOutput, error) {
 	var amount int64
+	fields := 0
 	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
 		if !membership.CanDecide(w.snap) {
 			return huma.Error409Conflict(MsgMembershipChanged)
 		}
-		fee, a, err := decide(ctx, w, in.Body)
+		fee, a, err := decide(ctx, w, in.Body.DecisionBody)
 		if err != nil {
 			return err
 		}
@@ -583,12 +619,15 @@ func (s *server) validateMembership(ctx context.Context, in *DecisionInput) (*Ad
 		})); err != nil {
 			return err
 		}
+		if fields, err = writeFields(ctx, w.q, customfield.ScopeMembership, w.m.ID, in.Body.CustomFields, customfield.Admin); err != nil {
+			return err
+		}
 		return s.notifyMembership(ctx, w.q, "membership-validated", w.m.ID, true)
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.logMembershipAction(ctx, "membership.validate", m, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	s.logMembershipAction(ctx, "membership.validate", m, "admin", "kind", in.Body.Kind, "amount_cents", amount, "custom_fields", fields)
 	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }
 
@@ -790,6 +829,9 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 			return activeConflict(err)
 		}
 		created = sqlc.Membership{ID: id, MemberID: in.Body.MemberID, SeasonID: in.Body.SeasonID}
+		if _, err := writeFields(ctx, q, customfield.ScopeMembership, id, in.Body.CustomFields, customfield.Admin); err != nil {
+			return err
+		}
 		if paidOn != "" {
 			paid = true
 			if err := changed(q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
@@ -812,4 +854,32 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 		return nil, err
 	}
 	return out, nil
+}
+
+// fieldsWritable indique si les champs personnalisés d'une adhésion sont
+// encore modifiables : en attente ou validée, payée ou non (research.md 011 › R8).
+func fieldsWritable(status string) bool {
+	return status == string(membership.Pending) || status == string(membership.Validated)
+}
+
+// MsgMembershipFieldsLocked : adhésion refusée ou annulée (FR-016).
+const MsgMembershipFieldsLocked = "Cette adhésion ne peut plus être modifiée."
+
+// updateMembershipFields enregistre les champs personnalisés d'une adhésion
+// sans toucher à son état, son tarif ni son paiement (US3).
+func (s *server) updateMembershipFields(ctx context.Context, in *MembershipFieldsInput) (*AdminMembershipOutput, error) {
+	fields := 0
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if !fieldsWritable(w.m.Status) {
+			return huma.Error409Conflict(MsgMembershipFieldsLocked)
+		}
+		var err error
+		fields, err = writeFields(ctx, w.q, customfield.ScopeMembership, w.m.ID, in.Body.CustomFields, customfield.Admin)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.logMembershipAction(ctx, "membership.fields", m, "admin", "custom_fields", fields)
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }

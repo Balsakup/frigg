@@ -18,9 +18,19 @@ describe("critères des adhésions", () => {
       payment: "",
       paidMethod: "",
       alerts: "",
+      fields: [],
       q: "",
       page: 1,
     });
+  });
+
+  it("lit, transmet et réécrit les filtres par champ personnalisé (011)", () => {
+    const f = parseMembershipFilters(
+      new URLSearchParams("champ=4:false&champ=7:c12&champ=x&champ=8:oui&season=3"),
+    );
+    expect(f.fields).toEqual(["4:false", "7:c12"]);
+    expect(toMembershipApiQuery(f)).toEqual({ season: "3", field: ["4:false", "7:c12"], page: 1 });
+    expect(toMembershipSearchParams(f).toString()).toBe("season=3&champ=4%3Afalse&champ=7%3Ac12");
   });
 
   it("filtre par moyen constaté et par signalement", () => {

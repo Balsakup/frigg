@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CreditCard, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
+import { customFieldsQuery } from "~/api/custom-fields";
 import {
   type MembershipStats,
   membershipDashboardQuery,
@@ -10,6 +11,7 @@ import {
 } from "~/api/memberships";
 import { queryClient } from "~/api/query-client";
 import { seasonListQuery } from "~/api/seasons";
+import { CustomFieldFilters, filterableFields } from "~/customfields/CustomFieldFilters";
 import { hasSearchableTerm, SEARCH_MIN_LENGTH } from "~/lib/account-filters";
 import { formatAmount, formatMoney, membershipKindLabel } from "~/lib/format";
 import {
@@ -39,6 +41,7 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
       .ensureQueryData(membershipPageQuery(toMembershipApiQuery(filters)))
       .catch(() => undefined),
     queryClient.ensureQueryData(membershipDashboardQuery()).catch(() => undefined),
+    queryClient.ensureQueryData(customFieldsQuery()).catch(() => undefined),
   ]);
   return null;
 }
@@ -79,6 +82,8 @@ export default function AdminMemberships() {
   const [status] = useState(() => (location.state as { flash?: string } | null)?.flash ?? "");
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = parseMembershipFilters(searchParams);
+  const definitions = useQuery(customFieldsQuery());
+  const filterable = filterableFields(definitions.data?.membership);
   const [draft, setDraft] = useState(filters.q);
   const seasons = useQuery(seasonListQuery());
   const dashboard = useQuery(membershipDashboardQuery());
@@ -107,6 +112,7 @@ export default function AdminMemberships() {
       payment: "",
       paidMethod: "",
       alerts: "",
+      fields: [],
       q: "",
       page: 1,
     });
@@ -217,6 +223,11 @@ export default function AdminMemberships() {
               value={filters.alerts ?? ""}
               items={alertItems}
               onValueChange={(v) => navigate({ ...filters, q: draft, alerts: v, page: 1 })}
+            />
+            <CustomFieldFilters
+              fields={filterable}
+              value={filters.fields ?? []}
+              onChange={(fields) => navigate({ ...filters, q: draft, fields, page: 1 })}
             />
           </search>
           <div className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-2">

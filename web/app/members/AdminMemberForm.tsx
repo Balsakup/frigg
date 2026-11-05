@@ -1,7 +1,15 @@
 import type { ReactNode } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { type Control, Controller, type FieldErrors, useForm } from "react-hook-form";
 import { Link } from "react-router";
+import type { FieldInput, FieldValue, FormField } from "~/api/custom-fields";
 import { applyProblemToForm, isProblem } from "~/api/problem";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import {
+  customFieldPaths,
+  toFormValues,
+  toInputs,
+  type WithCustomFields,
+} from "~/customfields/form";
 import { Alert } from "~/ui/Alert";
 import { Button, buttonClasses } from "~/ui/Button";
 import { type AccountOption, AccountPicker } from "./AccountPicker";
@@ -13,12 +21,18 @@ export interface AdminMemberFormValues extends MemberFormValues {
   accountId: AccountOption;
 }
 
+type FormValues = AdminMemberFormValues & WithCustomFields;
+
 interface AdminMemberFormProps {
   defaultValues: AdminMemberFormValues;
   /** Fiche signalée « Vous » : changer de compte retire ce signalement. */
   isSelf?: boolean;
+  /** Champs personnalisés de membre (définitions à la création, valeurs ensuite). */
+  customFields: (FormField | FieldValue)[];
   submitLabel: string;
-  onSubmit: (body: ReturnType<typeof formToBody> & { accountId: number | null }) => Promise<void>;
+  onSubmit: (
+    body: ReturnType<typeof formToBody> & { accountId: number | null; customFields: FieldInput[] },
+  ) => Promise<void>;
   extra?: ReactNode;
 }
 
@@ -26,20 +40,30 @@ interface AdminMemberFormProps {
 export function AdminMemberForm({
   defaultValues,
   isSelf = false,
+  customFields,
   submitLabel,
   onSubmit,
   extra,
 }: AdminMemberFormProps) {
-  const { register, handleSubmit, setError, control, watch, formState } =
-    useForm<AdminMemberFormValues>({ defaultValues });
+  const { register, handleSubmit, setError, control, watch, formState } = useForm<FormValues>({
+    defaultValues: { ...defaultValues, customFields: toFormValues(customFields) },
+  });
   const account = watch("accountId");
 
   const submit = handleSubmit(async (values) => {
     try {
-      await onSubmit({ ...formToBody(values), accountId: values.accountId.id });
+      await onSubmit({
+        ...formToBody(values),
+        accountId: values.accountId.id,
+        customFields: toInputs(customFields, values.customFields),
+      });
     } catch (error) {
       if (!isProblem(error)) throw error;
-      applyProblemToForm(error, setError, [...memberFieldNames, "accountId"]);
+      applyProblemToForm(error, setError, [
+        ...memberFieldNames,
+        "accountId",
+        ...customFieldPaths(customFields),
+      ]);
     }
   });
 
@@ -68,6 +92,11 @@ export function AdminMemberForm({
           )}
         />
         <MemberFields register={register} errors={formState.errors} />
+        <CustomFieldInputs
+          fields={customFields}
+          control={control as unknown as Control<WithCustomFields>}
+          errors={formState.errors as FieldErrors<WithCustomFields>}
+        />
         <DuplicateConfirm register={register} errors={formState.errors} />
         <div className="flex flex-wrap gap-2">
           <Button type="submit" aria-disabled={formState.isSubmitting}>

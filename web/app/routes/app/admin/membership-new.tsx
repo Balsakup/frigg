@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { customFieldsQuery } from "~/api/custom-fields";
 import { memberQuery } from "~/api/members";
 import { membershipFeesQuery } from "~/api/membership-fees";
 import { invalidateMemberships, membershipPageQuery } from "~/api/memberships";
@@ -8,6 +9,9 @@ import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
 import { queryClient } from "~/api/query-client";
 import { seasonListQuery } from "~/api/seasons";
+import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
+import { adminFormFields } from "~/customfields/form";
+import { useCustomFieldsForm } from "~/customfields/useCustomFieldsForm";
 import { formatAge, type ManualPaymentMethod, type MembershipKind } from "~/lib/format";
 import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
 import { type MemberOption, MemberPicker } from "~/memberships/MemberPicker";
@@ -21,7 +25,10 @@ import { Select } from "~/ui/Select";
 export const handle = { crumb: "Créer une adhésion" };
 
 export async function clientLoader() {
-  await queryClient.ensureQueryData(seasonListQuery()).catch(() => undefined);
+  await Promise.all([
+    queryClient.ensureQueryData(seasonListQuery()).catch(() => undefined),
+    queryClient.ensureQueryData(customFieldsQuery()).catch(() => undefined),
+  ]);
   return null;
 }
 
@@ -66,6 +73,9 @@ export default function MembershipNew() {
   const [errors, setErrors] = useState<Errors>({});
   const [existing, setExisting] = useState<number | null>(null);
   const create = $api.useMutation("post", "/admin/memberships");
+  const definitions = useQuery(customFieldsQuery());
+  const fields = adminFormFields(definitions.data, "membership");
+  const custom = useCustomFieldsForm(fields);
 
   const chosen: MemberOption | null =
     member ??
@@ -89,6 +99,7 @@ export default function MembershipNew() {
       "paid.method": paid && !method ? "Choisissez le moyen de paiement." : undefined,
     };
     setErrors(missing);
+    custom.clearErrors();
     if (Object.values(missing).some(Boolean) || !chosen || !fee || !kind || !season) return;
     let id: number;
     try {
@@ -98,6 +109,7 @@ export default function MembershipNew() {
           seasonId: season.id,
           feeId: fee.id,
           kind,
+          customFields: custom.inputs(),
           ...(paid && method
             ? { paid: { method, receivedOn, ...(note.trim() ? { note } : {}) } }
             : {}),
@@ -107,8 +119,11 @@ export default function MembershipNew() {
     } catch (err) {
       if (!isProblem(err)) throw err;
       const next: Errors = {};
-      for (const x of err.errors ?? [])
+      const placed = custom.applyProblem(err);
+      for (const x of err.errors ?? []) {
+        if (x.location?.startsWith("body.customFields.")) continue;
         next[x.location?.replace("body.", "") ?? "root"] = x.message;
+      }
       if (err.status === 409) {
         next.root = err.detail;
         const found = await queryClient
@@ -118,7 +133,7 @@ export default function MembershipNew() {
           (x) => x.status === "pending" || x.status === "validated",
         );
         setExisting(active?.id ?? null);
-      } else if (Object.keys(next).length === 0) {
+      } else if (Object.keys(next).length === 0 && !placed) {
         next.root = err.detail;
       }
       setErrors(next);
@@ -235,6 +250,8 @@ export default function MembershipNew() {
               />
             </div>
           ) : null}
+
+          <CustomFieldInputs fields={fields} control={custom.control} errors={custom.errors} />
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Link to="/admin/adhesions" className={buttonClasses({ variant: "secondary" })}>

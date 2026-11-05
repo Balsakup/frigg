@@ -39,5 +39,7 @@ export async function invalidateMembers(qc: QueryClient) {
     qc.invalidateQueries({ queryKey: ["get", "/me/members/{id}"] }),
     qc.invalidateQueries({ queryKey: memberListKey }),
     qc.invalidateQueries({ queryKey: ["get", "/admin/members/{id}"] }),
+    // Compteurs de fiches sans valeur des champs personnalisés (011).
+    qc.invalidateQueries({ queryKey: ["get", "/admin/custom-fields"] }),
   ]);
 }

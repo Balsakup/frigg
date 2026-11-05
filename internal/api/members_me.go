@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/member"
 )
@@ -139,7 +140,27 @@ func (s *server) myMemberOutput(ctx context.Context, id int64) (*MemberOutput, e
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de la fiche impossible", err)
 	}
-	return &MemberOutput{Body: toMember(r, s.today())}, nil
+	out := toMember(r, s.today())
+	if out.CustomFields, err = readMemberFields(ctx, s.Store.Read, id, customfield.Owner); err != nil {
+		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
+	}
+	return &MemberOutput{Body: out}, nil
+}
+
+// checkMyFields vérifie la saisie des champs personnalisés d'une fiche du
+// compte (memberID vaut 0 pour une création), pour renvoyer ses erreurs avec
+// celles de la fiche. Une fiche d'un autre compte n'est jamais lue.
+func (s *server) checkMyFields(ctx context.Context, memberID int64, inputs []FieldInput) ([]*huma.ErrorDetail, error) {
+	q := s.Store.Read
+	if memberID != 0 {
+		if _, err := q.GetMemberOfAccount(ctx, sqlc.GetMemberOfAccountParams{ID: memberID, AccountID: ownAccount(ctx)}); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
+	return checkFields(ctx, q, customfield.ScopeMember, memberID, inputs, customfield.Owner)
 }
 
 func (s *server) getMyMember(ctx context.Context, in *MemberIDInput) (*MemberOutput, error) {
@@ -171,9 +192,14 @@ func (s *server) createMyMember(ctx context.Context, in *CreateMyMemberInput) (*
 	account := ownAccount(ctx)
 	c, err := validateMember(in.Body.MemberBody, s.today())
 	if err != nil {
-		return nil, err
+		details, ferr := s.checkMyFields(ctx, 0, in.Body.CustomFields)
+		if ferr != nil {
+			return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", ferr)
+		}
+		return nil, withFieldErrors(err, details)
 	}
 	var row sqlc.Member
+	changed := 0
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		if in.Body.IsSelf {
 			if err := checkSelf(ctx, q, account, 0); err != nil {
@@ -193,21 +219,30 @@ func (s *server) createMyMember(ctx context.Context, in *CreateMyMemberInput) (*
 			Email: f.Email, Phone: f.Phone, AddressLine1: f.AddressLine1, AddressLine2: f.AddressLine2,
 			PostalCode: f.Postal, City: f.City, Now: nowString(),
 		})
-		return selfTaken(err)
+		if err != nil {
+			return selfTaken(err)
+		}
+		changed, err = writeFields(ctx, q, customfield.ScopeMember, row.ID, in.Body.CustomFields, customfield.Owner)
+		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "création de la fiche impossible", err)
 	}
-	s.logMemberAction(ctx, "member.create", row.ID, account, "me")
-	return &MemberOutput{Body: toMember(row, s.today())}, nil
+	s.logMemberAction(ctx, "member.create", row.ID, account, "me", "custom_fields", changed)
+	return s.myMemberOutput(ctx, row.ID)
 }
 
 func (s *server) updateMyMember(ctx context.Context, in *UpdateMyMemberInput) (*MemberOutput, error) {
 	account := ownAccount(ctx)
 	c, err := validateMember(in.Body.MemberBody, s.today())
 	if err != nil {
-		return nil, err
+		details, ferr := s.checkMyFields(ctx, in.ID, in.Body.CustomFields)
+		if ferr != nil {
+			return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", ferr)
+		}
+		return nil, withFieldErrors(err, details)
 	}
+	changed := 0
 	err = s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		current, err := q.GetMemberOfAccount(ctx, sqlc.GetMemberOfAccountParams{ID: in.ID, AccountID: account})
 		if errors.Is(err, sql.ErrNoRows) {
@@ -237,12 +272,16 @@ func (s *server) updateMyMember(ctx context.Context, in *UpdateMyMemberInput) (*
 		if err == nil && n == 0 {
 			return huma.Error404NotFound(MsgMemberGone)
 		}
-		return selfTaken(err)
+		if err != nil {
+			return selfTaken(err)
+		}
+		changed, err = writeFields(ctx, q, customfield.ScopeMember, in.ID, in.Body.CustomFields, customfield.Owner)
+		return err
 	})
 	if err != nil {
 		return nil, s.txError(ctx, "modification de la fiche impossible", err)
 	}
-	s.logMemberAction(ctx, "member.update", in.ID, account, "me")
+	s.logMemberAction(ctx, "member.update", in.ID, account, "me", "custom_fields", changed)
 	return s.myMemberOutput(ctx, in.ID)
 }
 
