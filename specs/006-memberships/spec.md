@@ -662,3 +662,6 @@ validées et correspondent aux données.
 - **Historique** : pas de journal consultable dans l'interface ; la
   traçabilité passe par les dates et auteurs enregistrés sur l'adhésion et les
   journaux de l'application.
+- **Informations complémentaires** : les champs propres à une adhésion (licence
+  fédérale payée…) sont ajoutés par la spécification 011 « Champs
+  personnalisés des membres et des adhésions ».

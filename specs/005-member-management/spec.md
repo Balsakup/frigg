@@ -376,3 +376,6 @@ compte » et rattachables à un autre compte.
   future spécification « Export des données personnelles ».
 - **Historique** : pas de journal des modifications consultable dans
   l'interface ; la traçabilité passe par les journaux de l'application.
+- **Informations complémentaires** : les champs propres à l'association
+  (numéro de licence fédérale…) sont ajoutés aux fiches par la spécification
+  011 « Champs personnalisés des membres et des adhésions ».
