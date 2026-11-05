@@ -36,3 +36,21 @@ func TestClientIP(t *testing.T) {
 		t.Errorf("avec proxy de confiance : %q", got)
 	}
 }
+
+func TestForwardedUntrusted(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "10.0.0.1:1234"
+	if ForwardedUntrusted(r, nil) {
+		t.Error("sans X-Forwarded-For : rien à signaler")
+	}
+	r.Header.Set("X-Forwarded-For", "203.0.113.9")
+	if !ForwardedUntrusted(r, nil) {
+		t.Error("X-Forwarded-For sans proxy de confiance : à signaler")
+	}
+	if !ForwardedUntrusted(r, []string{"10.0.0.2"}) {
+		t.Error("X-Forwarded-For d'un proxy non listé : à signaler")
+	}
+	if ForwardedUntrusted(r, []string{"10.0.0.1"}) {
+		t.Error("X-Forwarded-For d'un proxy de confiance : rien à signaler")
+	}
+}

@@ -107,8 +107,12 @@ docker run … ghcr.io/balsakup/frigg:1.1.0   # mêmes options qu'au démarrage
 
 Placez Frigg derrière un reverse proxy qui termine le TLS, et déclarez son
 adresse dans `FRIGG_TRUSTED_PROXIES` pour que l'adresse des clients soit
-reconnue. Le point de santé `GET /api/health` répond `200` quand l'instance
-peut servir des requêtes et `503` sinon, sans aucune autre information.
+reconnue : sans cela, tous les clients partagent l'adresse du proxy et ses
+limites de tentatives (connexion, réinitialisation…). Frigg l'avertit une fois
+dans ses journaux (« X-Forwarded-For reçu d'un proxy absent de
+FRIGG_TRUSTED_PROXIES », avec l'adresse à déclarer). Le point de santé
+`GET /api/health` répond `200` quand l'instance peut servir des requêtes et
+`503` sinon, sans aucune autre information.
 L'image l'utilise pour sa vérification de santé (`docker ps` affiche
 `healthy`). En Kubernetes, qui ignore cette vérification, déclarez une sonde :
 

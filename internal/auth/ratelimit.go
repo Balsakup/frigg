@@ -116,10 +116,7 @@ func (l *Limits) RunPurge(ctx context.Context) {
 // ClientIP renvoie l'IP du client ; X-Forwarded-For n'est lu que si la
 // connexion provient d'un proxy de confiance.
 func ClientIP(r *http.Request, trustedProxies []string) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
+	host := remoteHost(r)
 	if !slices.Contains(trustedProxies, host) {
 		return host
 	}
@@ -130,4 +127,20 @@ func ClientIP(r *http.Request, trustedProxies []string) string {
 	// La dernière adresse est celle ajoutée par notre proxy.
 	parts := strings.Split(xff, ",")
 	return strings.TrimSpace(parts[len(parts)-1])
+}
+
+// ForwardedUntrusted indique que la requête porte X-Forwarded-For alors que la
+// connexion ne vient pas d'un proxy de confiance : l'en-tête est ignoré et,
+// derrière un proxy non déclaré, tous les clients partagent la même IP pour la
+// limitation de débit.
+func ForwardedUntrusted(r *http.Request, trustedProxies []string) bool {
+	return r.Header.Get("X-Forwarded-For") != "" && !slices.Contains(trustedProxies, remoteHost(r))
+}
+
+func remoteHost(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

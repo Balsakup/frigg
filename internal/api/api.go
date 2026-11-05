@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
@@ -57,6 +58,8 @@ func NewHelloAssoClient(cfg config.Config, now func() time.Time) *helloasso.Clie
 
 type server struct {
 	Deps
+	// untrustedForwardWarning n'avertit qu'une fois d'un X-Forwarded-For ignoré.
+	untrustedForwardWarning sync.Once
 }
 
 // today renvoie la date du jour à Paris, seule source de « aujourd'hui » pour
@@ -152,6 +155,13 @@ func (s *server) accessMiddleware(api huma.API) func(huma.Context, func(huma.Con
 			return
 		}
 		r, _ := humago.Unwrap(ctx)
+		if auth.ForwardedUntrusted(r, s.Config.TrustedProxies) {
+			s.untrustedForwardWarning.Do(func() {
+				s.Logger.WarnContext(ctx.Context(), "X-Forwarded-For reçu d'un proxy absent de FRIGG_TRUSTED_PROXIES",
+					"proxy", auth.ClientIP(r, nil),
+					"impact", "les clients derrière ce proxy partagent sa limite de débit")
+			})
+		}
 		ctx = huma.WithValue(ctx, clientIPKey, auth.ClientIP(r, s.Config.TrustedProxies))
 		if access == auth.Public {
 			next(ctx)
