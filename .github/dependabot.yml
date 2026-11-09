@@ -1,8 +1,11 @@
-# Mises à jour hebdomadaires des dépendances de construction épinglées par
-# empreinte (images du Dockerfile) ou par SHA (actions GitHub) : sans elles,
-# les versions figées vieilliraient et l'analyse de vulnérabilités de la
-# release finirait par bloquer toute publication (spec 007, research.md › R3).
-# Les modules Go et les paquets du frontend sont aussi suivis chaque semaine.
+# Dependabot ne propose que les correctifs de failles (alertes de sécurité
+# activées sur le dépôt) : open-pull-requests-limit: 0 coupe les mises à jour
+# de version, les blocs restent pour que les correctifs de sécurité suivent
+# les groupes, exclusions et préfixes définis ici.
+# Exception : les images du Dockerfile, épinglées par empreinte, ne reçoivent
+# pas de correctifs de sécurité Dependabot. Elles restent mises à jour chaque
+# mois, sans quoi l'analyse de vulnérabilités de la release finirait par
+# bloquer toute publication (spec 007, research.md › R3).
 # Penser à aligner BUN_VERSION de release.yml et ci.yml quand l'image oven/bun
 # change.
 version: 2
@@ -10,7 +13,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: "⬆️"
 
@@ -18,6 +21,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "⬆️"
 
@@ -26,6 +30,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "⬆️"
     groups:
@@ -42,6 +47,7 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "⬆️"
     groups:
