@@ -1,7 +1,9 @@
 # Dependabot ne propose que les correctifs de failles (alertes de sécurité
 # activées sur le dépôt) : open-pull-requests-limit: 0 coupe les mises à jour
 # de version, les blocs restent pour que les correctifs de sécurité suivent
-# les groupes, exclusions et préfixes définis ici.
+# les groupes, exclusions et préfixes définis ici. Les groupes portent
+# applies-to: security-updates : sans cela, ils visent les mises à jour de
+# version et Dependabot ouvre quand même des PR groupées malgré la limite à 0.
 # Exception : les images du Dockerfile, épinglées par empreinte, ne reçoivent
 # pas de correctifs de sécurité Dependabot. Elles restent mises à jour chaque
 # mois, sans quoi l'analyse de vulnérabilités de la release finirait par
@@ -25,7 +27,8 @@ updates:
     commit-message:
       prefix: "⬆️"
 
-  # Modules Go : mineures et correctifs regroupés, majeures en PR séparées.
+  # Modules Go : correctifs de sécurité mineurs et patchs regroupés, majeurs en
+  # PR séparées.
   - package-ecosystem: gomod
     directory: /
     schedule:
@@ -35,6 +38,7 @@ updates:
       prefix: "⬆️"
     groups:
       go:
+        applies-to: security-updates
         update-types: [minor, patch]
     # Sous-module sans étiquette (pseudo-version) : Dependabot lui attribue à
     # tort l'étiquette v1.4.1 du module parent et échoue. Mise à jour manuelle :
@@ -52,6 +56,7 @@ updates:
       prefix: "⬆️"
     groups:
       web:
+        applies-to: security-updates
         update-types: [minor, patch]
     # TypeScript 7 (compilateur réécrit en Go) n'expose plus l'API JavaScript
     # (ts.factory) dont openapi-typescript a besoin pour gen:api. À lever
