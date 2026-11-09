@@ -407,3 +407,132 @@ func TestCustomFieldsMigration(t *testing.T) {
 		t.Fatalf("Up après Down : %v", err)
 	}
 }
+
+// Événements (012) : reconstruction de online_payments et payment_alerts sur
+// une base peuplée, contraintes des inscriptions et retour arrière de la
+// migration 00012 (research.md 012 › R2).
+func TestEventsMigration(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(filepath.Join(t.TempDir(), "frigg.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	fsys, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, store.WriteDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 11); err != nil {
+		t.Fatal(err)
+	}
+	db := store.WriteDB
+	const ts = "2026-09-01T10:00:00Z"
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err != nil {
+			t.Fatalf("%v\n%s", err, q)
+		}
+	}
+	refused := func(what, q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err == nil {
+			t.Errorf("%s accepté", what)
+		}
+	}
+	foreignKeysOn := func() {
+		t.Helper()
+		var on int
+		if err := db.QueryRow(`PRAGMA foreign_keys`).Scan(&on); err != nil || on != 1 {
+			t.Fatalf("foreign_keys = %d (%v), attendu 1", on, err)
+		}
+		rows, err := db.Query(`PRAGMA foreign_key_check`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		if rows.Next() {
+			t.Fatal("violation de clé étrangère après migration")
+		}
+	}
+
+	// Base 00011 : adhésion payée par carte, avec un signalement ouvert.
+	exec(`INSERT INTO accounts (id, email, password_hash, role, created_at) VALUES (1, 'a@exemple.fr', 'h', 'admin', ?)`, ts)
+	exec(`INSERT INTO seasons (id, starts_on, ends_on, created_at) VALUES (1, '2026-09-01', '2027-08-31', ?)`, ts)
+	exec(`INSERT INTO membership_fees (id, season_id, label, amount_cents, created_at, updated_at) VALUES (1, 1, 'Adulte', 4000, ?, ?)`, ts, ts)
+	exec(`INSERT INTO members (id, first_name, last_name, birth_date, created_at, updated_at) VALUES (1, 'Lucas', 'Martin', '2015-01-01', ?, ?), (2, 'Claire', 'Martin', '1985-01-01', ?, ?)`, ts, ts, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, kind, amount_cents, requested_at, updated_at, payment_reference, payment_status)
+		VALUES (1, 1, 1, 1, 'validated', 'first', 4000, ?, ?, 'ADH-2627-0001', 'due')`, ts, ts)
+	exec(`INSERT INTO online_payments (id, membership_id, environment, amount_cents, status, checkout_intent_id, order_id, helloasso_payment_id,
+		received_amount_cents, paid_at, created_at, finished_at, updated_at)
+		VALUES (7, 1, 'sandbox', 4000, 'succeeded', 70, 71, 72, 4000, ?, ?, ?, ?)`, ts, ts, ts, ts)
+	exec(`UPDATE memberships SET payment_status = 'paid', paid_method = 'card', paid_on = '2026-09-01', paid_online_payment_id = 7, paid_amount_cents = 4000 WHERE id = 1`)
+	exec(`INSERT INTO payment_alerts (id, membership_id, online_payment_id, kind, created_at) VALUES (3, 1, 7, 'duplicate', ?)`, ts)
+
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("migration 00012 : %v", err)
+	}
+	foreignKeysOn()
+
+	var membershipID, paidBy sql.NullInt64
+	var status string
+	if err := db.QueryRow(`SELECT membership_id, status FROM online_payments WHERE id = 7`).Scan(&membershipID, &status); err != nil ||
+		membershipID.Int64 != 1 || status != "succeeded" {
+		t.Fatalf("tentative conservée : %v %s (%v)", membershipID, status, err)
+	}
+	if err := db.QueryRow(`SELECT paid_online_payment_id FROM memberships WHERE id = 1`).Scan(&paidBy); err != nil || paidBy.Int64 != 7 {
+		t.Fatalf("paid_online_payment_id = %v (%v)", paidBy, err)
+	}
+	if err := db.QueryRow(`SELECT membership_id FROM payment_alerts WHERE id = 3`).Scan(&membershipID); err != nil || membershipID.Int64 != 1 {
+		t.Fatalf("signalement conservé : %v (%v)", membershipID, err)
+	}
+
+	exec(`INSERT INTO events (id, season_id, title, location, starts_at, ends_at, price_cents, capacity, status, published_at, created_at, updated_at)
+		VALUES (1, 1, 'Stage', 'Gymnase', '2026-12-12T13:00:00Z', '2026-12-12T16:00:00Z', 3500, 20, 'published', ?, ?, ?)`, ts, ts, ts)
+	refused("capacité 0", `INSERT INTO events (season_id, title, location, starts_at, ends_at, capacity, created_at, updated_at)
+		VALUES (1, 'X', 'Y', '2026-12-12T13:00:00Z', '2026-12-12T16:00:00Z', 0, ?, ?)`, ts, ts)
+	refused("fin avant début", `INSERT INTO events (season_id, title, location, starts_at, ends_at, created_at, updated_at)
+		VALUES (1, 'X', 'Y', '2026-12-12T13:00:00Z', '2026-12-12T12:00:00Z', ?, ?)`, ts, ts)
+	refused("inscription payante sans référence", `INSERT INTO event_registrations (event_id, member_id, status, registered_at, amount_cents, payment_status, updated_at)
+		VALUES (1, 1, 'confirmed', ?, 3500, 'due', ?)`, ts, ts)
+	exec(`INSERT INTO event_registrations (id, event_id, member_id, status, registered_at, cancelled_at, amount_cents, payment_reference, payment_status, updated_at)
+		VALUES (1, 1, 1, 'cancelled', ?, ?, 3500, 'EVT-2627-0001', 'due', ?)`, ts, ts, ts)
+	exec(`INSERT INTO event_registrations (id, event_id, member_id, status, registered_at, amount_cents, payment_reference, payment_status, updated_at)
+		VALUES (2, 1, 1, 'confirmed', ?, 3500, 'EVT-2627-0002', 'due', ?)`, ts, ts)
+	refused("deuxième inscription confirmée", `INSERT INTO event_registrations (event_id, member_id, status, registered_at, amount_cents, payment_reference, payment_status, updated_at)
+		VALUES (1, 1, 'confirmed', ?, 3500, 'EVT-2627-0003', 'due', ?)`, ts, ts)
+	refused("tentative à deux cibles", `INSERT INTO online_payments (membership_id, registration_id, environment, amount_cents, status, created_at, updated_at)
+		VALUES (1, 2, 'sandbox', 3500, 'pending', ?, ?)`, ts, ts)
+	refused("tentative sans cible", `INSERT INTO online_payments (environment, amount_cents, status, created_at, updated_at)
+		VALUES ('sandbox', 3500, 'pending', ?, ?)`, ts, ts)
+	exec(`INSERT INTO online_payments (id, registration_id, environment, amount_cents, status, created_at, updated_at)
+		VALUES (8, 2, 'sandbox', 3500, 'pending', ?, ?)`, ts, ts)
+	exec(`INSERT INTO payment_alerts (registration_id, online_payment_id, kind, created_at) VALUES (2, 8, 'unverified', ?)`, ts)
+	refused("signalement à deux cibles", `INSERT INTO payment_alerts (membership_id, registration_id, online_payment_id, kind, created_at) VALUES (1, 2, 8, 'duplicate', ?)`, ts)
+
+	exec(`INSERT INTO event_registrations_fts (event_registrations_fts) VALUES ('integrity-check')`)
+	exec(`DELETE FROM members WHERE id = 1`)
+	var n int
+	for _, q := range []string{
+		`SELECT count(*) FROM event_registrations`,
+		`SELECT count(*) FROM online_payments`,
+		`SELECT count(*) FROM payment_alerts`,
+	} {
+		if err := db.QueryRow(q).Scan(&n); err != nil || n != 0 {
+			t.Errorf("%s = %d après suppression de la fiche (%v)", q, n, err)
+		}
+	}
+	exec(`INSERT INTO event_registrations_fts (event_registrations_fts) VALUES ('integrity-check')`)
+
+	if _, err := provider.DownTo(ctx, 11); err != nil {
+		t.Fatalf("retour arrière : %v", err)
+	}
+	foreignKeysOn()
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("réapplication : %v", err)
+	}
+	foreignKeysOn()
+}

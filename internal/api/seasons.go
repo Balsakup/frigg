@@ -13,6 +13,7 @@ import (
 
 	"github.com/balsakup/frigg/internal/auth"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/event"
 	"github.com/balsakup/frigg/internal/season"
 )
 
@@ -28,6 +29,7 @@ const (
 	MsgPreviousDraft     = "Ouvrez d'abord la saison %s."
 	MsgDeleteOpened      = "Une saison qui a été ouverte ne peut pas être supprimée."
 	MsgDeleteLastOnly    = "Seule la dernière saison peut être supprimée."
+	MsgSeasonHasEvents   = "Cette saison a des événements : supprimez-les ou déplacez-les d'abord."
 
 	MsgInvalidDate       = "Saisissez une date valide."
 	MsgEndBeforeStart    = "La date de fin doit être postérieure à la date de début."
@@ -410,6 +412,16 @@ func (s *server) updateSeason(ctx context.Context, in *UpdateSeasonInput) (*Seas
 		if plan, err = season.ValidateUpdate(seasons, i, start, end, today); err != nil {
 			return err
 		}
+		// Un événement ne doit jamais sortir de sa saison (012 › R8), ni de
+		// celle qui suit si son début est décalé.
+		if err := eventsStayInSeason(ctx, q, in.ID, plan.StartsOn, plan.EndsOn); err != nil {
+			return err
+		}
+		if plan.NextID != 0 {
+			if err := eventsStayInSeason(ctx, q, plan.NextID, plan.NextStartsOn, seasons[i+1].EndsOn); err != nil {
+				return err
+			}
+		}
 		if err := q.UpdateSeasonDates(ctx, sqlc.UpdateSeasonDatesParams{ID: in.ID, StartsOn: plan.StartsOn.String(), EndsOn: plan.EndsOn.String()}); err != nil {
 			return err
 		}
@@ -479,10 +491,31 @@ func (s *server) duplicateSeason(ctx context.Context, in *SeasonIDInput) (*Seaso
 	return s.seasonOutput(ctx, id)
 }
 
+// eventsStayInSeason refuse des bornes qui laisseraient un événement de la
+// saison hors de ses dates locales (012 › R8).
+func eventsStayInSeason(ctx context.Context, q *sqlc.Queries, seasonID int64, starts, ends season.Date) error {
+	from, to := event.SeasonBounds(starts, ends)
+	n, err := q.CountEventsOutsideSeason(ctx, sqlc.CountEventsOutsideSeasonParams{
+		SeasonID: seasonID, FromInstant: from.Format(timeFormat), ToInstant: to.Format(timeFormat),
+	})
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return huma.Error409Conflict(fmt.Sprintf("%d événement(s) sortiraient de la saison : modifiez-les d'abord.", n))
+	}
+	return nil
+}
+
 func (s *server) deleteSeason(ctx context.Context, in *SeasonIDInput) (*struct{}, error) {
 	err := s.seasonWrite(ctx, in.ID, func(q *sqlc.Queries, seasons []season.Season, i int, _ season.Date) error {
 		if err := season.CanDelete(seasons, i); err != nil {
 			return err
+		}
+		if n, err := q.CountEventsOfSeason(ctx, in.ID); err != nil {
+			return err
+		} else if n > 0 {
+			return huma.Error409Conflict(MsgSeasonHasEvents)
 		}
 		_, err := q.DeleteSeason(ctx, in.ID)
 		return err

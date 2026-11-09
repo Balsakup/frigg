@@ -487,3 +487,7 @@ l'avertissement.
 - **Ordre des moyens** : la carte bancaire est présentée en premier lorsqu'elle
   est activée, le paiement en ligne étant le plus simple pour l'adhérent et le
   bureau.
+- **Inscriptions aux événements** : le paiement par carte, sa constatation,
+  les notifications, les signalements et les remboursements s'appliquent aussi
+  aux inscriptions payantes de la spécification 012 « Événements de
+  l'association », par la même adresse de notification.

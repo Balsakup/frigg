@@ -1,6 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, RefreshCw } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { type AdminMembership, invalidateMemberships, membershipQuery } from "~/api/memberships";
@@ -15,7 +14,6 @@ import {
   formatDate,
   formatDay,
   formatMoney,
-  type ManualPaymentMethod,
   type MembershipKind,
   membershipKindLabel,
   paymentMethodLabel,
@@ -23,15 +21,21 @@ import {
 } from "~/lib/format";
 import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
 import { MembershipBadges } from "~/memberships/MembershipBadges";
+import {
+  DialogShell,
+  errorMessage,
+  HelloAssoOrder,
+  OnlinePaymentsPanel,
+  PaymentAlertsPanel,
+  RecordPaymentDialog,
+} from "~/payments/AdminPayments";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
 import { Button } from "~/ui/Button";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
-import { Field, TextAreaField } from "~/ui/Field";
-import { Icon } from "~/ui/Icon";
+import { TextAreaField } from "~/ui/Field";
 import { RadioGroup } from "~/ui/RadioGroup";
-import { Table } from "~/ui/Table";
 import NotFound from "../not-found";
 import type { Route } from "./+types/membership-detail";
 
@@ -60,24 +64,6 @@ const kindOptions: { value: MembershipKind; label: string }[] = [
   { value: "first", label: "Première adhésion" },
   { value: "renewal", label: "Renouvellement" },
 ];
-
-const methodOptions: { value: ManualPaymentMethod; label: string }[] = [
-  { value: "cash", label: "Espèces" },
-  { value: "cheque", label: "Chèque" },
-  { value: "transfer", label: "Virement" },
-];
-
-function errorMessage(e: unknown) {
-  if (!isProblem(e)) return "Une erreur inattendue s'est produite.";
-  return (
-    e.errors?.map((x) => x.message).join(" ") || e.detail || "Une erreur inattendue s'est produite."
-  );
-}
-
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 // Détail d'une adhésion et décisions de l'administration (006, US2, US4, US7).
 export default function AdminMembershipDetail({ params }: Route.ComponentProps) {
@@ -355,29 +341,6 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
   );
 }
 
-interface DialogShellProps {
-  title: string;
-  trigger: ReactElement;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  children: React.ReactNode;
-}
-
-function DialogShell({ title, trigger, open, onOpenChange, children }: DialogShellProps) {
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Trigger render={trigger} />
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-ink/50" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-line bg-surface p-6 text-ink shadow-xl outline-none">
-          <Dialog.Title className="font-display text-xl font-bold">{title}</Dialog.Title>
-          {children}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
-  );
-}
-
 interface ActionProps {
   membership: AdminMembership;
   onDone: (message: string) => Promise<void>;
@@ -576,264 +539,46 @@ function ReasonDialog({
   );
 }
 
-// Constatation du paiement (US4 §9).
+// Constatation du paiement (US4 §9) : dialogue partagé (payments/).
 function PaymentDialog({ membership: m, onDone, onError }: ActionProps) {
-  const [open, setOpen] = useState(false);
-  const initialMethod = (m.payment?.announcedMethod ?? "") as ManualPaymentMethod | "";
-  const [method, setMethod] = useState<ManualPaymentMethod | "">(initialMethod);
-  const [receivedOn, setReceivedOn] = useState(todayISO());
-  const [note, setNote] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const record = $api.useMutation("post", "/admin/memberships/{id}/payment");
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!method) {
-      setErrors({ method: "Choisissez le moyen de paiement." });
-      return;
-    }
-    try {
-      await record.mutateAsync({
-        params: { path: { id: m.id } },
-        body: { method, receivedOn, ...(note.trim() ? { note } : {}) },
-      });
-    } catch (err) {
-      if (isProblem(err) && err.status === 422) {
-        const next: Record<string, string> = {};
-        for (const x of err.errors ?? [])
-          next[x.location?.replace("body.", "") ?? "root"] = x.message ?? "";
-        setErrors(next);
-        return;
-      }
-      setOpen(false);
-      await onError(err);
-      return;
-    }
-    setOpen(false);
-    await onDone("Paiement enregistré.");
-  };
-
   return (
-    <DialogShell
-      title="Marquer comme payée"
-      trigger={<Button>Marquer comme payée</Button>}
-      open={open}
-      onOpenChange={(o) => {
-        if (o) {
-          setMethod(initialMethod);
-          setReceivedOn(todayISO());
-          setNote("");
-          setErrors({});
-        }
-        setOpen(o);
-      }}
-    >
-      <form onSubmit={submit} noValidate className="mt-4 flex flex-col gap-5">
-        <p className="text-muted">
-          {formatAmount(m.amountCents)} · référence {m.payment?.reference}
-        </p>
-        <RadioGroup
-          legend="Moyen de paiement"
-          required
-          value={method}
-          onValueChange={setMethod}
-          error={errors.method}
-          options={methodOptions}
-        />
-        <Field
-          label="Date de réception"
-          type="date"
-          required
-          value={receivedOn}
-          onChange={(e) => setReceivedOn(e.target.value)}
-          error={errors.receivedOn}
-          className="max-w-56"
-        />
-        <TextAreaField
-          label="Commentaire (facultatif)"
-          maxLength={200}
-          hint="Par exemple le numéro du chèque."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          error={errors.note}
-        />
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Dialog.Close render={<Button variant="secondary">Annuler</Button>} />
-          <Button type="submit" aria-disabled={record.isPending}>
-            Enregistrer le paiement
-          </Button>
-        </div>
-      </form>
-    </DialogShell>
-  );
-}
-
-const onlineStatus: Record<
-  string,
-  { label: string; tone: "success" | "info" | "danger" | "muted" }
-> = {
-  pending: { label: "En cours", tone: "info" },
-  succeeded: { label: "Réussi", tone: "success" },
-  failed: { label: "Échoué", tone: "danger" },
-  abandoned: { label: "Abandonné", tone: "muted" },
-  expired: { label: "Expiré", tone: "muted" },
-  refunded: { label: "Remboursé", tone: "info" },
-};
-
-const onlineErrors: Record<string, string> = {
-  unavailable: "HelloAsso injoignable",
-  unauthorized: "identifiants HelloAsso refusés",
-  forbidden: "droits HelloAsso insuffisants",
-  payment_error: "paiement refusé ou erreur chez HelloAsso",
-  environment_changed: "changement d'environnement HelloAsso",
-  no_checkout: "page de paiement non créée",
-  redirect_host: "réponse inattendue de HelloAsso",
-};
-
-const alertLabels: Record<string, string> = {
-  duplicate: "Paiement en double — remboursement à effectuer dans HelloAsso.",
-  amount_mismatch: "Montant reçu différent du montant attendu.",
-  refund_due: "Paiement par carte reçu — remboursement à effectuer dans HelloAsso.",
-  unverified: "Paiement par carte à vérifier dans HelloAsso.",
-};
-
-function HelloAssoOrder({ orderId, url }: { orderId: number; url?: string | null }) {
-  if (!url) return <>n° {orderId}</>;
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-brand-ink underline underline-offset-2"
-    >
-      n° {orderId}
-      <Icon icon={ExternalLink} className="h-4 w-4" />
-      <span className="sr-only"> (espace HelloAsso, nouvel onglet)</span>
-    </a>
+    <RecordPaymentDialog
+      amountCents={m.amountCents}
+      reference={m.payment?.reference}
+      announcedMethod={m.payment?.announcedMethod}
+      record={(body) => record.mutateAsync({ params: { path: { id: m.id } }, body })}
+      onDone={onDone}
+      onError={onError}
+    />
   );
 }
 
 // Signalements de paiement à traiter (008, US3).
 function PaymentAlerts({ membership: m, onDone, onError }: ActionProps) {
   const resolve = $api.useMutation("post", "/admin/payment-alerts/{id}/resolve");
-  const open = (m.alerts ?? []).filter((a) => !a.resolvedAt);
-  if (open.length === 0) return null;
   return (
-    <div className="flex flex-col gap-3">
-      {open.map((alert) => (
-        <Alert
-          key={alert.id}
-          kind="warning"
-          actions={
-            <ConfirmDialog
-              title="Marquer ce signalement comme traité ?"
-              confirmLabel="Marquer comme traité"
-              onConfirm={async () => {
-                try {
-                  await resolve.mutateAsync({ params: { path: { id: alert.id } } });
-                } catch (e) {
-                  await onError(e);
-                  return;
-                }
-                await onDone("Signalement traité.");
-              }}
-              trigger={
-                <Button variant="secondary" size="sm">
-                  Marquer comme traité
-                </Button>
-              }
-            >
-              <p>{alertLabels[alert.kind]}</p>
-              <p className="mt-2">Le signalement disparaîtra du tableau de bord.</p>
-            </ConfirmDialog>
-          }
-        >
-          {alertLabels[alert.kind]}{" "}
-          <span className="text-muted">(signalé le {formatDate(alert.createdAt)})</span>
-        </Alert>
-      ))}
-    </div>
+    <PaymentAlertsPanel
+      alerts={m.alerts ?? []}
+      resolve={(id) => resolve.mutateAsync({ params: { path: { id } } })}
+      onDone={onDone}
+      onError={onError}
+    />
   );
 }
 
 // Tentatives de paiement par carte et vérification auprès de HelloAsso (008, US3).
 function OnlinePayments({ membership: m, onDone, onError }: ActionProps) {
   const verify = $api.useMutation("post", "/admin/memberships/{id}/card-payment/verify");
-  const ops = m.onlinePayments ?? [];
-  if (ops.length === 0) return null;
-  const onVerify = async () => {
-    if (verify.isPending) return;
-    try {
-      await verify.mutateAsync({ params: { path: { id: m.id } } });
-    } catch (e) {
-      await onError(e);
-      return;
-    }
-    await onDone("Vérification auprès de HelloAsso effectuée.");
-  };
   return (
-    <section
-      aria-labelledby="paiements-en-ligne"
-      className="rounded-lg border border-line bg-surface"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
-        <h2 id="paiements-en-ligne" className="font-display text-lg font-bold">
-          Paiements en ligne
-        </h2>
-        {m.actions.verifyCardPayment ? (
-          <Button variant="secondary" size="sm" onClick={onVerify} aria-disabled={verify.isPending}>
-            <Icon icon={RefreshCw} className="h-4 w-4" />
-            {verify.isPending ? "Vérification…" : "Vérifier auprès de HelloAsso"}
-          </Button>
-        ) : null}
-      </div>
-      {m.cardPaymentPending ? (
-        <p className="px-5 pt-2 text-muted">Un paiement par carte est en cours.</p>
-      ) : null}
-      <div className="mt-3 pb-2">
-        <Table
-          caption="Tentatives de paiement par carte"
-          columns={[
-            { key: "date", label: "Date" },
-            { key: "status", label: "État" },
-            { key: "amount", label: "Montant" },
-            { key: "order", label: "Commande HelloAsso" },
-          ]}
-        >
-          {ops.map((o) => (
-            <tr key={o.id} className="border-b border-line">
-              <td className="whitespace-nowrap px-5 py-2.5">{formatDate(o.createdAt)}</td>
-              <td className="px-5 py-2.5">
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  <Badge tone={onlineStatus[o.status]?.tone ?? "muted"}>
-                    {onlineStatus[o.status]?.label ?? o.status}
-                  </Badge>
-                  {o.environment === "sandbox" ? <Badge tone="warning">Mode test</Badge> : null}
-                </span>
-                {o.errorCode ? (
-                  <span className="block text-sm text-muted">
-                    {onlineErrors[o.errorCode] ?? o.errorCode}
-                  </span>
-                ) : null}
-              </td>
-              <td className="whitespace-nowrap px-5 py-2.5">
-                {formatMoney(o.receivedAmountCents ?? o.amountCents)}
-                {o.receivedAmountCents !== null &&
-                o.receivedAmountCents !== undefined &&
-                o.receivedAmountCents !== o.amountCents ? (
-                  <span className="block text-sm text-muted">
-                    attendu {formatMoney(o.amountCents)}
-                  </span>
-                ) : null}
-              </td>
-              <td className="px-5 py-2.5">
-                {o.orderId ? <HelloAssoOrder orderId={o.orderId} url={o.helloassoUrl} /> : "—"}
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </div>
-    </section>
+    <OnlinePaymentsPanel
+      ops={m.onlinePayments ?? []}
+      pending={m.cardPaymentPending}
+      canVerify={m.actions.verifyCardPayment}
+      verify={() => verify.mutateAsync({ params: { path: { id: m.id } } })}
+      onDone={onDone}
+      onError={onError}
+    />
   );
 }
 

@@ -36,6 +36,11 @@ const appearanceSpec = /appearance\.spec\.ts/;
 const customFieldsPort = 8096;
 const customFieldsDb = "../data/e2e/frigg-champs.db";
 const customFieldsSpec = /custom-fields\.spec\.ts/;
+// Septième serveur pour les événements (012) : jeu des adhésions, une famille
+// et des événements d'exemple ; les événements sont visibles de tous.
+const eventsPort = 8097;
+const eventsDb = "../data/e2e/frigg-evenements.db";
+const eventsSpecs = /(events|admin-events)\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -79,6 +84,7 @@ export default defineConfig({
         generalSpec,
         appearanceSpec,
         customFieldsSpec,
+        eventsSpecs,
       ],
     },
     {
@@ -129,6 +135,11 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${customFieldsPort}` },
       testMatch: customFieldsSpec,
     },
+    {
+      name: "evenements",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${eventsPort}` },
+      testMatch: eventsSpecs,
+    },
   ],
   webServer: [
     {
@@ -178,6 +189,12 @@ export default defineConfig({
       url: `http://localhost:${customFieldsPort}`,
       reuseExistingServer: false,
       env: serverEnv(customFieldsDb, customFieldsPort, "../data/e2e/files-champs"),
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${eventsDb} evenements && ../bin/frigg serve`,
+      url: `http://localhost:${eventsPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(eventsDb, eventsPort, "../data/e2e/files-evenements"),
     },
   ],
 });

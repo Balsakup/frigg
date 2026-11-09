@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/balsakup/frigg/internal/api"
@@ -69,5 +70,27 @@ func TestDeleteSeason(t *testing.T) {
 	expectProblem(t, admin.Do("DELETE", seasonPath(second.ID, ""), nil), http.StatusConflict, api.MsgDeleteOpened)
 	if n := seasonLogs(t, env, "season.delete"); n != 1 {
 		t.Fatalf("%d ligne(s) season.delete", n)
+	}
+}
+
+// Un événement ne sort jamais de sa saison ; une saison qui a des événements
+// ne peut pas être supprimée (012 › R8).
+func TestSeasonDatesKeepEvents(t *testing.T) {
+	f := newEvFixture(t)
+	ev := f.createEvent(t, eventBody("AG"))
+
+	res := f.admin.Do("PATCH", seasonPath(f.season.ID, ""), map[string]string{"endsOn": "2026-11-30"})
+	if res.Status != http.StatusConflict || !strings.Contains(string(res.Body), "1 événement(s) sortiraient") {
+		t.Fatalf("fin avant l'événement : %d %s", res.Status, res.Body)
+	}
+	expectSeason(t, f.admin.Do("PATCH", seasonPath(f.season.ID, ""), map[string]string{"endsOn": "2027-07-31"}), http.StatusOK)
+
+	next := createSeason(t, f.admin, "2027-08-01", "2028-07-31")
+	f.createEvent(t, eventBody("Rentrée", func(b map[string]any) {
+		b["startsAt"], b["endsAt"] = "2027-09-05T10:00", "2027-09-05T12:00"
+	}))
+	expectProblem(t, f.admin.Do("DELETE", seasonPath(next.ID, ""), nil), http.StatusConflict, api.MsgSeasonHasEvents)
+	if res := f.admin.Do("DELETE", eventPath(ev.ID, ""), nil); res.Status != http.StatusNoContent {
+		t.Fatalf("suppression du brouillon : %d %s", res.Status, res.Body)
 	}
 }

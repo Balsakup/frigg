@@ -176,6 +176,9 @@ func (s *server) memberOutput(ctx context.Context, id int64) (*AdminMemberOutput
 		return nil, s.internalError(ctx, "lecture des adhésions impossible", err)
 	}
 	out.Memberships = ms
+	if out.PaidUpcomingRegistrations, err = s.paidUpcoming(ctx, id); err != nil {
+		return nil, s.internalError(ctx, "lecture des inscriptions impossible", err)
+	}
 	return &AdminMemberOutput{Body: out}, nil
 }
 

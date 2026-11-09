@@ -1,0 +1,11 @@
+{{define "subject"}}Inscription annulée : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+L'inscription à « {{.Event}} » ({{.When}}) a été annulée par le bureau de {{.Association}} pour :
+{{range .Members}}- {{.}}
+{{end}}{{if .Reason}}
+Motif : {{.Reason}}
+{{end}}{{if .Paid}}
+Cette inscription était réglée : le remboursement se fait directement avec l'association.
+{{end}}
+Pour toute question, contactez le bureau de l'association.{{end}}

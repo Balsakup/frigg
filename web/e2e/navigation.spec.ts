@@ -17,8 +17,8 @@ test.describe("navigation adaptée au rôle (US2)", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Accès refusé" })).toBeVisible();
     await expectNoBlockingA11yViolations(page);
 
-    await page.getByRole("link", { name: "Mes inscriptions" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Mes inscriptions" })).toBeVisible();
+    await page.getByRole("link", { name: "Mes documents" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Mes documents" })).toBeVisible();
     await expect(page.getByText("Bientôt disponible")).toBeVisible();
     await expectNoBlockingA11yViolations(page);
   });

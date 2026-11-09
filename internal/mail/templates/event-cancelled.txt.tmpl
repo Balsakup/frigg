@@ -1,0 +1,13 @@
+{{define "subject"}}Événement annulé : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+L'événement « {{.Event}} » prévu {{.When}} est annulé.
+{{if .Message}}
+Message de {{.Association}} :
+{{.Message}}
+{{end}}
+Inscription concernée :
+{{range .Members}}- {{.}}
+{{end}}{{if .Paid}}
+L'inscription était réglée : l'association reviendra vers vous pour le remboursement.
+{{end}}{{end}}

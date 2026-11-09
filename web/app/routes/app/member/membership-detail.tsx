@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useState } from "react";
+import { useNavigate } from "react-router";
 import { invalidateMemberships, type MyMembership, myMembershipQuery } from "~/api/memberships";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
@@ -13,17 +13,17 @@ import {
   formatDate,
   formatDay,
   membershipKindLabel,
-  type PaymentMethod,
   paymentMethodLabel,
 } from "~/lib/format";
-import { CardPaymentPanel } from "~/memberships/CardPaymentPanel";
 import { MembershipBadges } from "~/memberships/MembershipBadges";
-import { PaymentMethodInfo } from "~/memberships/PaymentMethodInfo";
+import {
+  CardReturn as SharedCardReturn,
+  PaymentSection as SharedPaymentSection,
+} from "~/payments/PaymentPanel";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Button } from "~/ui/Button";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
-import { RadioGroup } from "~/ui/RadioGroup";
 import NotFound from "../not-found";
 import type { Route } from "./+types/membership-detail";
 
@@ -180,206 +180,41 @@ function PaymentStatus({ membership: m }: { membership: MyMembership }) {
   return null;
 }
 
-// Choix du moyen de paiement (US4) : informations du moyen sélectionné et
-// confirmation du choix.
+// Paiement de l'adhésion (US4) : page de paiement partagée (payments/).
 function PaymentSection({ membership: m }: { membership: MyMembership }) {
   const qc = useQueryClient();
   const announce = $api.useMutation("put", "/me/memberships/{id}/payment");
-  const payment = m.payment;
-  const methods = m.paymentMethods ?? [];
-  const announced = payment?.announcedMethod ?? null;
-  const announcedAvailable = announced !== null && methods.some((x) => x.method === announced);
-  const [choice, setChoice] = useState<PaymentMethod | "">(announcedAvailable ? announced : "");
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  if (!payment) return null;
-  const selected = methods.find((x) => x.method === choice);
-  const card = methods.find((x) => x.method === "card");
-
-  const onConfirm = async () => {
-    setError("");
-    setStatus("");
-    if (!choice) {
-      setError("Choisissez un moyen de paiement.");
-      return;
-    }
-    try {
-      await announce.mutateAsync({ params: { path: { id: m.id } }, body: { method: choice } });
-    } catch (e) {
-      setError(
-        isProblem(e)
-          ? (e.errors?.[0]?.message ?? e.detail ?? "")
-          : "Une erreur inattendue s'est produite.",
-      );
-      await invalidateMemberships(qc);
-      return;
-    }
-    await invalidateMemberships(qc);
-    setStatus("Moyen de paiement enregistré.");
-  };
-
+  const start = $api.useMutation("post", "/me/memberships/{id}/card-payment");
+  if (!m.payment) return null;
+  const path = { params: { path: { id: m.id } } };
   return (
-    <section
-      aria-labelledby="paiement"
-      className="rounded-lg border border-brand-ink/40 bg-surface p-5"
-    >
-      <h2 id="paiement" className="font-display text-lg font-bold">
-        Paiement
-      </h2>
-      <p className="mt-2 text-lg">
-        Montant : <span className="font-bold">{formatAmount(m.amountCents)}</span>
-        <br />
-        Référence : <span className="font-bold">{payment.reference}</span>
-      </p>
-      <p role="status" className="sr-only">
-        {status}
-      </p>
-      {status ? (
-        <Alert kind="success" className="mt-4">
-          {status}
-        </Alert>
-      ) : null}
-      {announced !== null && !announcedAvailable ? (
-        <Alert kind="warning" className="mt-4">
-          Ce moyen n'est plus proposé. Choisissez-en un autre.
-        </Alert>
-      ) : null}
-      {card?.test ? (
-        <Alert kind="warning" className="mt-4">
-          Mode test — aucun débit réel.
-        </Alert>
-      ) : null}
-      {methods.length === 0 ? (
-        <Alert kind="info" className="mt-4">
-          Contactez le bureau pour régler cette adhésion.
-        </Alert>
-      ) : (
-        <div className="mt-4 flex flex-col gap-4">
-          <RadioGroup
-            legend="Comment souhaitez-vous payer ?"
-            value={choice}
-            onValueChange={setChoice}
-            error={error}
-            options={methods.map((x) => ({ value: x.method, label: paymentMethodLabel(x.method) }))}
-          />
-          {selected && selected.method === "card" ? (
-            <div className="rounded-md border border-line bg-canvas p-4">
-              <CardPaymentPanel
-                membershipId={m.id}
-                amountCents={selected.amountCents ?? m.amountCents}
-              />
-            </div>
-          ) : null}
-          {selected && selected.method !== "card" ? (
-            <div className="rounded-md border border-line bg-canvas p-4">
-              <PaymentMethodInfo info={selected} reference={payment.reference} />
-            </div>
-          ) : null}
-          {choice !== "card" ? (
-            <div>
-              <Button onClick={onConfirm} aria-disabled={announce.isPending}>
-                {announcedAvailable ? "Changer de moyen" : "Confirmer ce moyen de paiement"}
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      )}
-    </section>
+    <SharedPaymentSection
+      amountCents={m.amountCents}
+      payment={m.payment}
+      methods={m.paymentMethods ?? []}
+      announce={(method) => announce.mutateAsync({ ...path, body: { method } })}
+      startCard={() => start.mutateAsync(path)}
+      refresh={() => invalidateMemberships(qc)}
+      subject="cette adhésion"
+    />
   );
 }
 
-const outcomes = { retour: "return", erreur: "error", annule: "back" } as const;
-type Outcome = (typeof outcomes)[keyof typeof outcomes];
-const pollEvery = 3000;
-const pollTries = 10;
-
-// Retour de HelloAsso (008, US1) : la page vérifie la tentative auprès du
-// serveur, qui seul interroge HelloAsso, puis retire les paramètres de
-// l'adresse pour qu'un rechargement ne rejoue rien.
+// Retour de HelloAsso (008, US1).
 function CardReturn({ membership: m }: { membership: MyMembership }) {
   const qc = useQueryClient();
-  const [params, setParams] = useSearchParams();
   const confirm = $api.useMutation("post", "/me/memberships/{id}/card-payment/confirm");
-  const [state, setState] = useState<"" | "pending" | "succeeded" | "failed" | "late">("");
-  const started = useRef(false);
-
-  useEffect(() => {
-    const outcome = outcomes[params.get("carte") as keyof typeof outcomes] as Outcome | undefined;
-    const attempt = Number(params.get("tentative"));
-    if (started.current || !outcome || !Number.isInteger(attempt) || attempt <= 0) return;
-    started.current = true;
-    setParams({}, { replace: true });
-    if (outcome === "back") {
-      // Retour sans payer : la tentative est close, la page de paiement reste.
-      confirm.mutate({
-        params: { path: { id: m.id } },
-        body: { onlinePaymentId: attempt, outcome },
-      });
-      return;
-    }
-    let tries = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const check = async () => {
-      tries++;
-      try {
-        const out = await confirm.mutateAsync({
+  return (
+    <SharedCardReturn
+      confirm={(attempt, outcome) =>
+        confirm.mutateAsync({
           params: { path: { id: m.id } },
           body: { onlinePaymentId: attempt, outcome },
-        });
-        await invalidateMemberships(qc);
-        if (out.status === "succeeded") return setState("succeeded");
-        if (out.status === "failed" || out.status === "abandoned" || out.status === "expired")
-          return setState("failed");
-      } catch {
-        // Erreur passagère : on réessaie comme pour un paiement en cours.
+        })
       }
-      if (tries >= pollTries) return setState("late");
-      setState("pending");
-      timer = setTimeout(check, pollEvery);
-    };
-    setState("pending");
-    void check();
-    return () => clearTimeout(timer);
-  }, [params, setParams, confirm, m.id, qc]);
-
-  const messages = {
-    "": null,
-    pending: (
-      <Alert kind="info" className="max-w-3xl">
-        Confirmation du paiement en cours…
-      </Alert>
-    ),
-    succeeded: (
-      <Alert kind="success" className="max-w-3xl">
-        Paiement reçu, merci. L'adhésion de {m.member.firstName} est réglée.
-      </Alert>
-    ),
-    failed: (
-      <Alert kind="danger" className="max-w-3xl">
-        Le paiement n'a pas abouti. Aucune somme n'a été débitée. Vous pouvez réessayer ou choisir
-        un autre moyen de paiement.
-      </Alert>
-    ),
-    late: (
-      <Alert kind="info" className="max-w-3xl">
-        Votre paiement sera confirmé dans quelques minutes ; vous recevrez un e-mail.
-      </Alert>
-    ),
-  };
-  const spoken = {
-    "": "",
-    pending: "Confirmation du paiement en cours.",
-    succeeded: "Paiement reçu, merci.",
-    failed: "Le paiement n'a pas abouti. Aucune somme n'a été débitée.",
-    late: "Votre paiement sera confirmé dans quelques minutes.",
-  };
-  return (
-    <>
-      <p role="status" className="sr-only">
-        {spoken[state]}
-      </p>
-      {messages[state]}
-    </>
+      refresh={() => invalidateMemberships(qc)}
+      successMessage={`Paiement reçu, merci. L'adhésion de ${m.member.firstName} est réglée.`}
+    />
   );
 }
 

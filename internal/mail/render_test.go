@@ -165,3 +165,48 @@ func TestWrapFooterAndPreview(t *testing.T) {
 		t.Errorf("aperçu : %s", prev.HTML)
 	}
 }
+
+// Modèles des événements (012). Un titre contenant du balisage est échappé
+// dans le HTML (spec 012, Edge Cases).
+func TestRenderEventTemplates(t *testing.T) {
+	data := Data{
+		Association: "Club de Frigg", Event: "Stage <b>printemps</b>", When: "samedi 12 décembre 2026 de 14 h à 17 h",
+		Location: "Gymnase", Members: []string{"Lucas Martin", "Claire Martin"}, Amount: "70,00 €",
+		Reference: "EVT-2627-0001, EVT-2627-0002", Link: "https://frigg.example/a-regler", Method: "chèque",
+		PreviousWhen: "vendredi 11 décembre 2026 de 14 h à 17 h", PreviousLocation: "Salle", Message: "Salle indisponible.",
+		Paid: true, Reason: "Paiement remboursé dans HelloAsso.",
+	}
+	cases := []struct {
+		name     string
+		subject  string
+		contains []string
+	}{
+		{"registration-confirmed", "Inscription confirmée : Stage <b>printemps</b>", []string{"Lucas Martin", "Claire Martin", "70,00 €", "EVT-2627-0002", data.Link}},
+		{"registration-paid", "Paiement reçu : Stage <b>printemps</b>", []string{"chèque", "EVT-2627-0001"}},
+		{"registration-removed", "Inscription annulée : Stage <b>printemps</b>", []string{"remboursement", "Paiement remboursé"}},
+		{"event-changed", "Changement : Stage <b>printemps</b>", []string{"Gymnase", "auparavant : Salle", "vendredi 11 décembre"}},
+		{"event-cancelled", "Événement annulé : Stage <b>printemps</b>", []string{"Salle indisponible.", "remboursement"}},
+		{"event-restored", "Événement rétabli : Stage <b>printemps</b>", []string{"Gymnase", "Claire Martin"}},
+	}
+	for _, c := range cases {
+		msg, err := Render(c.name, data)
+		if err != nil {
+			t.Fatalf("%s : %v", c.name, err)
+		}
+		if msg.Subject != c.subject {
+			t.Errorf("%s : objet %q", c.name, msg.Subject)
+		}
+		for _, want := range c.contains {
+			if !strings.Contains(msg.Text, want) || !strings.Contains(msg.HTML, strings.ReplaceAll(want, "€", "€")) {
+				t.Errorf("%s : %q absent du texte ou du HTML", c.name, want)
+			}
+		}
+		if strings.Contains(msg.HTML, "<b>printemps</b>") {
+			t.Errorf("%s : balisage du titre interprété dans le HTML", c.name)
+		}
+	}
+	free, err := Render("registration-confirmed", Data{Association: "Club", Event: "AG", When: "w", Location: "l", Members: []string{"Lucas"}})
+	if err != nil || strings.Contains(free.Text, "Montant") {
+		t.Fatalf("inscription gratuite : %v %q", err, free.Text)
+	}
+}

@@ -58,6 +58,9 @@ type Member struct {
 	UpdatedAt time.Time      `json:"updatedAt"`
 	// CustomFields n'est renseigné que sur la fiche, pas dans les listes (011).
 	CustomFields []FieldValue `json:"customFields,omitempty" required:"false" doc:"Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage"`
+	// PaidUpcomingRegistrations n'est renseigné que sur la fiche : dialogue de
+	// suppression (012 › R14).
+	PaidUpcomingRegistrations *int64 `json:"paidUpcomingRegistrations,omitempty" required:"false" doc:"Inscriptions payées à des événements à venir"`
 }
 
 // MemberAccount est le compte qui gère une fiche.

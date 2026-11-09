@@ -123,3 +123,33 @@ test.describe("paiement par carte (008)", () => {
     await expect(main.getByText(/remboursement à effectuer dans HelloAsso/)).toHaveCount(0);
   });
 });
+
+// Paiement par carte d'une inscription à un événement (012, US4) : même
+// circuit que les adhésions, retour sur la page de l'inscription.
+test.describe("paiement par carte d'une inscription (012)", () => {
+  test("payer une inscription par carte", async ({ page }) => {
+    const email = "membre-carte-evenement@exemple.fr";
+    await login(page, email);
+    const main = page.locator("#contenu");
+    await page.getByRole("link", { name: "À régler" }).click();
+    await main.getByRole("link", { name: "Payer Journée découverte" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Paiement" })).toBeVisible();
+    await main.getByRole("radio", { name: "Carte bancaire" }).click();
+    await expectNoBlockingA11yViolations(page);
+
+    const since = new Date();
+    await main.getByRole("button", { name: "Payer 25,00 € par carte" }).click();
+    await expect(page.getByRole("heading", { name: "HelloAsso (test)" })).toBeVisible();
+    await expect(page.getByText(/Journée découverte/)).toBeVisible();
+    await expect(page.getByText(/Alix/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Payer", exact: true }).click();
+    await expect(page).toHaveURL(/\/mes-inscriptions\/\d+$/);
+    await expect(
+      main.getByText("Paiement reçu, merci. L'inscription d'Alix est réglée."),
+    ).toBeVisible();
+    await expect(main.getByText("Mode test", { exact: true }).first()).toBeVisible();
+    await expectNoBlockingA11yViolations(page);
+    const text = await waitForMail(email, since, "Paiement reçu");
+    expect(text).toContain("carte bancaire");
+  });
+});

@@ -1,0 +1,12 @@
+{{define "subject"}}Changement : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+L'événement « {{.Event}} », auquel vous êtes inscrit, a changé.
+
+Date : {{.When}}{{if ne .PreviousWhen .When}} (auparavant : {{.PreviousWhen}}){{end}}
+Lieu : {{.Location}}{{if ne .PreviousLocation .Location}} (auparavant : {{.PreviousLocation}}){{end}}
+
+Inscription concernée :
+{{range .Members}}- {{.}}
+{{end}}
+Si vous ne pouvez plus venir, annulez l'inscription dans « Mes inscriptions » ou prévenez l'association.{{end}}

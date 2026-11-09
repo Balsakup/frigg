@@ -180,7 +180,7 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 	}
 
 	op, err := s.Store.Write.CreateOnlinePayment(ctx, sqlc.CreateOnlinePaymentParams{
-		MembershipID: m.ID, AccountID: account, Environment: env, AmountCents: amount, Now: s.timestamp(),
+		MembershipID: nid(m.ID), AccountID: account, Environment: env, AmountCents: amount, Now: s.timestamp(),
 	})
 	if err != nil {
 		return nil, s.internalError(ctx, "création du paiement en ligne impossible", err)
@@ -189,15 +189,31 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 	req := helloasso.CheckoutRequest{
 		AmountCents: amount,
 		ItemName:    cardItemName(seasons[m.SeasonID].ref.Label, r.MembershipFee.Label, m.PaymentReference.String),
-		Payer:       &helloasso.Payer{Email: CurrentAccount(ctx).Email},
 		Metadata:    helloasso.Metadata{Payment: op.ID, Membership: m.ID, Reference: m.PaymentReference.String},
 	}
+	base := fmt.Sprintf("%s/adhesions/%d?tentative=%d&carte=", s.Config.BaseURL, m.ID, op.ID)
+	redirect, err := s.openCheckout(ctx, q, op.ID, base, req)
+	if err != nil {
+		return nil, err
+	}
+	s.Logger.InfoContext(ctx, "paiement en ligne démarré",
+		"membership_id", m.ID, "online_payment_id", op.ID,
+		"environment", env, "amount_cents", amount, "actor_id", account.Int64)
+	return &StartCardPaymentOutput{Body: StartCardPayment{RedirectURL: redirect, OnlinePaymentID: op.ID}}, nil
+}
+
+// openCheckout crée l'intention HelloAsso d'une tentative déjà enregistrée :
+// payeur prérempli (adresse du compte, prénom et nom de sa fiche « Vous »),
+// adresses de retour construites sur base, intention mémorisée. Commun aux
+// adhésions et aux inscriptions (012 › R4).
+func (s *server) openCheckout(ctx context.Context, q *sqlc.Queries, opID int64, base string, req helloasso.CheckoutRequest) (string, error) {
+	account := ownAccount(ctx)
+	req.Payer = &helloasso.Payer{Email: CurrentAccount(ctx).Email}
 	if self, err := q.GetSelfMemberOfAccount(ctx, account); err == nil {
 		req.Payer.FirstName, req.Payer.LastName = self.FirstName, self.LastName
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		return nil, s.internalError(ctx, "lecture de la fiche impossible", err)
+		return "", s.internalError(ctx, "lecture de la fiche impossible", err)
 	}
-	base := fmt.Sprintf("%s/adhesions/%d?tentative=%d&carte=", s.Config.BaseURL, m.ID, op.ID)
 	req.ReturnURL, req.ErrorURL, req.BackURL = base+"retour", base+"erreur", base+"annule"
 
 	intent, err := s.HelloAsso.CreateCheckout(ctx, req)
@@ -206,20 +222,18 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 		if errors.Is(err, helloasso.ErrRedirectHost) {
 			code = "redirect_host"
 		}
-		_ = s.Store.Write.FailOnlinePayment(ctx, sqlc.FailOnlinePaymentParams{ErrorCode: ns(code), Now: ns(s.timestamp()), ID: op.ID})
+		_ = s.Store.Write.FailOnlinePayment(ctx, sqlc.FailOnlinePaymentParams{ErrorCode: ns(code), Now: ns(s.timestamp()), ID: opID})
 		s.recordHelloAssoError(ctx, "create_checkout", err)
-		return nil, huma.Error503ServiceUnavailable(MsgCardUnavailableNow)
+		return "", huma.Error503ServiceUnavailable(MsgCardUnavailableNow)
 	}
 	if err := s.Store.Write.SetOnlinePaymentCheckout(ctx, sqlc.SetOnlinePaymentCheckoutParams{
-		CheckoutIntentID: nid(intent.ID), RedirectUrl: ns(intent.RedirectURL), Now: s.timestamp(), ID: op.ID,
+		CheckoutIntentID: nid(intent.ID), RedirectUrl: ns(intent.RedirectURL), Now: s.timestamp(), ID: opID,
 	}); err != nil {
-		return nil, s.internalError(ctx, "enregistrement du paiement en ligne impossible", err)
+		return "", s.internalError(ctx, "enregistrement du paiement en ligne impossible", err)
 	}
 	s.clearHelloAssoError(ctx)
-	s.Logger.InfoContext(ctx, "paiement en ligne démarré",
-		"membership_id", m.ID, "online_payment_id", op.ID, "checkout_intent_id", intent.ID,
-		"environment", env, "amount_cents", amount, "actor_id", account.Int64)
-	return &StartCardPaymentOutput{Body: StartCardPayment{RedirectURL: intent.RedirectURL, OnlinePaymentID: op.ID}}, nil
+	s.Logger.InfoContext(ctx, "intention HelloAsso créée", "online_payment_id", opID, "checkout_intent_id", intent.ID)
+	return intent.RedirectURL, nil
 }
 
 func (s *server) confirmMyCardPayment(ctx context.Context, in *ConfirmCardPaymentInput) (*ConfirmCardPaymentOutput, error) {
@@ -308,7 +322,8 @@ func (s *server) verifyOnlinePayment(ctx context.Context, id int64, source, hint
 			return status, fmt.Errorf("%w : %s", errHelloAssoUnavailable, helloasso.ErrorCode(err))
 		}
 		s.clearHelloAssoError(ctx)
-		if ch.Metadata == nil || ch.Metadata.Payment != op.ID || ch.Metadata.Membership != op.MembershipID {
+		if ch.Metadata == nil || ch.Metadata.Payment != op.ID || ch.Metadata.Membership != op.MembershipID.Int64 ||
+			ch.Metadata.Registration != op.RegistrationID.Int64 {
 			s.Logger.WarnContext(ctx, "intention HelloAsso sans rapport avec la tentative",
 				"online_payment_id", op.ID, "checkout_intent_id", op.CheckoutIntentID.Int64, "source", source)
 			return status, nil
@@ -334,27 +349,24 @@ func (s *server) verifyOnlinePayment(ctx context.Context, id int64, source, hint
 }
 
 // settleOnlinePayment applique la décision du domaine dans une transaction
-// d'écriture, après relecture de la tentative et de l'adhésion.
+// d'écriture, après relecture de la tentative et de sa cible (adhésion ou
+// inscription, 012 › R4).
 func (s *server) settleOnlinePayment(ctx context.Context, id int64, source string, v membership.Verified, orderID, paymentID int64) (membership.OnlineStatus, error) {
 	var result membership.OnlineStatus
 	var settled membership.Settlement
-	var membershipID int64
+	var attrs []any
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		op, err := q.GetOnlinePayment(ctx, id)
 		if err != nil {
 			return err
 		}
-		membershipID = op.MembershipID
-		r, err := q.GetMembership(ctx, op.MembershipID)
+		target, err := s.loadTarget(ctx, q, op)
 		if err != nil {
 			return err
 		}
-		seasons, _, err := seasonIndex(ctx, q, s.today())
-		if err != nil {
-			return err
-		}
+		attrs = target.logAttrs()
 		current := membership.OnlineStatus(op.Status)
-		settled = membership.SettleOnline(current, snapshotOf(r.Membership, seasons), v)
+		settled = membership.SettleOnline(current, target.snapshot(), v)
 		result = settled.NewStatus
 		if settled.NewStatus == current && !settled.RecordPayment && settled.Alert == membership.NoAlert {
 			return nil
@@ -374,13 +386,10 @@ func (s *server) settleOnlinePayment(ctx context.Context, id int64, source strin
 				return err
 			}
 			if settled.RecordPayment {
-				if _, err := q.RecordCardPayment(ctx, sqlc.RecordCardPaymentParams{
-					PaidOn: ns(season.Today(paidAt).String()), Now: ns(now), PaidAmountCents: nid(v.ReceivedCents),
-					OnlinePaymentID: nid(op.ID), ID: op.MembershipID,
-				}); err != nil {
+				if err := target.recordCard(ctx, q, season.Today(paidAt).String(), now, v.ReceivedCents, op.ID); err != nil {
 					return err
 				}
-				if err := s.notifyMembership(ctx, q, "membership-paid", op.MembershipID, false); err != nil {
+				if err := target.notifyPaid(ctx, q); err != nil {
 					return err
 				}
 			}
@@ -396,8 +405,9 @@ func (s *server) settleOnlinePayment(ctx context.Context, id int64, source strin
 			}
 		}
 		if settled.Alert != membership.NoAlert {
+			mID, rID := target.alertTarget()
 			return q.CreatePaymentAlert(ctx, sqlc.CreatePaymentAlertParams{
-				MembershipID: op.MembershipID, OnlinePaymentID: op.ID, Kind: string(settled.Alert), Now: now,
+				MembershipID: mID, RegistrationID: rID, OnlinePaymentID: op.ID, Kind: string(settled.Alert), Now: now,
 			})
 		}
 		return nil
@@ -405,65 +415,58 @@ func (s *server) settleOnlinePayment(ctx context.Context, id int64, source strin
 	if err != nil {
 		return "", err
 	}
-	attrs := []any{"online_payment_id", id, "membership_id", membershipID, "source", source, "outcome", string(result)}
+	logAttrs := append([]any{"online_payment_id", id}, attrs...)
+	logAttrs = append(logAttrs, "source", source, "outcome", string(result))
 	if orderID != 0 {
-		attrs = append(attrs, "order_id", orderID)
+		logAttrs = append(logAttrs, "order_id", orderID)
 	}
-	s.Logger.InfoContext(ctx, "paiement en ligne vérifié", attrs...)
+	s.Logger.InfoContext(ctx, "paiement en ligne vérifié", logAttrs...)
 	if settled.Alert != membership.NoAlert {
-		s.Logger.WarnContext(ctx, "signalement de paiement", "kind", string(settled.Alert), "online_payment_id", id, "membership_id", membershipID)
+		s.Logger.WarnContext(ctx, "signalement de paiement", append([]any{"kind", string(settled.Alert), "online_payment_id", id}, attrs...)...)
 	}
 	return result, nil
 }
 
 // settleRefund constate le remboursement vérifié d'un paiement réussi : la
-// tentative passe à « remboursée », l'adhésion qu'elle a réglée est annulée si
+// tentative passe à « remboursée », la cible qu'elle a réglée est annulée si
 // elle ne l'est pas déjà, et ses signalements sont clos.
 func (s *server) settleRefund(ctx context.Context, id int64, source string) (membership.OnlineStatus, error) {
-	var membershipID int64
+	var attrs []any
 	cancelled := false
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		op, err := q.GetOnlinePayment(ctx, id)
 		if err != nil {
 			return err
 		}
-		membershipID = op.MembershipID
+		attrs = targetAttrs(op)
 		current := membership.OnlineStatus(op.Status)
 		if current != membership.OnlineSucceeded {
 			return nil
 		}
-		r, err := q.GetMembership(ctx, op.MembershipID)
+		target, err := s.loadTarget(ctx, q, op)
 		if err != nil {
 			return err
 		}
-		seasons, _, err := seasonIndex(ctx, q, s.today())
-		if err != nil {
+		now := s.timestamp()
+		if _, err := q.RefundOnlinePayment(ctx, sqlc.RefundOnlinePaymentParams{Now: ns(now), ID: op.ID}); err != nil {
 			return err
 		}
-		now := ns(s.timestamp())
-		m := r.Membership
-		paidByIt := m.PaidOnlinePaymentID.Valid && m.PaidOnlinePaymentID.Int64 == op.ID
-		if _, err := q.RefundOnlinePayment(ctx, sqlc.RefundOnlinePaymentParams{Now: now, ID: op.ID}); err != nil {
-			return err
-		}
-		if membership.RefundCancels(current, snapshotOf(m, seasons), paidByIt) {
-			if _, err := q.CancelRefundedMembership(ctx, sqlc.CancelRefundedMembershipParams{
-				Reason: ns(MsgRefundedReason), Now: now, ID: m.ID, OnlinePaymentID: nid(op.ID),
-			}); err != nil {
+		if membership.RefundCancels(current, target.snapshot(), target.paidByAttempt(op.ID)) {
+			if err := target.cancelRefunded(ctx, q, now, op.ID); err != nil {
 				return err
 			}
 			cancelled = true
-			if err := s.notifyMembership(ctx, q, "membership-cancelled", m.ID, false); err != nil {
+			if err := target.notifyCancelled(ctx, q); err != nil {
 				return err
 			}
 		}
-		return q.ResolveAlertsOfOnlinePayment(ctx, sqlc.ResolveAlertsOfOnlinePaymentParams{Now: now, OnlinePaymentID: op.ID})
+		return q.ResolveAlertsOfOnlinePayment(ctx, sqlc.ResolveAlertsOfOnlinePaymentParams{Now: ns(now), OnlinePaymentID: op.ID})
 	})
 	if err != nil {
 		return "", err
 	}
-	s.Logger.InfoContext(ctx, "paiement en ligne remboursé", "online_payment_id", id, "membership_id", membershipID,
-		"source", source, "membership_cancelled", cancelled)
+	logAttrs := append([]any{"online_payment_id", id}, attrs...)
+	s.Logger.InfoContext(ctx, "paiement en ligne remboursé", append(logAttrs, "source", source, "target_cancelled", cancelled)...)
 	return membership.OnlineRefunded, nil
 }
 
@@ -496,14 +499,10 @@ func (s *server) helloAssoSpaceURL(environment string) *string {
 	return &u
 }
 
-// withOnlineAdmin complète une adhésion vue par l'administration avec ses
-// tentatives et ses signalements.
-func (s *server) withOnlineAdmin(ctx context.Context, q *sqlc.Queries, out *AdminMembership, m sqlc.Membership) error {
-	ops, err := q.ListOnlinePaymentsOfMembership(ctx, m.ID)
-	if err != nil {
-		return err
-	}
-	out.OnlinePayments = make([]OnlinePayment, 0, len(ops))
+// onlineDetails convertit les tentatives d'une cible pour l'administration :
+// tentative en cours (< 60 min) et vérification possible auprès de HelloAsso.
+func (s *server) onlineDetails(ops []sqlc.OnlinePayment) (out []OnlinePayment, pending, verifiable bool) {
+	out = make([]OnlinePayment, 0, len(ops))
 	cutoff := s.now().Add(-pendingWindow)
 	since := s.now().Add(-verifiableWindow)
 	for _, op := range ops {
@@ -516,18 +515,40 @@ func (s *server) withOnlineAdmin(ctx context.Context, q *sqlc.Queries, out *Admi
 		if op.OrderID.Valid {
 			o.HelloAssoURL = s.helloAssoSpaceURL(op.Environment)
 		}
-		out.OnlinePayments = append(out.OnlinePayments, o)
+		out = append(out, o)
 		if op.Status == string(membership.OnlinePending) && o.CreatedAt.After(cutoff) {
-			out.CardPaymentPending = true
+			pending = true
 		}
 		// Une tentative réussie reste vérifiable : un remboursement a pu être
 		// fait dans HelloAsso.
-		verifiable := op.CheckoutIntentID.Valid && (op.Status == string(membership.OnlinePending) ||
+		ok := op.CheckoutIntentID.Valid && (op.Status == string(membership.OnlinePending) ||
 			op.Status == string(membership.OnlineSucceeded) ||
 			(op.Status != string(membership.OnlineRefunded) && op.FinishedAt.Valid && parseTime(op.FinishedAt.String).After(since)))
-		if verifiable && s.HelloAsso != nil && op.Environment == s.HelloAsso.Environment() {
-			out.Actions.VerifyCardPayment = true
+		if ok && s.HelloAsso != nil && op.Environment == s.HelloAsso.Environment() {
+			verifiable = true
 		}
+	}
+	return out, pending, verifiable
+}
+
+func paymentAlert(id int64, kind string, opID int64, created string, resolvedAt sql.NullString, resolvedBy sql.NullInt64, email sql.NullString) PaymentAlert {
+	return PaymentAlert{
+		ID: id, Kind: kind, OnlinePaymentID: opID, CreatedAt: parseTime(created),
+		ResolvedAt: optionalTimeValue(resolvedAt), ResolvedBy: accountRef(resolvedBy, email),
+	}
+}
+
+// withOnlineAdmin complète une adhésion vue par l'administration avec ses
+// tentatives et ses signalements.
+func (s *server) withOnlineAdmin(ctx context.Context, q *sqlc.Queries, out *AdminMembership, m sqlc.Membership) error {
+	ops, err := q.ListOnlinePaymentsOfMembership(ctx, m.ID)
+	if err != nil {
+		return err
+	}
+	var verifiable bool
+	out.OnlinePayments, out.CardPaymentPending, verifiable = s.onlineDetails(ops)
+	if verifiable {
+		out.Actions.VerifyCardPayment = true
 	}
 	alerts, err := q.ListPaymentAlertsOfMembership(ctx, m.ID)
 	if err != nil {
@@ -535,10 +556,7 @@ func (s *server) withOnlineAdmin(ctx context.Context, q *sqlc.Queries, out *Admi
 	}
 	out.Alerts = make([]PaymentAlert, 0, len(alerts))
 	for _, a := range alerts {
-		out.Alerts = append(out.Alerts, PaymentAlert{
-			ID: a.ID, Kind: a.Kind, OnlinePaymentID: a.OnlinePaymentID, CreatedAt: parseTime(a.CreatedAt),
-			ResolvedAt: optionalTimeValue(a.ResolvedAt), ResolvedBy: accountRef(a.ResolvedBy, a.ResolvedByEmail),
-		})
+		out.Alerts = append(out.Alerts, paymentAlert(a.ID, a.Kind, a.OnlinePaymentID, a.CreatedAt, a.ResolvedAt, a.ResolvedBy, a.ResolvedByEmail))
 	}
 	return nil
 }

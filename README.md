@@ -210,6 +210,41 @@ ouverte ou close, par exemple pour relancer les cotisations impayées :
 Le nom de l'association apparaît comme expéditeur ; les réponses arrivent à
 l'adresse `FRIGG_MAIL_FROM`.
 
+### Événements et inscriptions
+
+*Administration › Événements* publie les activités de l'association
+(assemblée générale, sortie, stage…) :
+
+- un événement est créé en **brouillon**, invisible des membres, puis
+  **publié** ; il est rattaché à la saison qui contient sa date de début. Les
+  dates et heures sont celles de Paris. Un événement passé est présenté comme
+  **terminé** ;
+- **qui peut s'inscrire** : les *adhérents de la saison* (adhésion validée)
+  ou *toutes les fiches*. Le changement ne retire aucun inscrit : les
+  inscrits devenus non éligibles sont signalés dans la liste ;
+- **capacité** facultative, sans liste d'attente : un événement complet
+  refuse toute nouvelle inscription. **Période d'inscription** facultative
+  (par défaut, de la publication au début de l'événement) ;
+- **prix** facultatif, payé par les moyens de paiement des adhésions
+  (espèces, chèque, virement, carte via HelloAsso). Chaque inscription payante
+  reçoit une référence `EVT-AAAA-NNNN` ; le prix est figé à l'inscription ;
+- les inscrits sont prévenus par e-mail d'un changement de date, d'heure ou de
+  lieu, d'une annulation (avec un message facultatif) et d'un rétablissement,
+  à raison d'un e-mail par adresse ;
+- **Frigg ne rembourse pas** : à l'annulation d'un événement ou au retrait
+  d'une inscription payée, le remboursement se fait hors de Frigg, ou dans
+  l'espace HelloAsso pour un paiement par carte. Un événement qui a des
+  inscriptions ne peut pas être supprimé : annulez-le ;
+- *Administration › Inscriptions* liste toutes les inscriptions (recherche par
+  nom ou référence, filtres, signalements de paiement à traiter) ; la page
+  d'un événement exporte ses inscrits au format CSV.
+
+Côté membre, *Événements à venir* liste les événements publiés et permet
+d'inscrire les fiches que l'on gère ; *Mes inscriptions* permet de les
+suivre, de payer et d'annuler tant que les inscriptions sont ouvertes et que
+l'inscription n'est pas réglée. *À régler* rassemble les adhésions et les
+inscriptions qui restent à payer.
+
 ### Paramètres de l'association
 
 *Administration › Paramètres* regroupe les réglages de l'association.

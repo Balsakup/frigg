@@ -114,6 +114,7 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerIdentity(api)
 	s.registerAppearance(api)
 	s.registerCustomFields(api)
+	s.registerEvents(api)
 	s.mountDocs(mux, api)
 	return api
 }

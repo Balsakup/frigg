@@ -154,7 +154,9 @@ type MembershipCollectedByMethod struct {
 type MembershipDashboard struct {
 	PendingCount       int64 `json:"pendingCount" doc:"Demandes en attente, toutes saisons"`
 	PaymentSetupNeeded bool  `json:"paymentSetupNeeded" doc:"Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion"`
-	PaymentAlerts      int64 `json:"paymentAlerts" doc:"Signalements de paiement à traiter"`
+	PaymentAlerts      int64 `json:"paymentAlerts" doc:"Signalements de paiement des adhésions à traiter"`
+	// RegistrationPaymentAlerts : signalements des inscriptions (012).
+	RegistrationPaymentAlerts int64 `json:"registrationPaymentAlerts" doc:"Signalements de paiement des inscriptions à traiter"`
 	HelloAssoFailing   bool  `json:"helloassoFailing" doc:"Carte activée et connexion à HelloAsso en échec"`
 }
 
@@ -429,7 +431,7 @@ func (s *server) getMembershipDashboard(ctx context.Context, _ *struct{}) (*Memb
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	alerts, err := q.CountOpenPaymentAlerts(ctx)
+	alerts, err := q.CountOpenMembershipPaymentAlerts(ctx)
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des signalements impossible", err)
 	}
@@ -437,7 +439,11 @@ func (s *server) getMembershipDashboard(ctx context.Context, _ *struct{}) (*Memb
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	out := MembershipDashboard{PendingCount: pending, PaymentAlerts: alerts, HelloAssoFailing: s.helloAssoFailing(row)}
+	regAlerts, err := q.CountOpenRegistrationPaymentAlerts(ctx)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des signalements impossible", err)
+	}
+	out := MembershipDashboard{PendingCount: pending, PaymentAlerts: alerts, RegistrationPaymentAlerts: regAlerts, HelloAssoFailing: s.helloAssoFailing(row)}
 	if len(settings.EnabledMethods()) == 0 && !settings.CardAvailable {
 		seasons, _, err := seasonIndex(ctx, q, s.today())
 		if err != nil {
@@ -707,7 +713,7 @@ func (s *server) cancelMembership(ctx context.Context, in *ReasonInput) (*AdminM
 		// Payée par carte : le remboursement se fait dans HelloAsso (R10).
 		if w.m.PaidMethod.String == string(membership.Card) && w.m.PaidOnlinePaymentID.Valid {
 			if err := w.q.CreatePaymentAlert(ctx, sqlc.CreatePaymentAlertParams{
-				MembershipID: w.m.ID, OnlinePaymentID: w.m.PaidOnlinePaymentID.Int64,
+				MembershipID: nid(w.m.ID), OnlinePaymentID: w.m.PaidOnlinePaymentID.Int64,
 				Kind: string(membership.AlertRefundDue), Now: s.timestamp(),
 			}); err != nil {
 				return err

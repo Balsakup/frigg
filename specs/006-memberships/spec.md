@@ -665,3 +665,7 @@ validées et correspondent aux données.
 - **Informations complémentaires** : les champs propres à une adhésion (licence
   fédérale payée…) sont ajoutés par la spécification 011 « Champs
   personnalisés des membres et des adhésions ».
+- **Inscriptions aux événements** : les moyens de paiement, leurs informations
+  et la page de paiement sont communs aux adhésions et aux inscriptions
+  payantes de la spécification 012 « Événements de l'association » ; la
+  rubrique « À régler » rassemble les deux.

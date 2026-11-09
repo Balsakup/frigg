@@ -43,6 +43,10 @@ func (s *server) resolvePaymentAlert(ctx context.Context, in *PaymentAlertIDInpu
 		if err != nil {
 			return err
 		}
+		// Les signalements d'inscriptions ont leur propre opération (012).
+		if !a.MembershipID.Valid {
+			return huma.Error404NotFound(MsgAlertGone)
+		}
 		alert = a
 		n, err := q.ResolvePaymentAlert(ctx, sqlc.ResolvePaymentAlertParams{Now: ns(s.timestamp()), ActorID: nid(CurrentAccount(ctx).ID), ID: a.ID})
 		if err == nil && n == 0 {
@@ -54,6 +58,6 @@ func (s *server) resolvePaymentAlert(ctx context.Context, in *PaymentAlertIDInpu
 		return nil, s.txError(ctx, "traitement du signalement impossible", err)
 	}
 	s.Logger.InfoContext(ctx, "signalement de paiement traité", "alert_id", alert.ID, "kind", alert.Kind,
-		"membership_id", alert.MembershipID, "actor_id", CurrentAccount(ctx).ID)
-	return s.adminMembership(ctx, s.Store.Read, alert.MembershipID)
+		"membership_id", alert.MembershipID.Int64, "actor_id", CurrentAccount(ctx).ID)
+	return s.adminMembership(ctx, s.Store.Read, alert.MembershipID.Int64)
 }

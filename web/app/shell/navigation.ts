@@ -45,7 +45,6 @@ export const navigation: NavEntry[] = [
     path: "/mes-inscriptions",
     space: "member",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "a-regler",
@@ -54,7 +53,6 @@ export const navigation: NavEntry[] = [
     path: "/a-regler",
     space: "member",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "evenements",
@@ -63,7 +61,6 @@ export const navigation: NavEntry[] = [
     path: "/evenements",
     space: "member",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "adhesions",
@@ -123,7 +120,6 @@ export const navigation: NavEntry[] = [
     path: "/admin/evenements",
     space: "admin",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "inscriptions",
@@ -132,7 +128,6 @@ export const navigation: NavEntry[] = [
     path: "/admin/inscriptions",
     space: "admin",
     section: "main",
-    comingSoon: true,
   },
   {
     id: "finances",

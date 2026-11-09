@@ -10,12 +10,23 @@ import (
 	"database/sql"
 )
 
-const countOpenPaymentAlerts = `-- name: CountOpenPaymentAlerts :one
-SELECT count(*) FROM payment_alerts WHERE resolved_at IS NULL
+const countOpenMembershipPaymentAlerts = `-- name: CountOpenMembershipPaymentAlerts :one
+SELECT count(*) FROM payment_alerts WHERE resolved_at IS NULL AND membership_id IS NOT NULL
 `
 
-func (q *Queries) CountOpenPaymentAlerts(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countOpenPaymentAlerts)
+func (q *Queries) CountOpenMembershipPaymentAlerts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOpenMembershipPaymentAlerts)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countOpenRegistrationPaymentAlerts = `-- name: CountOpenRegistrationPaymentAlerts :one
+SELECT count(*) FROM payment_alerts WHERE resolved_at IS NULL AND registration_id IS NOT NULL
+`
+
+func (q *Queries) CountOpenRegistrationPaymentAlerts(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOpenRegistrationPaymentAlerts)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -23,13 +34,14 @@ func (q *Queries) CountOpenPaymentAlerts(ctx context.Context) (int64, error) {
 
 const createPaymentAlert = `-- name: CreatePaymentAlert :exec
 
-INSERT INTO payment_alerts (membership_id, online_payment_id, kind, created_at)
-VALUES (?1, ?2, ?3, ?4)
+INSERT INTO payment_alerts (membership_id, registration_id, online_payment_id, kind, created_at)
+VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (online_payment_id, kind) DO NOTHING
 `
 
 type CreatePaymentAlertParams struct {
-	MembershipID    int64
+	MembershipID    sql.NullInt64
+	RegistrationID  sql.NullInt64
 	OnlinePaymentID int64
 	Kind            string
 	Now             string
@@ -39,6 +51,7 @@ type CreatePaymentAlertParams struct {
 func (q *Queries) CreatePaymentAlert(ctx context.Context, arg CreatePaymentAlertParams) error {
 	_, err := q.db.ExecContext(ctx, createPaymentAlert,
 		arg.MembershipID,
+		arg.RegistrationID,
 		arg.OnlinePaymentID,
 		arg.Kind,
 		arg.Now,
@@ -47,7 +60,7 @@ func (q *Queries) CreatePaymentAlert(ctx context.Context, arg CreatePaymentAlert
 }
 
 const getPaymentAlert = `-- name: GetPaymentAlert :one
-SELECT id, membership_id, online_payment_id, kind, created_at, resolved_at, resolved_by FROM payment_alerts WHERE id = ?1
+SELECT id, membership_id, registration_id, online_payment_id, kind, created_at, resolved_at, resolved_by FROM payment_alerts WHERE id = ?1
 `
 
 func (q *Queries) GetPaymentAlert(ctx context.Context, id int64) (PaymentAlert, error) {
@@ -56,6 +69,7 @@ func (q *Queries) GetPaymentAlert(ctx context.Context, id int64) (PaymentAlert, 
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
 		&i.OnlinePaymentID,
 		&i.Kind,
 		&i.CreatedAt,
@@ -66,8 +80,8 @@ func (q *Queries) GetPaymentAlert(ctx context.Context, id int64) (PaymentAlert, 
 }
 
 const listOpenAlertCounts = `-- name: ListOpenAlertCounts :many
-SELECT membership_id, count(*) AS open_alerts FROM payment_alerts
-WHERE resolved_at IS NULL
+SELECT CAST(membership_id AS INTEGER) AS membership_id, count(*) AS open_alerts FROM payment_alerts
+WHERE resolved_at IS NULL AND membership_id IS NOT NULL
 GROUP BY membership_id
 `
 
@@ -99,16 +113,51 @@ func (q *Queries) ListOpenAlertCounts(ctx context.Context) ([]ListOpenAlertCount
 	return items, nil
 }
 
+const listOpenAlertCountsByRegistration = `-- name: ListOpenAlertCountsByRegistration :many
+SELECT CAST(registration_id AS INTEGER) AS registration_id, count(*) AS open_alerts FROM payment_alerts
+WHERE resolved_at IS NULL AND registration_id IS NOT NULL
+GROUP BY registration_id
+`
+
+type ListOpenAlertCountsByRegistrationRow struct {
+	RegistrationID int64
+	OpenAlerts     int64
+}
+
+func (q *Queries) ListOpenAlertCountsByRegistration(ctx context.Context) ([]ListOpenAlertCountsByRegistrationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenAlertCountsByRegistration)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenAlertCountsByRegistrationRow{}
+	for rows.Next() {
+		var i ListOpenAlertCountsByRegistrationRow
+		if err := rows.Scan(&i.RegistrationID, &i.OpenAlerts); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPaymentAlertsOfMembership = `-- name: ListPaymentAlertsOfMembership :many
-SELECT pa.id, pa.membership_id, pa.online_payment_id, pa.kind, pa.created_at, pa.resolved_at, pa.resolved_by, a.email AS resolved_by_email FROM payment_alerts pa
+SELECT pa.id, pa.membership_id, pa.registration_id, pa.online_payment_id, pa.kind, pa.created_at, pa.resolved_at, pa.resolved_by, a.email AS resolved_by_email FROM payment_alerts pa
 LEFT JOIN accounts a ON a.id = pa.resolved_by
-WHERE pa.membership_id = ?1
+WHERE pa.membership_id = CAST(?1 AS INTEGER)
 ORDER BY pa.resolved_at IS NOT NULL, pa.created_at
 `
 
 type ListPaymentAlertsOfMembershipRow struct {
 	ID              int64
-	MembershipID    int64
+	MembershipID    sql.NullInt64
+	RegistrationID  sql.NullInt64
 	OnlinePaymentID int64
 	Kind            string
 	CreatedAt       string
@@ -129,6 +178,59 @@ func (q *Queries) ListPaymentAlertsOfMembership(ctx context.Context, membershipI
 		if err := rows.Scan(
 			&i.ID,
 			&i.MembershipID,
+			&i.RegistrationID,
+			&i.OnlinePaymentID,
+			&i.Kind,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+			&i.ResolvedBy,
+			&i.ResolvedByEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPaymentAlertsOfRegistration = `-- name: ListPaymentAlertsOfRegistration :many
+SELECT pa.id, pa.membership_id, pa.registration_id, pa.online_payment_id, pa.kind, pa.created_at, pa.resolved_at, pa.resolved_by, a.email AS resolved_by_email FROM payment_alerts pa
+LEFT JOIN accounts a ON a.id = pa.resolved_by
+WHERE pa.registration_id = CAST(?1 AS INTEGER)
+ORDER BY pa.resolved_at IS NOT NULL, pa.created_at
+`
+
+type ListPaymentAlertsOfRegistrationRow struct {
+	ID              int64
+	MembershipID    sql.NullInt64
+	RegistrationID  sql.NullInt64
+	OnlinePaymentID int64
+	Kind            string
+	CreatedAt       string
+	ResolvedAt      sql.NullString
+	ResolvedBy      sql.NullInt64
+	ResolvedByEmail sql.NullString
+}
+
+func (q *Queries) ListPaymentAlertsOfRegistration(ctx context.Context, registrationID int64) ([]ListPaymentAlertsOfRegistrationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPaymentAlertsOfRegistration, registrationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPaymentAlertsOfRegistrationRow{}
+	for rows.Next() {
+		var i ListPaymentAlertsOfRegistrationRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MembershipID,
+			&i.RegistrationID,
 			&i.OnlinePaymentID,
 			&i.Kind,
 			&i.CreatedAt,

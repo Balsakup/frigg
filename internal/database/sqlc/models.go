@@ -132,6 +132,57 @@ type CustomFieldChoice struct {
 	Position int64
 }
 
+type Event struct {
+	ID                   int64
+	SeasonID             int64
+	Title                string
+	Location             string
+	Description          sql.NullString
+	StartsAt             string
+	EndsAt               string
+	Openness             string
+	Capacity             sql.NullInt64
+	PriceCents           int64
+	RegistrationOpensAt  sql.NullString
+	RegistrationClosesAt sql.NullString
+	Status               string
+	CancelMessage        sql.NullString
+	PublishedAt          sql.NullString
+	CancelledAt          sql.NullString
+	CancelledBy          sql.NullInt64
+	CreatedBy            sql.NullInt64
+	UpdatedBy            sql.NullInt64
+	CreatedAt            string
+	UpdatedAt            string
+}
+
+type EventRegistration struct {
+	ID                  int64
+	EventID             int64
+	MemberID            int64
+	Status              string
+	RegisteredBy        sql.NullInt64
+	RegisteredAt        string
+	CancelledBy         sql.NullInt64
+	CancelledAt         sql.NullString
+	AmountCents         int64
+	PaymentReference    sql.NullString
+	PaymentStatus       sql.NullString
+	AnnouncedMethod     sql.NullString
+	PaidMethod          sql.NullString
+	PaidOn              sql.NullString
+	PaidBy              sql.NullInt64
+	PaidAt              sql.NullString
+	PaymentNote         sql.NullString
+	PaidOnlinePaymentID sql.NullInt64
+	PaidAmountCents     sql.NullInt64
+	UpdatedAt           string
+}
+
+type EventRegistrationsFt struct {
+	PaymentReference string
+}
+
 type Invitation struct {
 	ID        int64
 	Email     string
@@ -255,7 +306,8 @@ type OneTimeToken struct {
 
 type OnlinePayment struct {
 	ID                  int64
-	MembershipID        int64
+	MembershipID        sql.NullInt64
+	RegistrationID      sql.NullInt64
 	AccountID           sql.NullInt64
 	Environment         string
 	AmountCents         int64
@@ -294,7 +346,8 @@ type OutboundEmail struct {
 
 type PaymentAlert struct {
 	ID              int64
-	MembershipID    int64
+	MembershipID    sql.NullInt64
+	RegistrationID  sql.NullInt64
 	OnlinePaymentID int64
 	Kind            string
 	CreatedAt       string

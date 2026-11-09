@@ -1,0 +1,6 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">L'événement <strong>{{.Event}}</strong> prévu {{.When}} est annulé.</p>
+{{if .Message}}<p style="margin:0 0 12px">Message de {{.Association}} :</p>{{paragraphs .Message}}{{end}}
+<p style="margin:0 0 12px">Inscription concernée :</p>
+<ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>
+{{if .Paid}}<p style="margin:0 0 12px">L'inscription était réglée : l'association reviendra vers vous pour le remboursement.</p>{{end}}{{end}}

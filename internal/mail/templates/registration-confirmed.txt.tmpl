@@ -1,0 +1,16 @@
+{{define "subject"}}Inscription confirmée : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+L'inscription à « {{.Event}} » est confirmée pour :
+{{range .Members}}- {{.}}
+{{end}}
+Date : {{.When}}
+Lieu : {{.Location}}
+{{if .Link}}
+Montant à régler : {{.Amount}}
+Référence de paiement : {{.Reference}}
+
+Pour payer, ouvrez cette adresse :
+{{.Link}}
+{{end}}
+Pour annuler, rendez-vous dans « Mes inscriptions » avant la clôture des inscriptions.{{end}}

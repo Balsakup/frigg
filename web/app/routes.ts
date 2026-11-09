@@ -1,8 +1,8 @@
 import { index, layout, prefix, type RouteConfig, route } from "@react-router/dev/routes";
 
 // Rubriques livrées par des fonctionnalités ultérieures (app/shell/navigation.ts).
-const memberComingSoon = ["mes-inscriptions", "a-regler", "evenements", "mes-documents", "aide"];
-const adminComingSoon = ["evenements", "inscriptions", "finances", "aide"];
+const memberComingSoon = ["mes-documents", "aide"];
+const adminComingSoon = ["finances", "aide"];
 
 // Chaque user story ajoute ses routes ici en même temps que leurs fichiers
 // (contracts/ui-routes.md).
@@ -27,6 +27,15 @@ export default [
       route("demande", "routes/app/member/membership-request.tsx"),
       route(":id", "routes/app/member/membership-detail.tsx"),
     ]),
+    route("evenements", "routes/app/member/events-layout.tsx", [
+      index("routes/app/member/events.tsx"),
+      route(":id", "routes/app/member/event-detail.tsx"),
+    ]),
+    route("mes-inscriptions", "routes/app/member/registrations-layout.tsx", [
+      index("routes/app/member/registrations.tsx"),
+      route(":id", "routes/app/member/registration-detail.tsx"),
+    ]),
+    route("a-regler", "routes/app/member/dues.tsx"),
     ...memberComingSoon.map((p) => route(p, "routes/app/coming-soon.tsx", { id: `bientot-${p}` })),
     ...prefix("admin", [
       layout("routes/app/admin/layout.tsx", [
@@ -49,6 +58,16 @@ export default [
           index("routes/app/admin/memberships.tsx"),
           route("nouvelle", "routes/app/admin/membership-new.tsx"),
           route(":id", "routes/app/admin/membership-detail.tsx"),
+        ]),
+        route("evenements", "routes/app/admin/events-layout.tsx", [
+          index("routes/app/admin/events.tsx"),
+          route("nouveau", "routes/app/admin/event-new.tsx"),
+          route(":id", "routes/app/admin/event-detail.tsx"),
+          route(":id/modifier", "routes/app/admin/event-edit.tsx"),
+        ]),
+        route("inscriptions", "routes/app/admin/registrations-layout.tsx", [
+          index("routes/app/admin/registrations.tsx"),
+          route(":id", "routes/app/admin/registration-detail.tsx"),
         ]),
         route("communication", "routes/app/admin/communications-layout.tsx", [
           index("routes/app/admin/communications.tsx"),

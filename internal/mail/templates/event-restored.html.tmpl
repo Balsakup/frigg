@@ -1,0 +1,5 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">Bonne nouvelle : l'événement <strong>{{.Event}}</strong> a finalement lieu.</p>
+<p style="margin:0 0 12px">Date : <strong>{{.When}}</strong><br>Lieu : <strong>{{.Location}}</strong></p>
+<p style="margin:0 0 12px">Inscription maintenue :</p>
+<ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>{{end}}

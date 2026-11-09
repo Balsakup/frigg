@@ -319,3 +319,32 @@ func TestConcurrentNotificationAndReturn(t *testing.T) {
 		t.Fatalf("adhésion : %+v", got.Payment)
 	}
 }
+
+// La cible des métadonnées HelloAsso doit être celle de la tentative : une
+// intention qui vise une autre adhésion ou une inscription n'est jamais
+// constatée sur la tentative d'une adhésion (012 › R4).
+func TestCardMetadataTargetMismatch(t *testing.T) {
+	for name, meta := range map[string]string{
+		"autre adhésion": `{"frigg":{"payment":%d,"membership":999}}`,
+		"inscription":    `{"frigg":{"payment":%d,"registration":%d}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newCardFixture(t)
+			st := f.start(t)
+			in := f.env.HelloAsso.LastIntent()
+			raw := fmt.Sprintf(meta, st.OnlinePaymentID, f.ms.ID)
+			if !strings.Contains(meta, "registration") {
+				raw = fmt.Sprintf(meta, st.OnlinePaymentID)
+			}
+			f.env.HelloAsso.SetMetadata(in.ID, raw)
+			f.env.HelloAsso.Authorize(in.ID, 3000, 0)
+			code, out := f.confirm(t, f.member, st.OnlinePaymentID, "return")
+			if code != http.StatusOK || out.Status != "pending" || out.Membership.Payment.Status != "due" {
+				t.Fatalf("constatation sur une autre cible : %d %+v", code, out)
+			}
+			if !strings.Contains(f.env.Logs.String(), "intention HelloAsso sans rapport avec la tentative") {
+				t.Fatal("incohérence non journalisée")
+			}
+		})
+	}
+}

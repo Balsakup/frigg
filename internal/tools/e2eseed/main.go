@@ -1,7 +1,7 @@
 // Commande e2eseed : prépare une base jetable pour les tests de bout en bout.
 // Elle ne fait pas partie du binaire frigg.
 //
-// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication|parametres|champs]
+// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication|parametres|champs|evenements]
 //
 // Le mode « adhesions » prépare la base du second serveur e2e : une saison
 // ouverte contenant la date du jour, des tarifs, des fiches, des adhésions et
@@ -19,6 +19,11 @@
 // d'exemple (numéro de licence fédérale, licence payée…) et leurs valeurs
 // (specs/011-custom-fields, tâche T052) : les champs sont globaux et changent
 // les formulaires des autres tests.
+//
+// Le mode « evenements » ajoute au jeu des adhésions des événements d'exemple
+// (assemblée générale gratuite réservée aux adhérents, stage payant ouvert à
+// tous) et une famille : Claire, adhérente, qui gère la fiche de son fils Lucas,
+// non adhérent (specs/012-events, tâche T079).
 package main
 
 import (
@@ -31,6 +36,7 @@ import (
 	"github.com/balsakup/frigg/internal/auth"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/event"
 	"github.com/balsakup/frigg/internal/membership"
 	"github.com/balsakup/frigg/internal/season"
 )
@@ -94,7 +100,7 @@ func main() {
 	if len(os.Args) == 3 {
 		mode = os.Args[2]
 	}
-	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres" && mode != "champs") {
+	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres" && mode != "champs" && mode != "evenements") {
 		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication|parametres]")
 		os.Exit(2)
 	}
@@ -186,6 +192,8 @@ func run(path, mode string) error {
 			return seedCard(ctx, q, hash, now)
 		case "champs":
 			return seedCustomFields(ctx, q, hash, now)
+		case "evenements":
+			return seedEvents(ctx, q, hash, now)
 		}
 		return nil
 	})
@@ -401,7 +409,7 @@ func seedCard(ctx context.Context, q *sqlc.Queries, hash, now string) error {
 			continue
 		}
 		op, err := q.CreateOnlinePayment(ctx, sqlc.CreateOnlinePaymentParams{
-			MembershipID: ms, AccountID: sql.NullInt64{Int64: acc.ID, Valid: true}, Environment: "sandbox",
+			MembershipID: sql.NullInt64{Int64: ms, Valid: true}, AccountID: sql.NullInt64{Int64: acc.ID, Valid: true}, Environment: "sandbox",
 			AmountCents: 3000, Now: now,
 		})
 		if err != nil {
@@ -420,7 +428,46 @@ func seedCard(ctx context.Context, q *sqlc.Queries, hash, now string) error {
 			return err
 		}
 	}
-	return nil
+	return seedCardEvent(ctx, q, hash, now, s)
+}
+
+// seedCardEvent prépare le paiement par carte d'une inscription (012) : un
+// événement payant publié et l'inscription à régler d'Alix Perrin.
+func seedCardEvent(ctx context.Context, q *sqlc.Queries, hash, now string, s sqlc.Season) error {
+	str := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	acc, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{
+		Email: "membre-carte-evenement@exemple.fr", PasswordHash: hash, Role: auth.RoleMember,
+		CreatedAt: now, EmailVerifiedAt: str(now),
+	})
+	if err != nil {
+		return err
+	}
+	m, err := q.CreateMemberForAccount(ctx, sqlc.CreateMemberForAccountParams{
+		AccountID: sql.NullInt64{Int64: acc.ID, Valid: true}, IsSelf: 1, FirstName: "Alix", LastName: "Perrin",
+		BirthDate: "1990-01-01", Now: now,
+	})
+	if err != nil {
+		return err
+	}
+	d := time.Now().In(season.Paris).AddDate(0, 0, 12)
+	start := time.Date(d.Year(), d.Month(), d.Day(), 10, 0, 0, 0, season.Paris).UTC()
+	ev, err := q.CreateEvent(ctx, sqlc.CreateEventParams{
+		SeasonID: s.ID, Title: "Journée découverte", Location: "Base nautique",
+		StartsAt: start.Format("2006-01-02T15:04:05Z"), EndsAt: start.Add(6 * time.Hour).Format("2006-01-02T15:04:05Z"),
+		Openness: "all_members", PriceCents: 2500, Now: now,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := q.PublishEvent(ctx, sqlc.PublishEventParams{Now: now, ID: ev.ID}); err != nil {
+		return err
+	}
+	_, err = q.CreateRegistration(ctx, sqlc.CreateRegistrationParams{
+		EventID: ev.ID, MemberID: m.ID, ActorID: sql.NullInt64{Int64: acc.ID, Valid: true}, Now: now, AmountCents: 2500,
+		PaymentReference: str(event.ReferencePrefix(season.MustDate(s.StartsOn), season.MustDate(s.EndsOn)) + "0001"),
+		PaymentStatus:    str("due"),
+	})
+	return err
 }
 
 // Administrateurs du serveur des communications : un par test (limite de
@@ -605,4 +652,118 @@ func seedCustomFields(ctx context.Context, q *sqlc.Queries, hash, now string) er
 	return q.UpsertMembershipFieldValue(ctx, sqlc.UpsertMembershipFieldValueParams{
 		OwnerID: 1, FieldID: paid, ValueBool: sql.NullInt64{Int64: 1, Valid: true}, Now: now,
 	})
+}
+
+// Comptes du serveur des événements : un compte par test.
+var eventAccounts = []struct {
+	email, role string
+}{
+	{"admin-evenements@exemple.fr", auth.RoleAdmin},
+	{"admin-evenements-inscrits@exemple.fr", auth.RoleAdmin},
+	{"membre-evenements@exemple.fr", auth.RoleMember},
+	{"membre-evenements-paiement@exemple.fr", auth.RoleMember},
+}
+
+// seedEvents prépare le jeu des événements (012) sur la saison des adhésions :
+// « Assemblée générale » gratuite réservée aux adhérents dans 10 jours,
+// « Stage de printemps » ouvert à tous, 20 places, 35 €, dans 20 jours, avec une
+// inscription payée par chèque. Chaque compte membre gère sa fiche « Vous »,
+// adhérente (tarif gratuit), et celle d'un enfant non adhérent.
+func seedEvents(ctx context.Context, q *sqlc.Queries, hash, now string) error {
+	seasons, err := q.ListSeasons(ctx)
+	if err != nil || len(seasons) == 0 {
+		return fmt.Errorf("saison des adhésions absente : %w", err)
+	}
+	s := seasons[0]
+	fees, err := q.ListMembershipFees(ctx, s.ID)
+	if err != nil {
+		return err
+	}
+	var free int64
+	for _, f := range fees {
+		if f.AmountCents == 0 {
+			free = f.ID
+		}
+	}
+	str := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	ids := map[string]int64{}
+	children := map[string][2]int64{}
+	for i, a := range eventAccounts {
+		acc, err := q.CreateAccount(ctx, sqlc.CreateAccountParams{
+			Email: a.email, PasswordHash: hash, Role: a.role, CreatedAt: now, EmailVerifiedAt: str(now),
+		})
+		if err != nil {
+			return fmt.Errorf("compte %s : %w", a.email, err)
+		}
+		ids[a.email] = acc.ID
+		if a.role != auth.RoleMember {
+			continue
+		}
+		owner := sql.NullInt64{Int64: acc.ID, Valid: true}
+		self, err := q.CreateMemberForAccount(ctx, sqlc.CreateMemberForAccountParams{
+			AccountID: owner, IsSelf: 1, FirstName: []string{"", "", "Claire", "Paula"}[i], LastName: "Martin",
+			BirthDate: "1985-05-20", Now: now,
+		})
+		if err != nil {
+			return err
+		}
+		child, err := q.CreateMemberForAccount(ctx, sqlc.CreateMemberForAccountParams{
+			AccountID: owner, FirstName: []string{"", "", "Lucas", "Noé"}[i], LastName: "Martin",
+			BirthDate: "2015-04-12", Now: now,
+		})
+		if err != nil {
+			return err
+		}
+		if _, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+			MemberID: self.ID, SeasonID: s.ID, FeeID: free, Status: "validated",
+			DeclaredKind: str("first"), Kind: str("first"), AmountCents: sql.NullInt64{Valid: true},
+			RequestedBy: owner, Now: now, DecidedBy: owner, DecidedAt: str(now),
+		}); err != nil {
+			return err
+		}
+		children[a.email] = [2]int64{self.ID, child.ID}
+	}
+
+	at := func(days, hour int) string {
+		d := time.Now().In(season.Paris).AddDate(0, 0, days)
+		return time.Date(d.Year(), d.Month(), d.Day(), hour, 0, 0, 0, season.Paris).UTC().Format("2006-01-02T15:04:05Z")
+	}
+	admin := sql.NullInt64{Int64: ids["admin-evenements@exemple.fr"], Valid: true}
+	ag, err := q.CreateEvent(ctx, sqlc.CreateEventParams{
+		SeasonID: s.ID, Title: "Assemblée générale", Location: "Salle polyvalente",
+		Description: str("Ordre du jour :\n- rapport moral\n- rapport financier\n- élection du bureau"),
+		StartsAt:    at(10, 14), EndsAt: at(10, 17), Openness: "season_members", PriceCents: 0,
+		ActorID: admin, Now: now,
+	})
+	if err != nil {
+		return err
+	}
+	stage, err := q.CreateEvent(ctx, sqlc.CreateEventParams{
+		SeasonID: s.ID, Title: "Stage de printemps", Location: "Gymnase des Lilas",
+		StartsAt: at(20, 9), EndsAt: at(20, 17), Openness: "all_members",
+		Capacity: sql.NullInt64{Int64: 20, Valid: true}, PriceCents: 3500, ActorID: admin, Now: now,
+	})
+	if err != nil {
+		return err
+	}
+	for _, id := range []int64{ag.ID, stage.ID} {
+		if _, err := q.PublishEvent(ctx, sqlc.PublishEventParams{Now: now, ActorID: admin, ID: id}); err != nil {
+			return err
+		}
+	}
+	// Inscription de Paula au stage, payée par chèque.
+	paula := children["membre-evenements-paiement@exemple.fr"]
+	r, err := q.CreateRegistration(ctx, sqlc.CreateRegistrationParams{
+		EventID: stage.ID, MemberID: paula[0], ActorID: sql.NullInt64{Int64: ids["membre-evenements-paiement@exemple.fr"], Valid: true},
+		Now: now, AmountCents: 3500,
+		PaymentReference: str(event.ReferencePrefix(season.MustDate(s.StartsOn), season.MustDate(s.EndsOn)) + "0001"),
+		PaymentStatus:    str("due"),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = q.RecordRegistrationPayment(ctx, sqlc.RecordRegistrationPaymentParams{
+		Method: str("cheque"), PaidOn: str(season.Today(time.Now()).String()), ActorID: admin, Now: str(now), ID: r.ID,
+	})
+	return err
 }

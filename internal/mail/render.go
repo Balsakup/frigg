@@ -60,6 +60,17 @@ type Data struct {
 	Body    string
 	// Footer remplace la mention « Merci de ne pas y répondre » du pied.
 	Footer string
+	// Événements (012) : titre, date et heure en français, lieu, anciennes
+	// valeurs d'un changement, inscrits concernés, message de l'association.
+	Event            string
+	When             string
+	Location         string
+	PreviousWhen     string
+	PreviousLocation string
+	Members          []string
+	Message          string
+	// Paid : au moins une des inscriptions concernées est payée.
+	Paid bool
 }
 
 var htmlFuncs = htmltemplate.FuncMap{"paragraphs": Paragraphs}

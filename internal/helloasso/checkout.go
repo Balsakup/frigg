@@ -27,11 +27,14 @@ type Payer struct {
 	Email     string `json:"email,omitempty"`
 }
 
-// Metadata relie une intention à la tentative Frigg qui l'a créée.
+// Metadata relie une intention à la tentative Frigg qui l'a créée et à sa
+// cible : une adhésion ou une inscription à un événement (012 › R4).
+// Les intentions créées avant 012 n'ont que Membership.
 type Metadata struct {
-	Payment    int64  `json:"payment"`
-	Membership int64  `json:"membership"`
-	Reference  string `json:"reference,omitempty"`
+	Payment      int64  `json:"payment"`
+	Membership   int64  `json:"membership,omitempty"`
+	Registration int64  `json:"registration,omitempty"`
+	Reference    string `json:"reference,omitempty"`
 }
 
 type metadataEnvelope struct {

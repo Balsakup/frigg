@@ -82,7 +82,8 @@ func (w *OnlinePaymentSweeper) sweep(ctx context.Context, op sqlc.OnlinePayment,
 	case errors.Is(err, errHelloAssoUnavailable):
 		if now.Sub(parseTime(op.CreatedAt)) > pendingWindow+unverifiedAfter {
 			if err := s.Store.Write.CreatePaymentAlert(ctx, sqlc.CreatePaymentAlertParams{
-				MembershipID: op.MembershipID, OnlinePaymentID: op.ID, Kind: string(membership.AlertUnverified), Now: s.timestamp(),
+				MembershipID: op.MembershipID, RegistrationID: op.RegistrationID, OnlinePaymentID: op.ID,
+				Kind: string(membership.AlertUnverified), Now: s.timestamp(),
 			}); err != nil {
 				s.Logger.ErrorContext(ctx, "création du signalement impossible", "error", err)
 			}
@@ -95,8 +96,9 @@ func (w *OnlinePaymentSweeper) sweep(ctx context.Context, op sqlc.OnlinePayment,
 		}); err != nil {
 			s.Logger.ErrorContext(ctx, "clôture du paiement en ligne impossible", "error", err)
 		} else {
-			s.Logger.InfoContext(ctx, "paiement en ligne vérifié", "online_payment_id", op.ID,
-				"membership_id", op.MembershipID, "source", sourceSweep, "outcome", string(membership.OnlineExpired))
+			attrs := append([]any{"online_payment_id", op.ID}, targetAttrs(op)...)
+			s.Logger.InfoContext(ctx, "paiement en ligne vérifié",
+				append(attrs, "source", sourceSweep, "outcome", string(membership.OnlineExpired))...)
 		}
 	}
 }

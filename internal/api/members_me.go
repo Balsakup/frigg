@@ -144,6 +144,9 @@ func (s *server) myMemberOutput(ctx context.Context, id int64) (*MemberOutput, e
 	if out.CustomFields, err = readMemberFields(ctx, s.Store.Read, id, customfield.Owner); err != nil {
 		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
 	}
+	if out.PaidUpcomingRegistrations, err = s.paidUpcoming(ctx, id); err != nil {
+		return nil, s.internalError(ctx, "lecture des inscriptions impossible", err)
+	}
 	return &MemberOutput{Body: out}, nil
 }
 

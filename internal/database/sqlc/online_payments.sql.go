@@ -41,24 +41,28 @@ func (q *Queries) CloseOnlinePayment(ctx context.Context, arg CloseOnlinePayment
 
 const createOnlinePayment = `-- name: CreateOnlinePayment :one
 
-INSERT INTO online_payments (membership_id, account_id, environment, amount_cents, status, created_at, updated_at)
-VALUES (?1, ?2, ?3, ?4, 'pending',
-        ?5, ?5)
-RETURNING id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at
+
+INSERT INTO online_payments (membership_id, registration_id, account_id, environment, amount_cents, status, created_at, updated_at)
+VALUES (?1, ?2, ?3, ?4,
+        ?5, 'pending', ?6, ?6)
+RETURNING id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at
 `
 
 type CreateOnlinePaymentParams struct {
-	MembershipID int64
-	AccountID    sql.NullInt64
-	Environment  string
-	AmountCents  int64
-	Now          string
+	MembershipID   sql.NullInt64
+	RegistrationID sql.NullInt64
+	AccountID      sql.NullInt64
+	Environment    string
+	AmountCents    int64
+	Now            string
 }
 
 // Card payment attempts through HelloAsso (research.md 008 R4, R5, R8).
+// A target is either a membership or an event registration (012 R2).
 func (q *Queries) CreateOnlinePayment(ctx context.Context, arg CreateOnlinePaymentParams) (OnlinePayment, error) {
 	row := q.db.QueryRowContext(ctx, createOnlinePayment,
 		arg.MembershipID,
+		arg.RegistrationID,
 		arg.AccountID,
 		arg.Environment,
 		arg.AmountCents,
@@ -68,6 +72,7 @@ func (q *Queries) CreateOnlinePayment(ctx context.Context, arg CreateOnlinePayme
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -107,7 +112,7 @@ func (q *Queries) FailOnlinePayment(ctx context.Context, arg FailOnlinePaymentPa
 
 const findOnlinePaymentByHelloAsso = `-- name: FindOnlinePaymentByHelloAsso :one
 
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
 WHERE environment = ?1
   AND (helloasso_payment_id = ?2 OR order_id = ?3)
 ORDER BY id DESC
@@ -127,6 +132,7 @@ func (q *Queries) FindOnlinePaymentByHelloAsso(ctx context.Context, arg FindOnli
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -148,8 +154,8 @@ func (q *Queries) FindOnlinePaymentByHelloAsso(ctx context.Context, arg FindOnli
 }
 
 const findResumableOnlinePayment = `-- name: FindResumableOnlinePayment :one
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
-WHERE membership_id = ?1 AND environment = ?2
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+WHERE membership_id = CAST(?1 AS INTEGER) AND environment = ?2
   AND amount_cents = ?3 AND status = 'pending'
   AND redirect_url IS NOT NULL AND created_at > ?4
 ORDER BY created_at DESC
@@ -174,6 +180,55 @@ func (q *Queries) FindResumableOnlinePayment(ctx context.Context, arg FindResuma
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
+		&i.AccountID,
+		&i.Environment,
+		&i.AmountCents,
+		&i.Status,
+		&i.CheckoutIntentID,
+		&i.RedirectUrl,
+		&i.OrderID,
+		&i.HelloassoPaymentID,
+		&i.ReceivedAmountCents,
+		&i.PaidAt,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.FinishedAt,
+		&i.LastVerifiedAt,
+		&i.RefundedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const findResumableRegistrationOnlinePayment = `-- name: FindResumableRegistrationOnlinePayment :one
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+WHERE registration_id = CAST(?1 AS INTEGER) AND environment = ?2
+  AND amount_cents = ?3 AND status = 'pending'
+  AND redirect_url IS NOT NULL AND created_at > ?4
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type FindResumableRegistrationOnlinePaymentParams struct {
+	RegistrationID int64
+	Environment    string
+	AmountCents    int64
+	Since          string
+}
+
+func (q *Queries) FindResumableRegistrationOnlinePayment(ctx context.Context, arg FindResumableRegistrationOnlinePaymentParams) (OnlinePayment, error) {
+	row := q.db.QueryRowContext(ctx, findResumableRegistrationOnlinePayment,
+		arg.RegistrationID,
+		arg.Environment,
+		arg.AmountCents,
+		arg.Since,
+	)
+	var i OnlinePayment
+	err := row.Scan(
+		&i.ID,
+		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -195,7 +250,7 @@ func (q *Queries) FindResumableOnlinePayment(ctx context.Context, arg FindResuma
 }
 
 const getOnlinePayment = `-- name: GetOnlinePayment :one
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE id = ?1
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE id = ?1
 `
 
 func (q *Queries) GetOnlinePayment(ctx context.Context, id int64) (OnlinePayment, error) {
@@ -204,6 +259,7 @@ func (q *Queries) GetOnlinePayment(ctx context.Context, id int64) (OnlinePayment
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -226,10 +282,10 @@ func (q *Queries) GetOnlinePayment(ctx context.Context, id int64) (OnlinePayment
 
 const getOnlinePaymentOfAccount = `-- name: GetOnlinePaymentOfAccount :one
 
-SELECT op.id, op.membership_id, op.account_id, op.environment, op.amount_cents, op.status, op.checkout_intent_id, op.redirect_url, op.order_id, op.helloasso_payment_id, op.received_amount_cents, op.paid_at, op.error_code, op.created_at, op.finished_at, op.last_verified_at, op.refunded_at, op.updated_at FROM online_payments op
+SELECT op.id, op.membership_id, op.registration_id, op.account_id, op.environment, op.amount_cents, op.status, op.checkout_intent_id, op.redirect_url, op.order_id, op.helloasso_payment_id, op.received_amount_cents, op.paid_at, op.error_code, op.created_at, op.finished_at, op.last_verified_at, op.refunded_at, op.updated_at FROM online_payments op
 JOIN memberships ms ON ms.id = op.membership_id
 JOIN members m ON m.id = ms.member_id
-WHERE op.id = ?1 AND op.membership_id = ?2
+WHERE op.id = ?1 AND op.membership_id = CAST(?2 AS INTEGER)
   AND m.account_id = ?3
 `
 
@@ -246,6 +302,50 @@ func (q *Queries) GetOnlinePaymentOfAccount(ctx context.Context, arg GetOnlinePa
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
+		&i.AccountID,
+		&i.Environment,
+		&i.AmountCents,
+		&i.Status,
+		&i.CheckoutIntentID,
+		&i.RedirectUrl,
+		&i.OrderID,
+		&i.HelloassoPaymentID,
+		&i.ReceivedAmountCents,
+		&i.PaidAt,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.FinishedAt,
+		&i.LastVerifiedAt,
+		&i.RefundedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getOnlinePaymentOfRegistrationAccount = `-- name: GetOnlinePaymentOfRegistrationAccount :one
+
+SELECT op.id, op.membership_id, op.registration_id, op.account_id, op.environment, op.amount_cents, op.status, op.checkout_intent_id, op.redirect_url, op.order_id, op.helloasso_payment_id, op.received_amount_cents, op.paid_at, op.error_code, op.created_at, op.finished_at, op.last_verified_at, op.refunded_at, op.updated_at FROM online_payments op
+JOIN event_registrations r ON r.id = op.registration_id
+JOIN members m ON m.id = r.member_id
+WHERE op.id = ?1 AND op.registration_id = CAST(?2 AS INTEGER)
+  AND m.account_id = ?3
+`
+
+type GetOnlinePaymentOfRegistrationAccountParams struct {
+	ID             int64
+	RegistrationID int64
+	AccountID      sql.NullInt64
+}
+
+// Event registrations (012 R4): same queries, scoped to a registration.
+func (q *Queries) GetOnlinePaymentOfRegistrationAccount(ctx context.Context, arg GetOnlinePaymentOfRegistrationAccountParams) (OnlinePayment, error) {
+	row := q.db.QueryRowContext(ctx, getOnlinePaymentOfRegistrationAccount, arg.ID, arg.RegistrationID, arg.AccountID)
+	var i OnlinePayment
+	err := row.Scan(
+		&i.ID,
+		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -286,7 +386,7 @@ func (q *Queries) GetSelfMemberOfAccount(ctx context.Context, accountID sql.Null
 }
 
 const latestOnlinePaymentOfMembership = `-- name: LatestOnlinePaymentOfMembership :one
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE membership_id = ?1
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE membership_id = CAST(?1 AS INTEGER)
 ORDER BY created_at DESC, id DESC
 LIMIT 1
 `
@@ -297,6 +397,40 @@ func (q *Queries) LatestOnlinePaymentOfMembership(ctx context.Context, membershi
 	err := row.Scan(
 		&i.ID,
 		&i.MembershipID,
+		&i.RegistrationID,
+		&i.AccountID,
+		&i.Environment,
+		&i.AmountCents,
+		&i.Status,
+		&i.CheckoutIntentID,
+		&i.RedirectUrl,
+		&i.OrderID,
+		&i.HelloassoPaymentID,
+		&i.ReceivedAmountCents,
+		&i.PaidAt,
+		&i.ErrorCode,
+		&i.CreatedAt,
+		&i.FinishedAt,
+		&i.LastVerifiedAt,
+		&i.RefundedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const latestOnlinePaymentOfRegistration = `-- name: LatestOnlinePaymentOfRegistration :one
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE registration_id = CAST(?1 AS INTEGER)
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+func (q *Queries) LatestOnlinePaymentOfRegistration(ctx context.Context, registrationID int64) (OnlinePayment, error) {
+	row := q.db.QueryRowContext(ctx, latestOnlinePaymentOfRegistration, registrationID)
+	var i OnlinePayment
+	err := row.Scan(
+		&i.ID,
+		&i.MembershipID,
+		&i.RegistrationID,
 		&i.AccountID,
 		&i.Environment,
 		&i.AmountCents,
@@ -318,7 +452,7 @@ func (q *Queries) LatestOnlinePaymentOfMembership(ctx context.Context, membershi
 }
 
 const listOnlinePaymentsOfMembership = `-- name: ListOnlinePaymentsOfMembership :many
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE membership_id = ?1
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE membership_id = CAST(?1 AS INTEGER)
 ORDER BY created_at DESC, id DESC
 `
 
@@ -334,6 +468,55 @@ func (q *Queries) ListOnlinePaymentsOfMembership(ctx context.Context, membership
 		if err := rows.Scan(
 			&i.ID,
 			&i.MembershipID,
+			&i.RegistrationID,
+			&i.AccountID,
+			&i.Environment,
+			&i.AmountCents,
+			&i.Status,
+			&i.CheckoutIntentID,
+			&i.RedirectUrl,
+			&i.OrderID,
+			&i.HelloassoPaymentID,
+			&i.ReceivedAmountCents,
+			&i.PaidAt,
+			&i.ErrorCode,
+			&i.CreatedAt,
+			&i.FinishedAt,
+			&i.LastVerifiedAt,
+			&i.RefundedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOnlinePaymentsOfRegistration = `-- name: ListOnlinePaymentsOfRegistration :many
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments WHERE registration_id = CAST(?1 AS INTEGER)
+ORDER BY created_at DESC, id DESC
+`
+
+func (q *Queries) ListOnlinePaymentsOfRegistration(ctx context.Context, registrationID int64) ([]OnlinePayment, error) {
+	rows, err := q.db.QueryContext(ctx, listOnlinePaymentsOfRegistration, registrationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OnlinePayment{}
+	for rows.Next() {
+		var i OnlinePayment
+		if err := rows.Scan(
+			&i.ID,
+			&i.MembershipID,
+			&i.RegistrationID,
 			&i.AccountID,
 			&i.Environment,
 			&i.AmountCents,
@@ -365,7 +548,7 @@ func (q *Queries) ListOnlinePaymentsOfMembership(ctx context.Context, membership
 }
 
 const listPendingOnlinePaymentsBefore = `-- name: ListPendingOnlinePaymentsBefore :many
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
 WHERE status = 'pending' AND created_at < ?1
 ORDER BY coalesce(last_verified_at, created_at)
 LIMIT 50
@@ -383,6 +566,7 @@ func (q *Queries) ListPendingOnlinePaymentsBefore(ctx context.Context, before st
 		if err := rows.Scan(
 			&i.ID,
 			&i.MembershipID,
+			&i.RegistrationID,
 			&i.AccountID,
 			&i.Environment,
 			&i.AmountCents,
@@ -415,8 +599,8 @@ func (q *Queries) ListPendingOnlinePaymentsBefore(ctx context.Context, before st
 
 const listVerifiableOnlinePaymentsOfMembership = `-- name: ListVerifiableOnlinePaymentsOfMembership :many
 
-SELECT id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
-WHERE membership_id = ?1 AND checkout_intent_id IS NOT NULL
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+WHERE membership_id = CAST(?1 AS INTEGER) AND checkout_intent_id IS NOT NULL
   AND (status IN ('pending', 'succeeded')
        OR (status IN ('failed', 'abandoned', 'expired') AND finished_at > ?2))
 ORDER BY created_at
@@ -442,6 +626,63 @@ func (q *Queries) ListVerifiableOnlinePaymentsOfMembership(ctx context.Context, 
 		if err := rows.Scan(
 			&i.ID,
 			&i.MembershipID,
+			&i.RegistrationID,
+			&i.AccountID,
+			&i.Environment,
+			&i.AmountCents,
+			&i.Status,
+			&i.CheckoutIntentID,
+			&i.RedirectUrl,
+			&i.OrderID,
+			&i.HelloassoPaymentID,
+			&i.ReceivedAmountCents,
+			&i.PaidAt,
+			&i.ErrorCode,
+			&i.CreatedAt,
+			&i.FinishedAt,
+			&i.LastVerifiedAt,
+			&i.RefundedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVerifiableOnlinePaymentsOfRegistration = `-- name: ListVerifiableOnlinePaymentsOfRegistration :many
+SELECT id, membership_id, registration_id, account_id, environment, amount_cents, status, checkout_intent_id, redirect_url, order_id, helloasso_payment_id, received_amount_cents, paid_at, error_code, created_at, finished_at, last_verified_at, refunded_at, updated_at FROM online_payments
+WHERE registration_id = CAST(?1 AS INTEGER) AND checkout_intent_id IS NOT NULL
+  AND (status IN ('pending', 'succeeded')
+       OR (status IN ('failed', 'abandoned', 'expired') AND finished_at > ?2))
+ORDER BY created_at
+`
+
+type ListVerifiableOnlinePaymentsOfRegistrationParams struct {
+	RegistrationID int64
+	Since          sql.NullString
+}
+
+func (q *Queries) ListVerifiableOnlinePaymentsOfRegistration(ctx context.Context, arg ListVerifiableOnlinePaymentsOfRegistrationParams) ([]OnlinePayment, error) {
+	rows, err := q.db.QueryContext(ctx, listVerifiableOnlinePaymentsOfRegistration, arg.RegistrationID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OnlinePayment{}
+	for rows.Next() {
+		var i OnlinePayment
+		if err := rows.Scan(
+			&i.ID,
+			&i.MembershipID,
+			&i.RegistrationID,
 			&i.AccountID,
 			&i.Environment,
 			&i.AmountCents,

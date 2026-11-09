@@ -200,3 +200,32 @@ func TestParseNotification(t *testing.T) {
 		}
 	}
 }
+
+// Une intention d'inscription porte Registration ; une intention antérieure
+// à 012 n'a que Membership (012 › R4).
+func TestCheckoutMetadataTargets(t *testing.T) {
+	f := hatest.New(t)
+	cl := newClient(f, &clock{t: time.Date(2026, 11, 3, 10, 0, 0, 0, time.UTC)})
+	ctx := context.Background()
+
+	req := checkout(9)
+	req.Metadata = helloasso.Metadata{Payment: 9, Registration: 5, Reference: "EVT-2627-0001"}
+	in, err := cl.CreateCheckout(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch, err := cl.GetCheckout(ctx, in.ID)
+	if err != nil || ch.Metadata == nil || ch.Metadata.Registration != 5 || ch.Metadata.Membership != 0 {
+		t.Fatalf("intention d'inscription : %+v, %v", ch.Metadata, err)
+	}
+
+	old, err := cl.CreateCheckout(ctx, checkout(10))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.SetMetadata(old.ID, `{"frigg":{"payment":10,"membership":42}}`)
+	ch, err = cl.GetCheckout(ctx, old.ID)
+	if err != nil || ch.Metadata == nil || ch.Metadata.Membership != 42 || ch.Metadata.Registration != 0 {
+		t.Fatalf("intention ancienne : %+v, %v", ch.Metadata, err)
+	}
+}

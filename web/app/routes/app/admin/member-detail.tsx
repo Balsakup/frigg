@@ -200,6 +200,14 @@ function MemberView({ member }: { member: AdminMember }) {
             }
           >
             <p>La fiche et ses informations seront effacées définitivement.</p>
+            {(member.paidUpcomingRegistrations ?? 0) > 0 ? (
+              <p className="mt-2 font-bold">
+                {member.paidUpcomingRegistrations === 1
+                  ? "Elle a 1 inscription payée à un événement à venir, qui sera supprimée."
+                  : `Elle a ${member.paidUpcomingRegistrations} inscriptions payées à des événements à venir, qui seront supprimées.`}{" "}
+                Le remboursement éventuel se fait directement avec l'association.
+              </p>
+            ) : null}
             {memberships.length > 0 ? (
               <>
                 <p className="mt-2">

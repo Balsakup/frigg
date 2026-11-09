@@ -1,9 +1,11 @@
 -- Card payment attempts through HelloAsso (research.md 008 R4, R5, R8).
 
+-- A target is either a membership or an event registration (012 R2).
+
 -- name: CreateOnlinePayment :one
-INSERT INTO online_payments (membership_id, account_id, environment, amount_cents, status, created_at, updated_at)
-VALUES (sqlc.arg(membership_id), sqlc.narg(account_id), sqlc.arg(environment), sqlc.arg(amount_cents), 'pending',
-        sqlc.arg(now), sqlc.arg(now))
+INSERT INTO online_payments (membership_id, registration_id, account_id, environment, amount_cents, status, created_at, updated_at)
+VALUES (sqlc.narg(membership_id), sqlc.narg(registration_id), sqlc.narg(account_id), sqlc.arg(environment),
+        sqlc.arg(amount_cents), 'pending', sqlc.arg(now), sqlc.arg(now))
 RETURNING *;
 
 -- name: GetOnlinePayment :one
@@ -15,12 +17,12 @@ SELECT * FROM online_payments WHERE id = sqlc.arg(id);
 SELECT op.* FROM online_payments op
 JOIN memberships ms ON ms.id = op.membership_id
 JOIN members m ON m.id = ms.member_id
-WHERE op.id = sqlc.arg(id) AND op.membership_id = sqlc.arg(membership_id)
+WHERE op.id = sqlc.arg(id) AND op.membership_id = CAST(sqlc.arg(membership_id) AS INTEGER)
   AND m.account_id = sqlc.arg(account_id);
 
 -- name: FindResumableOnlinePayment :one
 SELECT * FROM online_payments
-WHERE membership_id = sqlc.arg(membership_id) AND environment = sqlc.arg(environment)
+WHERE membership_id = CAST(sqlc.arg(membership_id) AS INTEGER) AND environment = sqlc.arg(environment)
   AND amount_cents = sqlc.arg(amount_cents) AND status = 'pending'
   AND redirect_url IS NOT NULL AND created_at > sqlc.arg(since)
 ORDER BY created_at DESC
@@ -56,11 +58,11 @@ WHERE id = sqlc.arg(id) AND status <> 'succeeded';
 UPDATE online_payments SET last_verified_at = sqlc.arg(now) WHERE id = sqlc.arg(id);
 
 -- name: ListOnlinePaymentsOfMembership :many
-SELECT * FROM online_payments WHERE membership_id = sqlc.arg(membership_id)
+SELECT * FROM online_payments WHERE membership_id = CAST(sqlc.arg(membership_id) AS INTEGER)
 ORDER BY created_at DESC, id DESC;
 
 -- name: LatestOnlinePaymentOfMembership :one
-SELECT * FROM online_payments WHERE membership_id = sqlc.arg(membership_id)
+SELECT * FROM online_payments WHERE membership_id = CAST(sqlc.arg(membership_id) AS INTEGER)
 ORDER BY created_at DESC, id DESC
 LIMIT 1;
 
@@ -76,7 +78,7 @@ LIMIT 50;
 
 -- name: ListVerifiableOnlinePaymentsOfMembership :many
 SELECT * FROM online_payments
-WHERE membership_id = sqlc.arg(membership_id) AND checkout_intent_id IS NOT NULL
+WHERE membership_id = CAST(sqlc.arg(membership_id) AS INTEGER) AND checkout_intent_id IS NOT NULL
   AND (status IN ('pending', 'succeeded')
        OR (status IN ('failed', 'abandoned', 'expired') AND finished_at > sqlc.arg(since)))
 ORDER BY created_at;
@@ -100,3 +102,36 @@ LIMIT 1;
 UPDATE online_payments
 SET status = 'refunded', refunded_at = sqlc.arg(now), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'succeeded';
+
+-- Event registrations (012 R4): same queries, scoped to a registration.
+
+-- name: GetOnlinePaymentOfRegistrationAccount :one
+SELECT op.* FROM online_payments op
+JOIN event_registrations r ON r.id = op.registration_id
+JOIN members m ON m.id = r.member_id
+WHERE op.id = sqlc.arg(id) AND op.registration_id = CAST(sqlc.arg(registration_id) AS INTEGER)
+  AND m.account_id = sqlc.arg(account_id);
+
+-- name: FindResumableRegistrationOnlinePayment :one
+SELECT * FROM online_payments
+WHERE registration_id = CAST(sqlc.arg(registration_id) AS INTEGER) AND environment = sqlc.arg(environment)
+  AND amount_cents = sqlc.arg(amount_cents) AND status = 'pending'
+  AND redirect_url IS NOT NULL AND created_at > sqlc.arg(since)
+ORDER BY created_at DESC
+LIMIT 1;
+
+-- name: ListOnlinePaymentsOfRegistration :many
+SELECT * FROM online_payments WHERE registration_id = CAST(sqlc.arg(registration_id) AS INTEGER)
+ORDER BY created_at DESC, id DESC;
+
+-- name: LatestOnlinePaymentOfRegistration :one
+SELECT * FROM online_payments WHERE registration_id = CAST(sqlc.arg(registration_id) AS INTEGER)
+ORDER BY created_at DESC, id DESC
+LIMIT 1;
+
+-- name: ListVerifiableOnlinePaymentsOfRegistration :many
+SELECT * FROM online_payments
+WHERE registration_id = CAST(sqlc.arg(registration_id) AS INTEGER) AND checkout_intent_id IS NOT NULL
+  AND (status IN ('pending', 'succeeded')
+       OR (status IN ('failed', 'abandoned', 'expired') AND finished_at > sqlc.arg(since)))
+ORDER BY created_at;

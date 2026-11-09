@@ -1,0 +1,6 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">L'inscription à <strong>{{.Event}}</strong> ({{.When}}) a été annulée par le bureau de {{.Association}} pour :</p>
+<ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>
+{{if .Reason}}<p style="margin:0 0 12px">Motif : {{.Reason}}</p>{{end}}
+{{if .Paid}}<p style="margin:0 0 12px">Cette inscription était réglée : le remboursement se fait directement avec l'association.</p>{{end}}
+<p style="margin:0 0 12px">Pour toute question, contactez le bureau de l'association.</p>{{end}}

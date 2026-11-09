@@ -1,0 +1,11 @@
+{{define "subject"}}Événement rétabli : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+Bonne nouvelle : l'événement « {{.Event}} » a finalement lieu.
+
+Date : {{.When}}
+Lieu : {{.Location}}
+
+Inscription maintenue :
+{{range .Members}}- {{.}}
+{{end}}{{end}}

@@ -55,7 +55,26 @@ export default function AdminHome() {
           }
         >
           {memberships.data?.paymentAlerts} signalement
-          {(memberships.data?.paymentAlerts ?? 0) > 1 ? "s" : ""} de paiement à traiter.
+          {(memberships.data?.paymentAlerts ?? 0) > 1 ? "s" : ""} de paiement à traiter sur les
+          adhésions.
+        </Alert>
+      ) : null}
+      {(memberships.data?.registrationPaymentAlerts ?? 0) > 0 ? (
+        <Alert
+          kind="warning"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/inscriptions?alerts=open"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Voir les signalements
+            </Link>
+          }
+        >
+          {memberships.data?.registrationPaymentAlerts} signalement
+          {(memberships.data?.registrationPaymentAlerts ?? 0) > 1 ? "s" : ""} de paiement à traiter
+          sur les inscriptions.
         </Alert>
       ) : null}
       {memberships.data?.helloassoFailing ? (

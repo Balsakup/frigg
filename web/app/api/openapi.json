@@ -259,6 +259,223 @@
         ],
         "type": "object"
       },
+      "AdminEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/AdminEventActions"
+          },
+          "cancelMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "capacity": {
+            "description": "null : illimitée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "confirmedCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "local": {
+            "$ref": "#/components/schemas/EventLocal",
+            "description": "Valeurs locales pour le formulaire"
+          },
+          "location": {
+            "type": "string"
+          },
+          "openness": {
+            "enum": [
+              "season_members",
+              "all_members"
+            ],
+            "type": "string"
+          },
+          "phase": {
+            "description": "« Terminé » est calculé",
+            "enum": [
+              "draft",
+              "upcoming",
+              "finished",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "placesLeft": {
+            "description": "null : illimité",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "priceCents": {
+            "description": "0 : gratuit",
+            "format": "int64",
+            "type": "integer"
+          },
+          "publishedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registrationClosesAt": {
+            "description": "Clôture saisie ; null : au début",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registrationCount": {
+            "description": "Inscriptions, annulées comprises",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registrationOpen": {
+            "description": "Inscription possible maintenant depuis l'espace membre",
+            "type": "boolean"
+          },
+          "registrationOpensAt": {
+            "description": "Ouverture saisie ; null : dès la publication",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/EventTotals"
+          },
+          "updatedBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "window": {
+            "$ref": "#/components/schemas/EventWindow",
+            "description": "null : brouillon"
+          }
+        },
+        "required": [
+          "description",
+          "registrationOpensAt",
+          "registrationClosesAt",
+          "local",
+          "cancelMessage",
+          "publishedAt",
+          "cancelledAt",
+          "cancelledBy",
+          "createdBy",
+          "updatedBy",
+          "registrationCount",
+          "totals",
+          "actions",
+          "id",
+          "title",
+          "location",
+          "startsAt",
+          "endsAt",
+          "season",
+          "status",
+          "phase",
+          "openness",
+          "capacity",
+          "priceCents",
+          "confirmedCount",
+          "placesLeft",
+          "registrationOpen",
+          "window"
+        ],
+        "type": "object"
+      },
+      "AdminEventActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel": {
+            "type": "boolean"
+          },
+          "delete": {
+            "type": "boolean"
+          },
+          "publish": {
+            "type": "boolean"
+          },
+          "register": {
+            "type": "boolean"
+          },
+          "restore": {
+            "type": "boolean"
+          },
+          "update": {
+            "type": "boolean"
+          },
+          "updateDates": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "update",
+          "updateDates",
+          "publish",
+          "cancel",
+          "restore",
+          "delete",
+          "register"
+        ],
+        "type": "object"
+      },
       "AdminMember": {
         "additionalProperties": false,
         "properties": {
@@ -321,6 +538,11 @@
               "array",
               "null"
             ]
+          },
+          "paidUpcomingRegistrations": {
+            "description": "Inscriptions payées à des événements à venir",
+            "format": "int64",
+            "type": "integer"
           },
           "phone": {
             "description": "Normalisé : 0612345678 ou +32470123456",
@@ -915,6 +1137,252 @@
         ],
         "type": "object"
       },
+      "AdminRegistration": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/AdminRegistrationActions"
+          },
+          "alerts": {
+            "description": "Détail seulement ; non traités d'abord",
+            "items": {
+              "$ref": "#/components/schemas/PaymentAlert"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancelledBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "cardPaymentPending": {
+            "type": "boolean"
+          },
+          "contactEmail": {
+            "description": "Adresse de contact ; null : non joignable",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eligible": {
+            "description": "Éligible selon l'ouverture actuelle de l'événement",
+            "type": "boolean"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventRef"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSeasonMember": {
+            "description": "Adhérent de la saison de l'événement",
+            "type": "boolean"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "onlinePayments": {
+            "description": "Détail seulement ; la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/OnlinePayment"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "openAlerts": {
+            "description": "Signalements de paiement non traités",
+            "format": "int64",
+            "type": "integer"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : gratuite"
+          },
+          "paymentNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "registeredBy": {
+            "$ref": "#/components/schemas/AccountRef"
+          },
+          "state": {
+            "enum": [
+              "confirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "member",
+          "isSeasonMember",
+          "eligible",
+          "contactEmail",
+          "state",
+          "registeredAt",
+          "registeredBy",
+          "cancelledAt",
+          "cancelledBy",
+          "amountCents",
+          "payment",
+          "paymentNote",
+          "openAlerts",
+          "onlinePayments",
+          "alerts",
+          "cardPaymentPending",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "AdminRegistrationActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelPayment": {
+            "type": "boolean"
+          },
+          "recordPayment": {
+            "type": "boolean"
+          },
+          "remove": {
+            "type": "boolean"
+          },
+          "verifyCardPayment": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "remove",
+          "recordPayment",
+          "cancelPayment",
+          "verifyCardPayment"
+        ],
+        "type": "object"
+      },
+      "AdminRegistrationListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Par date d'inscription",
+            "items": {
+              "$ref": "#/components/schemas/AdminRegistration"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "AdminRegistrationPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "La plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/AdminRegistrationRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "page": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object"
+      },
+      "AdminRegistrationRow": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventRef"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "openAlerts": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "confirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "member",
+          "state",
+          "registeredAt",
+          "amountCents",
+          "payment",
+          "openAlerts"
+        ],
+        "type": "object"
+      },
       "AnnounceBody": {
         "additionalProperties": false,
         "properties": {
@@ -1160,6 +1628,20 @@
           "feeLabel",
           "contactEmail"
         ],
+        "type": "object"
+      },
+      "CancelEventInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "description": "Message aux inscrits",
+            "maxLength": 1000,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "CardPaymentState": {
@@ -1599,6 +2081,30 @@
         ],
         "type": "object"
       },
+      "ConfirmRegistrationCard": {
+        "additionalProperties": false,
+        "properties": {
+          "registration": {
+            "$ref": "#/components/schemas/MyRegistration"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "registration"
+        ],
+        "type": "object"
+      },
       "CreateCustomFieldBody": {
         "additionalProperties": false,
         "properties": {
@@ -1774,6 +2280,69 @@
         ],
         "type": "object"
       },
+      "Due": {
+        "additionalProperties": false,
+        "properties": {
+          "amountCents": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "membership",
+              "registration"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "« Adhésion 2026-2027 » ou titre de l'événement",
+            "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "member",
+          "label",
+          "amountCents",
+          "payment",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "DueListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Par date",
+            "items": {
+              "$ref": "#/components/schemas/Due"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "EmailInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1858,6 +2427,314 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "EventBody": {
+        "additionalProperties": false,
+        "properties": {
+          "capacity": {
+            "description": "Absente ou null : illimitée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "description": {
+            "maxLength": 5000,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAt": {
+            "description": "Date et heure locales",
+            "maxLength": 16,
+            "type": "string"
+          },
+          "location": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "openness": {
+            "enum": [
+              "season_members",
+              "all_members"
+            ],
+            "type": "string"
+          },
+          "price": {
+            "description": "Prix en euros, par exemple « 15,50 » ; vide : gratuit",
+            "maxLength": 12,
+            "type": "string"
+          },
+          "registrationClosesAt": {
+            "description": "Absente : au début de l'événement",
+            "maxLength": 16,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registrationOpensAt": {
+            "description": "Absente : dès la publication",
+            "maxLength": 16,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startsAt": {
+            "description": "Date et heure locales, par exemple « 2026-12-12T14:00 »",
+            "maxLength": 16,
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "location",
+          "startsAt",
+          "endsAt",
+          "openness"
+        ],
+        "type": "object"
+      },
+      "EventListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Par date de début croissante",
+            "items": {
+              "$ref": "#/components/schemas/EventSummary"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "EventLocal": {
+        "additionalProperties": false,
+        "properties": {
+          "endsAt": {
+            "type": "string"
+          },
+          "registrationClosesAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registrationOpensAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startsAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "startsAt",
+          "endsAt",
+          "registrationOpensAt",
+          "registrationClosesAt"
+        ],
+        "type": "object"
+      },
+      "EventRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "startsAt",
+          "status"
+        ],
+        "type": "object"
+      },
+      "EventSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "capacity": {
+            "description": "null : illimitée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "confirmedCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "location": {
+            "type": "string"
+          },
+          "openness": {
+            "enum": [
+              "season_members",
+              "all_members"
+            ],
+            "type": "string"
+          },
+          "phase": {
+            "description": "« Terminé » est calculé",
+            "enum": [
+              "draft",
+              "upcoming",
+              "finished",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "placesLeft": {
+            "description": "null : illimité",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "priceCents": {
+            "description": "0 : gratuit",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registrationOpen": {
+            "description": "Inscription possible maintenant depuis l'espace membre",
+            "type": "boolean"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/EventWindow",
+            "description": "null : brouillon"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "location",
+          "startsAt",
+          "endsAt",
+          "season",
+          "status",
+          "phase",
+          "openness",
+          "capacity",
+          "priceCents",
+          "confirmedCount",
+          "placesLeft",
+          "registrationOpen",
+          "window"
+        ],
+        "type": "object"
+      },
+      "EventTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "collectedCents": {
+            "description": "Montant encaissé, hors paiements en mode test",
+            "format": "int64",
+            "type": "integer"
+          },
+          "collectedTestCents": {
+            "description": "Montant encaissé en mode test HelloAsso",
+            "format": "int64",
+            "type": "integer"
+          },
+          "dueCents": {
+            "description": "Montant total dû des inscriptions payantes",
+            "format": "int64",
+            "type": "integer"
+          },
+          "paidCount": {
+            "description": "Inscriptions payées",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dueCents",
+          "collectedCents",
+          "collectedTestCents",
+          "paidCount"
+        ],
+        "type": "object"
+      },
+      "EventWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "closesAt": {
+            "description": "Clôture : date saisie, sinon début de l'événement",
+            "format": "date-time",
+            "type": "string"
+          },
+          "opensAt": {
+            "description": "Ouverture : date saisie, sinon publication",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opensAt",
+          "closesAt"
+        ],
         "type": "object"
       },
       "FeeAmounts": {
@@ -2587,6 +3464,11 @@
           "lastName": {
             "type": "string"
           },
+          "paidUpcomingRegistrations": {
+            "description": "Inscriptions payées à des événements à venir",
+            "format": "int64",
+            "type": "integer"
+          },
           "phone": {
             "description": "Normalisé : 0612345678 ou +32470123456",
             "type": [
@@ -2728,7 +3610,7 @@
             "type": "boolean"
           },
           "paymentAlerts": {
-            "description": "Signalements de paiement à traiter",
+            "description": "Signalements de paiement des adhésions à traiter",
             "format": "int64",
             "type": "integer"
           },
@@ -2740,12 +3622,18 @@
             "description": "Demandes en attente, toutes saisons",
             "format": "int64",
             "type": "integer"
+          },
+          "registrationPaymentAlerts": {
+            "description": "Signalements de paiement des inscriptions à traiter",
+            "format": "int64",
+            "type": "integer"
           }
         },
         "required": [
           "pendingCount",
           "paymentSetupNeeded",
           "paymentAlerts",
+          "registrationPaymentAlerts",
           "helloassoFailing"
         ],
         "type": "object"
@@ -3115,6 +4003,185 @@
         ],
         "type": "object"
       },
+      "MyEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capacity": {
+            "description": "null : illimitée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "confirmedCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "location": {
+            "type": "string"
+          },
+          "members": {
+            "description": "Fiches gérées par le compte, par prénom",
+            "items": {
+              "$ref": "#/components/schemas/MyEventMember"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "openness": {
+            "enum": [
+              "season_members",
+              "all_members"
+            ],
+            "type": "string"
+          },
+          "phase": {
+            "description": "« Terminé » est calculé",
+            "enum": [
+              "draft",
+              "upcoming",
+              "finished",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "placesLeft": {
+            "description": "null : illimité",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "priceCents": {
+            "description": "0 : gratuit",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registrationOpen": {
+            "description": "Inscription possible maintenant depuis l'espace membre",
+            "type": "boolean"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "published",
+              "cancelled"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/EventWindow",
+            "description": "null : brouillon"
+          }
+        },
+        "required": [
+          "description",
+          "cancelMessage",
+          "members",
+          "id",
+          "title",
+          "location",
+          "startsAt",
+          "endsAt",
+          "season",
+          "status",
+          "phase",
+          "openness",
+          "capacity",
+          "priceCents",
+          "confirmedCount",
+          "placesLeft",
+          "registrationOpen",
+          "window"
+        ],
+        "type": "object"
+      },
+      "MyEventListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Publiés ou annulés, non terminés, par date de début croissante",
+            "items": {
+              "$ref": "#/components/schemas/EventSummary"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "MyEventMember": {
+        "additionalProperties": false,
+        "properties": {
+          "eligible": {
+            "type": "boolean"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "reason": {
+            "description": "Raison de l'inéligibilité",
+            "enum": [
+              "not_season_member",
+              "already_registered"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "registration": {
+            "$ref": "#/components/schemas/MyRegistrationRef",
+            "description": "Inscription confirmée ; null sinon"
+          }
+        },
+        "required": [
+          "member",
+          "registration",
+          "eligible",
+          "reason"
+        ],
+        "type": "object"
+      },
       "MyMemberActions": {
         "additionalProperties": false,
         "properties": {
@@ -3463,6 +4530,140 @@
         "required": [
           "season",
           "items"
+        ],
+        "type": "object"
+      },
+      "MyRegistration": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyRegistrationActions"
+          },
+          "amountCents": {
+            "description": "Prix figé à l'inscription ; 0 : gratuite",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cardPayment": {
+            "$ref": "#/components/schemas/CardPaymentState",
+            "description": "Dernière tentative de paiement par carte"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventSummary"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : inscription gratuite"
+          },
+          "paymentMethods": {
+            "description": "Moyens activés ; vide s'il n'y a rien à payer ou dans la liste",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodInfo"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "confirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "member",
+          "state",
+          "registeredAt",
+          "cancelledAt",
+          "amountCents",
+          "payment",
+          "paymentMethods",
+          "cardPayment",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "MyRegistrationActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel": {
+            "type": "boolean"
+          },
+          "pay": {
+            "type": "boolean"
+          },
+          "payByCard": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancel",
+          "pay",
+          "payByCard"
+        ],
+        "type": "object"
+      },
+      "MyRegistrationListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "À venir puis passées",
+            "items": {
+              "$ref": "#/components/schemas/MyRegistration"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "MyRegistrationRef": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyRegistrationActions"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : inscription gratuite"
+          }
+        },
+        "required": [
+          "id",
+          "payment",
+          "actions"
         ],
         "type": "object"
       },
@@ -4170,6 +5371,69 @@
         "required": [
           "method",
           "receivedOn"
+        ],
+        "type": "object"
+      },
+      "RegisterBody": {
+        "additionalProperties": false,
+        "properties": {
+          "memberIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ],
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "memberIds"
+        ],
+        "type": "object"
+      },
+      "RegisterMemberInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "memberId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/RecordPaymentBody",
+            "description": "Règlement déjà reçu (événement payant)"
+          }
+        },
+        "required": [
+          "memberId"
+        ],
+        "type": "object"
+      },
+      "RegisterResult": {
+        "additionalProperties": false,
+        "properties": {
+          "createdRegistrationIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "event": {
+            "$ref": "#/components/schemas/MyEvent"
+          }
+        },
+        "required": [
+          "event",
+          "createdRegistrationIds"
         ],
         "type": "object"
       },
@@ -6060,6 +7324,602 @@
         ]
       }
     },
+    "/admin/events": {
+      "get": {
+        "operationId": "list-events",
+        "parameters": [
+          {
+            "description": "Identifiant de saison ou all ; absent : saison courante",
+            "explode": false,
+            "in": "query",
+            "name": "season",
+            "schema": {
+              "description": "Identifiant de saison ou all ; absent : saison courante",
+              "pattern": "^(all|[0-9]+)$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "finished : publié et terminé",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "finished : publié et terminé",
+              "enum": [
+                "draft",
+                "published",
+                "cancelled",
+                "finished"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "upcoming : fin non passée ; past : terminé",
+            "explode": false,
+            "in": "query",
+            "name": "when",
+            "schema": {
+              "description": "upcoming : fin non passée ; past : terminé",
+              "enum": [
+                "upcoming",
+                "past"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lister les événements",
+        "tags": [
+          "Événements"
+        ]
+      },
+      "post": {
+        "operationId": "create-event",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Créer un événement (brouillon)",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/admin/events/{id}": {
+      "delete": {
+        "operationId": "delete-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer un événement sans inscription",
+        "tags": [
+          "Événements"
+        ]
+      },
+      "get": {
+        "operationId": "get-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Un événement",
+        "tags": [
+          "Événements"
+        ]
+      },
+      "put": {
+        "operationId": "update-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modifier un événement",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/admin/events/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelEventInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler un événement",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/admin/events/{id}/publish": {
+      "post": {
+        "operationId": "publish-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Publier un événement",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/admin/events/{id}/registrations": {
+      "get": {
+        "operationId": "list-event-registrations",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "default": "confirmed",
+              "enum": [
+                "confirmed",
+                "all"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Inscrits d'un événement",
+        "tags": [
+          "Inscriptions"
+        ]
+      },
+      "post": {
+        "operationId": "register-member",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterMemberInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Inscrire un membre",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/events/{id}/registrations.csv": {
+      "get": {
+        "operationId": "export-event-registrations",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Inscrits au format CSV (UTF-8, séparateur point-virgule)"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Exporter les inscrits (CSV)",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/events/{id}/restore": {
+      "post": {
+        "operationId": "restore-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rétablir un événement annulé",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
     "/admin/invitations": {
       "get": {
         "operationId": "list-invitations",
@@ -7364,6 +9224,431 @@
         "summary": "Marquer un signalement de paiement comme traité",
         "tags": [
           "Adhésions"
+        ]
+      }
+    },
+    "/admin/registration-alerts/{id}/resolve": {
+      "post": {
+        "operationId": "resolve-registration-payment-alert",
+        "parameters": [
+          {
+            "description": "Identifiant du signalement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant du signalement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Marquer un signalement d'inscription comme traité",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations": {
+      "get": {
+        "operationId": "list-registrations",
+        "parameters": [
+          {
+            "description": "Inscriptions d'un événement",
+            "explode": false,
+            "in": "query",
+            "name": "event",
+            "schema": {
+              "description": "Inscriptions d'un événement",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "enum": [
+                "confirmed",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "payment",
+            "schema": {
+              "enum": [
+                "due",
+                "announced",
+                "paid",
+                "free"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "open : inscriptions portant un signalement de paiement à traiter",
+            "explode": false,
+            "in": "query",
+            "name": "alerts",
+            "schema": {
+              "description": "open : inscriptions portant un signalement de paiement à traiter",
+              "enum": [
+                "open"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fragments d'au moins 3 caractères cherchés dans le nom, le prénom ou la référence",
+            "explode": false,
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Fragments d'au moins 3 caractères cherchés dans le nom, le prénom ou la référence",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "default": 25,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lister les inscriptions",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations/{id}": {
+      "get": {
+        "operationId": "get-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une inscription",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations/{id}/cancel": {
+      "post": {
+        "operationId": "remove-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Retirer une inscription",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations/{id}/card-payment/verify": {
+      "post": {
+        "operationId": "verify-registration-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier auprès de HelloAsso les tentatives en cours",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations/{id}/payment": {
+      "delete": {
+        "operationId": "cancel-registration-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler la constatation du paiement",
+        "tags": [
+          "Inscriptions"
+        ]
+      },
+      "post": {
+        "operationId": "record-registration-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Constater le paiement d'une inscription",
+        "tags": [
+          "Inscriptions"
         ]
       }
     },
@@ -8805,6 +11090,42 @@
         ]
       }
     },
+    "/me/dues": {
+      "get": {
+        "operationId": "list-my-dues",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DueListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "À régler : adhésions et inscriptions",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
     "/me/email-verification": {
       "post": {
         "operationId": "resend-email-verification",
@@ -8831,6 +11152,150 @@
         "summary": "Renvoyer le lien de confirmation d'adresse",
         "tags": [
           "Mon compte"
+        ]
+      }
+    },
+    "/me/events": {
+      "get": {
+        "operationId": "list-my-events",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyEventListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Événements à venir",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/me/events/{id}": {
+      "get": {
+        "operationId": "get-my-event",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Un événement",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
+    "/me/events/{id}/registrations": {
+      "post": {
+        "operationId": "register-my-members",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResult"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Inscrire des fiches à un événement",
+        "tags": [
+          "Événements"
         ]
       }
     },
@@ -9551,6 +12016,307 @@
         "summary": "Changer son mot de passe",
         "tags": [
           "Mon compte"
+        ]
+      }
+    },
+    "/me/registrations": {
+      "get": {
+        "operationId": "list-my-registrations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRegistrationListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Mes inscriptions",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/me/registrations/{id}": {
+      "get": {
+        "operationId": "get-my-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une inscription",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/me/registrations/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-my-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler une inscription",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/me/registrations/{id}/card-payment": {
+      "post": {
+        "operationId": "start-my-registration-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Payer une inscription par carte",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/me/registrations/{id}/card-payment/confirm": {
+      "post": {
+        "operationId": "confirm-my-registration-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCardPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmRegistrationCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier un paiement par carte au retour de HelloAsso",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/me/registrations/{id}/payment": {
+      "put": {
+        "operationId": "announce-my-registration-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choisir le moyen de paiement d'une inscription",
+        "tags": [
+          "Inscriptions"
         ]
       }
     },

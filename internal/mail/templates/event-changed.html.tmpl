@@ -1,0 +1,6 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">L'événement <strong>{{.Event}}</strong>, auquel vous êtes inscrit, a changé.</p>
+<p style="margin:0 0 12px">Date : <strong>{{.When}}</strong>{{if ne .PreviousWhen .When}} (auparavant : {{.PreviousWhen}}){{end}}<br>Lieu : <strong>{{.Location}}</strong>{{if ne .PreviousLocation .Location}} (auparavant : {{.PreviousLocation}}){{end}}</p>
+<p style="margin:0 0 12px">Inscription concernée :</p>
+<ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>
+<p style="margin:0 0 12px">Si vous ne pouvez plus venir, annulez l'inscription dans « Mes inscriptions » ou prévenez l'association.</p>{{end}}

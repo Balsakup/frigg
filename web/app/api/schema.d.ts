@@ -314,6 +314,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lister les événements */
+        get: operations["list-events"];
+        put?: never;
+        /** Créer un événement (brouillon) */
+        post: operations["create-event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un événement */
+        get: operations["get-event"];
+        /** Modifier un événement */
+        put: operations["update-event"];
+        post?: never;
+        /** Supprimer un événement sans inscription */
+        delete: operations["delete-event"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler un événement */
+        post: operations["cancel-event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publier un événement */
+        post: operations["publish-event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inscrits d'un événement */
+        get: operations["list-event-registrations"];
+        put?: never;
+        /** Inscrire un membre */
+        post: operations["register-member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}/registrations.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exporter les inscrits (CSV) */
+        get: operations["export-event-registrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/events/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rétablir un événement annulé */
+        post: operations["restore-event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/invitations": {
         parameters: {
             query?: never;
@@ -588,6 +711,109 @@ export interface paths {
         /** Marquer un signalement de paiement comme traité */
         post: operations["resolve-payment-alert"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registration-alerts/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Marquer un signalement d'inscription comme traité */
+        post: operations["resolve-registration-payment-alert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lister les inscriptions */
+        get: operations["list-registrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une inscription */
+        get: operations["get-registration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registrations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retirer une inscription */
+        post: operations["remove-registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registrations/{id}/card-payment/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier auprès de HelloAsso les tentatives en cours */
+        post: operations["verify-registration-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/registrations/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Constater le paiement d'une inscription */
+        post: operations["record-registration-payment"];
+        /** Annuler la constatation du paiement */
+        delete: operations["cancel-registration-payment"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1022,6 +1248,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** À régler : adhésions et inscriptions */
+        get: operations["list-my-dues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/email-verification": {
         parameters: {
             query?: never;
@@ -1033,6 +1276,57 @@ export interface paths {
         put?: never;
         /** Renvoyer le lien de confirmation d'adresse */
         post: operations["resend-email-verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Événements à venir */
+        get: operations["list-my-events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/events/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Un événement */
+        get: operations["get-my-event"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/events/{id}/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Inscrire des fiches à un événement */
+        post: operations["register-my-members"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1233,6 +1527,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mes inscriptions */
+        get: operations["list-my-registrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/registrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une inscription */
+        get: operations["get-my-registration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/registrations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler une inscription */
+        post: operations["cancel-my-registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/registrations/{id}/card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Payer une inscription par carte */
+        post: operations["start-my-registration-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/registrations/{id}/card-payment/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier un paiement par carte au retour de HelloAsso */
+        post: operations["confirm-my-registration-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/registrations/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choisir le moyen de paiement d'une inscription */
+        put: operations["announce-my-registration-payment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session": {
         parameters: {
             query?: never;
@@ -1343,6 +1739,84 @@ export interface components {
             /** Format: int64 */
             seasonId: number;
         };
+        AdminEvent: {
+            actions: components["schemas"]["AdminEventActions"];
+            cancelMessage: string | null;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            cancelledBy: components["schemas"]["AccountRef"];
+            /**
+             * Format: int64
+             * @description null : illimitée
+             */
+            capacity: number | null;
+            /** Format: int64 */
+            confirmedCount: number;
+            createdBy: components["schemas"]["AccountRef"];
+            description: string | null;
+            /** Format: date-time */
+            endsAt: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Valeurs locales pour le formulaire */
+            local: components["schemas"]["EventLocal"];
+            location: string;
+            /** @enum {string} */
+            openness: "season_members" | "all_members";
+            /**
+             * @description « Terminé » est calculé
+             * @enum {string}
+             */
+            phase: "draft" | "upcoming" | "finished" | "cancelled";
+            /**
+             * Format: int64
+             * @description null : illimité
+             */
+            placesLeft: number | null;
+            /**
+             * Format: int64
+             * @description 0 : gratuit
+             */
+            priceCents: number;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Clôture saisie ; null : au début
+             */
+            registrationClosesAt: string | null;
+            /**
+             * Format: int64
+             * @description Inscriptions, annulées comprises
+             */
+            registrationCount: number;
+            /** @description Inscription possible maintenant depuis l'espace membre */
+            registrationOpen: boolean;
+            /**
+             * Format: date-time
+             * @description Ouverture saisie ; null : dès la publication
+             */
+            registrationOpensAt: string | null;
+            season: components["schemas"]["SeasonRef"];
+            /** Format: date-time */
+            startsAt: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "cancelled";
+            title: string;
+            totals: components["schemas"]["EventTotals"];
+            updatedBy: components["schemas"]["AccountRef"];
+            /** @description null : brouillon */
+            window: components["schemas"]["EventWindow"];
+        };
+        AdminEventActions: {
+            cancel: boolean;
+            delete: boolean;
+            publish: boolean;
+            register: boolean;
+            restore: boolean;
+            update: boolean;
+            updateDates: boolean;
+        };
         AdminMember: {
             /** @description Compte qui gère la fiche ; null : sans compte */
             account: components["schemas"]["MemberAccount"];
@@ -1367,6 +1841,11 @@ export interface components {
             lastName: string;
             /** @description Adhésions de la fiche, la saison la plus récente d'abord */
             memberships?: components["schemas"]["MemberMembership"][] | null;
+            /**
+             * Format: int64
+             * @description Inscriptions payées à des événements à venir
+             */
+            paidUpcomingRegistrations?: number;
             /** @description Normalisé : 0612345678 ou +32470123456 */
             phone: string | null;
             /** Format: date-time */
@@ -1548,6 +2027,77 @@ export interface components {
             /** @enum {string} */
             status: "pending" | "validated" | "refused" | "cancelled";
         };
+        AdminRegistration: {
+            actions: components["schemas"]["AdminRegistrationActions"];
+            /** @description Détail seulement ; non traités d'abord */
+            alerts: components["schemas"]["PaymentAlert"][] | null;
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            cancelledBy: components["schemas"]["AccountRef"];
+            cardPaymentPending: boolean;
+            /** @description Adresse de contact ; null : non joignable */
+            contactEmail: string | null;
+            /** @description Éligible selon l'ouverture actuelle de l'événement */
+            eligible: boolean;
+            event: components["schemas"]["EventRef"];
+            /** Format: int64 */
+            id: number;
+            /** @description Adhérent de la saison de l'événement */
+            isSeasonMember: boolean;
+            member: components["schemas"]["MemberRef"];
+            /** @description Détail seulement ; la plus récente d'abord */
+            onlinePayments: components["schemas"]["OnlinePayment"][] | null;
+            /**
+             * Format: int64
+             * @description Signalements de paiement non traités
+             */
+            openAlerts: number;
+            /** @description null : gratuite */
+            payment: components["schemas"]["Payment"];
+            paymentNote: string | null;
+            /** Format: date-time */
+            registeredAt: string;
+            registeredBy: components["schemas"]["AccountRef"];
+            /** @enum {string} */
+            state: "confirmed" | "cancelled";
+        };
+        AdminRegistrationActions: {
+            cancelPayment: boolean;
+            recordPayment: boolean;
+            remove: boolean;
+            verifyCardPayment: boolean;
+        };
+        AdminRegistrationListOutputBody: {
+            /** @description Par date d'inscription */
+            items: components["schemas"]["AdminRegistration"][] | null;
+        };
+        AdminRegistrationPage: {
+            /** @description La plus récente d'abord */
+            items: components["schemas"]["AdminRegistrationRow"][] | null;
+            /** Format: int64 */
+            page: number;
+            /** Format: int64 */
+            pageSize: number;
+            /** Format: int64 */
+            total: number;
+        };
+        AdminRegistrationRow: {
+            /** Format: int64 */
+            amountCents: number;
+            event: components["schemas"]["EventRef"];
+            /** Format: int64 */
+            id: number;
+            member: components["schemas"]["MemberRef"];
+            /** Format: int64 */
+            openAlerts: number;
+            payment: components["schemas"]["Payment"];
+            /** Format: date-time */
+            registeredAt: string;
+            /** @enum {string} */
+            state: "confirmed" | "cancelled";
+        };
         AnnounceBody: {
             /**
              * @description La carte se paie en ligne : elle n'est jamais annoncée
@@ -1615,6 +2165,10 @@ export interface components {
             memberId: number;
             /** @enum {string} */
             situation: "up_to_date" | "announced" | "due";
+        };
+        CancelEventInputBody: {
+            /** @description Message aux inscrits */
+            message?: string | null;
         };
         CardPaymentState: {
             /** Format: date-time */
@@ -1739,6 +2293,11 @@ export interface components {
              */
             outcome: "return" | "error" | "back";
         };
+        ConfirmRegistrationCard: {
+            registration: components["schemas"]["MyRegistration"];
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
         CreateCustomFieldBody: {
             /** @description Libellés des choix, dans l'ordre (liste de choix seulement) */
             choices?: string[] | null;
@@ -1782,6 +2341,24 @@ export interface components {
             pending: number;
             /** Format: int64 */
             sent: number;
+        };
+        Due: {
+            /** Format: int64 */
+            amountCents: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "membership" | "registration";
+            /** @description « Adhésion 2026-2027 » ou titre de l'événement */
+            label: string;
+            member: components["schemas"]["MemberRef"];
+            payment: components["schemas"]["Payment"];
+        };
+        DueListOutputBody: {
+            /** @description Par date */
+            items: components["schemas"]["Due"][] | null;
         };
         EmailInputBody: {
             /** @description Adresse électronique */
@@ -1827,6 +2404,122 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        EventBody: {
+            /**
+             * Format: int64
+             * @description Absente ou null : illimitée
+             */
+            capacity?: number | null;
+            description?: string | null;
+            /** @description Date et heure locales */
+            endsAt: string;
+            location: string;
+            /** @enum {string} */
+            openness: "season_members" | "all_members";
+            /** @description Prix en euros, par exemple « 15,50 » ; vide : gratuit */
+            price?: string;
+            /** @description Absente : au début de l'événement */
+            registrationClosesAt?: string | null;
+            /** @description Absente : dès la publication */
+            registrationOpensAt?: string | null;
+            /** @description Date et heure locales, par exemple « 2026-12-12T14:00 » */
+            startsAt: string;
+            title: string;
+        };
+        EventListOutputBody: {
+            /** @description Par date de début croissante */
+            items: components["schemas"]["EventSummary"][] | null;
+        };
+        EventLocal: {
+            endsAt: string;
+            registrationClosesAt: string | null;
+            registrationOpensAt: string | null;
+            startsAt: string;
+        };
+        EventRef: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            startsAt: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "cancelled";
+            title: string;
+        };
+        EventSummary: {
+            /**
+             * Format: int64
+             * @description null : illimitée
+             */
+            capacity: number | null;
+            /** Format: int64 */
+            confirmedCount: number;
+            /** Format: date-time */
+            endsAt: string;
+            /** Format: int64 */
+            id: number;
+            location: string;
+            /** @enum {string} */
+            openness: "season_members" | "all_members";
+            /**
+             * @description « Terminé » est calculé
+             * @enum {string}
+             */
+            phase: "draft" | "upcoming" | "finished" | "cancelled";
+            /**
+             * Format: int64
+             * @description null : illimité
+             */
+            placesLeft: number | null;
+            /**
+             * Format: int64
+             * @description 0 : gratuit
+             */
+            priceCents: number;
+            /** @description Inscription possible maintenant depuis l'espace membre */
+            registrationOpen: boolean;
+            season: components["schemas"]["SeasonRef"];
+            /** Format: date-time */
+            startsAt: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "cancelled";
+            title: string;
+            /** @description null : brouillon */
+            window: components["schemas"]["EventWindow"];
+        };
+        EventTotals: {
+            /**
+             * Format: int64
+             * @description Montant encaissé, hors paiements en mode test
+             */
+            collectedCents: number;
+            /**
+             * Format: int64
+             * @description Montant encaissé en mode test HelloAsso
+             */
+            collectedTestCents: number;
+            /**
+             * Format: int64
+             * @description Montant total dû des inscriptions payantes
+             */
+            dueCents: number;
+            /**
+             * Format: int64
+             * @description Inscriptions payées
+             */
+            paidCount: number;
+        };
+        EventWindow: {
+            /**
+             * Format: date-time
+             * @description Clôture : date saisie, sinon début de l'événement
+             */
+            closesAt: string;
+            /**
+             * Format: date-time
+             * @description Ouverture : date saisie, sinon publication
+             */
+            opensAt: string;
         };
         FeeAmounts: {
             /**
@@ -2021,6 +2714,11 @@ export interface components {
             /** @description Fiche du titulaire du compte (« Vous ») */
             isSelf: boolean;
             lastName: string;
+            /**
+             * Format: int64
+             * @description Inscriptions payées à des événements à venir
+             */
+            paidUpcomingRegistrations?: number;
             /** @description Normalisé : 0612345678 ou +32470123456 */
             phone: string | null;
             /** Format: date-time */
@@ -2063,7 +2761,7 @@ export interface components {
             helloassoFailing: boolean;
             /**
              * Format: int64
-             * @description Signalements de paiement à traiter
+             * @description Signalements de paiement des adhésions à traiter
              */
             paymentAlerts: number;
             /** @description Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion */
@@ -2073,6 +2771,11 @@ export interface components {
              * @description Demandes en attente, toutes saisons
              */
             pendingCount: number;
+            /**
+             * Format: int64
+             * @description Signalements de paiement des inscriptions à traiter
+             */
+            registrationPaymentAlerts: number;
         };
         MembershipDueByMethod: {
             /** Format: int64 */
@@ -2190,6 +2893,66 @@ export interface components {
             member: components["schemas"]["FormField"][] | null;
             membership: components["schemas"]["FormField"][] | null;
         };
+        MyEvent: {
+            cancelMessage: string | null;
+            /**
+             * Format: int64
+             * @description null : illimitée
+             */
+            capacity: number | null;
+            /** Format: int64 */
+            confirmedCount: number;
+            description: string | null;
+            /** Format: date-time */
+            endsAt: string;
+            /** Format: int64 */
+            id: number;
+            location: string;
+            /** @description Fiches gérées par le compte, par prénom */
+            members: components["schemas"]["MyEventMember"][] | null;
+            /** @enum {string} */
+            openness: "season_members" | "all_members";
+            /**
+             * @description « Terminé » est calculé
+             * @enum {string}
+             */
+            phase: "draft" | "upcoming" | "finished" | "cancelled";
+            /**
+             * Format: int64
+             * @description null : illimité
+             */
+            placesLeft: number | null;
+            /**
+             * Format: int64
+             * @description 0 : gratuit
+             */
+            priceCents: number;
+            /** @description Inscription possible maintenant depuis l'espace membre */
+            registrationOpen: boolean;
+            season: components["schemas"]["SeasonRef"];
+            /** Format: date-time */
+            startsAt: string;
+            /** @enum {string} */
+            status: "draft" | "published" | "cancelled";
+            title: string;
+            /** @description null : brouillon */
+            window: components["schemas"]["EventWindow"];
+        };
+        MyEventListOutputBody: {
+            /** @description Publiés ou annulés, non terminés, par date de début croissante */
+            items: components["schemas"]["EventSummary"][] | null;
+        };
+        MyEventMember: {
+            eligible: boolean;
+            member: components["schemas"]["MemberRef"];
+            /**
+             * @description Raison de l'inéligibilité
+             * @enum {string|null}
+             */
+            reason: "not_season_member" | "already_registered" | null;
+            /** @description Inscription confirmée ; null sinon */
+            registration: components["schemas"]["MyRegistrationRef"];
+        };
         MyMemberActions: {
             /** @description Moins de 20 fiches */
             add: boolean;
@@ -2293,6 +3056,46 @@ export interface components {
             /** @description Par prénom */
             items: components["schemas"]["MyMembership"][] | null;
             season: components["schemas"]["SeasonRef"];
+        };
+        MyRegistration: {
+            actions: components["schemas"]["MyRegistrationActions"];
+            /**
+             * Format: int64
+             * @description Prix figé à l'inscription ; 0 : gratuite
+             */
+            amountCents: number;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** @description Dernière tentative de paiement par carte */
+            cardPayment: components["schemas"]["CardPaymentState"];
+            event: components["schemas"]["EventSummary"];
+            /** Format: int64 */
+            id: number;
+            member: components["schemas"]["MemberRef"];
+            /** @description null : inscription gratuite */
+            payment: components["schemas"]["Payment"];
+            /** @description Moyens activés ; vide s'il n'y a rien à payer ou dans la liste */
+            paymentMethods: components["schemas"]["PaymentMethodInfo"][] | null;
+            /** Format: date-time */
+            registeredAt: string;
+            /** @enum {string} */
+            state: "confirmed" | "cancelled";
+        };
+        MyRegistrationActions: {
+            cancel: boolean;
+            pay: boolean;
+            payByCard: boolean;
+        };
+        MyRegistrationListOutputBody: {
+            /** @description À venir puis passées */
+            items: components["schemas"]["MyRegistration"][] | null;
+        };
+        MyRegistrationRef: {
+            actions: components["schemas"]["MyRegistrationActions"];
+            /** Format: int64 */
+            id: number;
+            /** @description null : inscription gratuite */
+            payment: components["schemas"]["Payment"];
         };
         OfferMember: {
             /** @description Saisons où la fiche n'a ni demande en attente ni adhésion validée */
@@ -2481,6 +3284,19 @@ export interface components {
             note?: string;
             /** Format: date */
             receivedOn: string;
+        };
+        RegisterBody: {
+            memberIds: number[] | null;
+        };
+        RegisterMemberInputBody: {
+            /** Format: int64 */
+            memberId: number;
+            /** @description Règlement déjà reçu (événement payant) */
+            payment?: components["schemas"]["RecordPaymentBody"];
+        };
+        RegisterResult: {
+            createdRegistrationIds: number[] | null;
+            event: components["schemas"]["MyEvent"];
         };
         ReorderCustomFieldsBody: {
             ids: number[] | null;
@@ -3397,6 +4213,375 @@ export interface operations {
             };
         };
     };
+    "list-events": {
+        parameters: {
+            query?: {
+                /** @description Identifiant de saison ou all ; absent : saison courante */
+                season?: string;
+                /** @description finished : publié et terminé */
+                status?: "draft" | "published" | "cancelled" | "finished";
+                /** @description upcoming : fin non passée ; past : terminé */
+                when?: "upcoming" | "past";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelEventInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "publish-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-event-registrations": {
+        parameters: {
+            query?: {
+                state?: "confirmed" | "all";
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "register-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterMemberInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "export-event-registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inscrits au format CSV (UTF-8, séparateur point-virgule) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-invitations": {
         parameters: {
             query?: never;
@@ -4161,6 +5346,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-registration-payment-alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du signalement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-registrations": {
+        parameters: {
+            query?: {
+                /** @description Inscriptions d'un événement */
+                event?: number;
+                state?: "confirmed" | "cancelled";
+                payment?: "due" | "announced" | "paid" | "free";
+                /** @description open : inscriptions portant un signalement de paiement à traiter */
+                alerts?: "open";
+                /** @description Fragments d'au moins 3 caractères cherchés dans le nom, le prénom ou la référence */
+                q?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "remove-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "verify-registration-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "record-registration-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-registration-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
                 };
             };
             /** @description Error */
@@ -5224,6 +6645,35 @@ export interface operations {
             };
         };
     };
+    "list-my-dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DueListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "resend-email-verification": {
         parameters: {
             query?: never;
@@ -5239,6 +6689,103 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-my-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyEventListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-my-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "register-my-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegisterResult"];
+                };
             };
             /** @description Error */
             default: {
@@ -5728,6 +7275,203 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-my-registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyRegistrationListOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-my-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-my-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "start-my-registration-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-my-registration-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmCardPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmRegistrationCard"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "announce-my-registration-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnounceBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyRegistration"];
+                };
             };
             /** @description Error */
             default: {
