@@ -852,6 +852,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/registrations/{id}/amount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajuster le montant à payer d'une inscription */
+        put: operations["adjust-registration-amount"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/registrations/{id}/cancel": {
         parameters: {
             query?: never;
@@ -1783,6 +1800,12 @@ export interface components {
             line2?: string | null;
             postalCode?: string | null;
         };
+        AdjustRegistrationAmountInputBody: {
+            /** @description Motif de l'ajustement, obligatoire si le montant diffère du montant théorique */
+            adjustmentReason?: string;
+            /** @description Montant à payer en euros ; vide : montant théorique (prix figé à l'inscription) */
+            amount?: string;
+        };
         AdminAccount: {
             /** Format: date-time */
             createdAt: string;
@@ -1811,6 +1834,10 @@ export interface components {
             total: number;
         };
         AdminCreateBody: {
+            /** @description Motif de l'ajustement, obligatoire si le montant diffère du montant théorique */
+            adjustmentReason?: string;
+            /** @description Montant à payer en euros ; vide : montant théorique du tarif et du type */
+            amount?: string;
             /** @description Champs personnalisés d'adhésion */
             customFields?: components["schemas"]["FieldInput"][] | null;
             /** Format: int64 */
@@ -2001,6 +2028,13 @@ export interface components {
             /** @description Compte qui gère la fiche ; null : sans compte */
             account: components["schemas"]["MemberAccount"];
             actions: components["schemas"]["AdminMembershipActions"];
+            /**
+             * Format: int64
+             * @description Montant à payer moins montant théorique : négatif = remise, positif = majoration, 0 sans ajustement
+             */
+            adjustmentCents: number;
+            /** @description Motif de l'ajustement */
+            adjustmentReason: string | null;
             /** @description Signalements de paiement, non traités d'abord */
             alerts: components["schemas"]["PaymentAlert"][] | null;
             /**
@@ -2010,6 +2044,11 @@ export interface components {
             amountCents: number;
             /** @description Le montant a été figé à la validation */
             amountFixed: boolean;
+            /**
+             * Format: int64
+             * @description Montant théorique : tarif et type retenus (montant du tarif actuel tant que la demande est en attente)
+             */
+            baseAmountCents: number;
             /** Format: date-time */
             cancelledAt: string | null;
             cancelledBy: components["schemas"]["AccountRef"];
@@ -2089,9 +2128,19 @@ export interface components {
         AdminMembershipRow: {
             /**
              * Format: int64
-             * @description Montant appliqué ; null tant que l'adhésion n'est pas validée
+             * @description Montant à payer moins montant théorique ; 0 sans ajustement
+             */
+            adjustmentCents: number;
+            /**
+             * Format: int64
+             * @description Montant à payer ; null tant que l'adhésion n'est pas validée
              */
             amountCents: number | null;
+            /**
+             * Format: int64
+             * @description Montant théorique ; null tant que l'adhésion n'est pas validée
+             */
+            baseAmountCents: number | null;
             /** @enum {string|null} */
             declaredKind: "first" | "renewal" | null;
             fee: components["schemas"]["AdminMembershipFee"];
@@ -2114,10 +2163,25 @@ export interface components {
         };
         AdminRegistration: {
             actions: components["schemas"]["AdminRegistrationActions"];
+            /**
+             * Format: int64
+             * @description Montant à payer moins montant théorique : négatif = remise, positif = majoration, 0 sans ajustement
+             */
+            adjustmentCents: number;
+            /** @description Motif de l'ajustement */
+            adjustmentReason: string | null;
             /** @description Détail seulement ; non traités d'abord */
             alerts: components["schemas"]["PaymentAlert"][] | null;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Montant à payer
+             */
             amountCents: number;
+            /**
+             * Format: int64
+             * @description Montant théorique : prix de l'événement figé à l'inscription
+             */
+            baseAmountCents: number;
             /** Format: date-time */
             cancelledAt: string | null;
             cancelledBy: components["schemas"]["AccountRef"];
@@ -2149,6 +2213,7 @@ export interface components {
             state: "confirmed" | "cancelled";
         };
         AdminRegistrationActions: {
+            adjustAmount: boolean;
             cancelPayment: boolean;
             recordPayment: boolean;
             remove: boolean;
@@ -2170,7 +2235,14 @@ export interface components {
         };
         AdminRegistrationRow: {
             /** Format: int64 */
+            adjustmentCents: number;
+            /**
+             * Format: int64
+             * @description Montant à payer
+             */
             amountCents: number;
+            /** Format: int64 */
+            baseAmountCents: number;
             event: components["schemas"]["EventRef"];
             /** Format: int64 */
             id: number;
@@ -2414,6 +2486,10 @@ export interface components {
             customFields: components["schemas"]["FieldInput"][] | null;
         };
         DecisionBody: {
+            /** @description Motif de l'ajustement, obligatoire si le montant diffère du montant théorique */
+            adjustmentReason?: string;
+            /** @description Montant à payer en euros, par exemple « 55 » ; vide : montant théorique du tarif et du type */
+            amount?: string;
             /** Format: int64 */
             feeId: number;
             /** @enum {string} */
@@ -2575,7 +2651,7 @@ export interface components {
         EventTotals: {
             /**
              * Format: int64
-             * @description Montant encaissé, hors paiements en mode test
+             * @description Montant encaissé, dons compris, hors paiements en mode test
              */
             collectedCents: number;
             /**
@@ -2585,7 +2661,17 @@ export interface components {
             collectedTestCents: number;
             /**
              * Format: int64
-             * @description Montant total dû des inscriptions payantes
+             * @description Total des remises
+             */
+            discountCents: number;
+            /**
+             * Format: int64
+             * @description Dons compris dans l'encaissé
+             */
+            donationCents: number;
+            /**
+             * Format: int64
+             * @description Montant total à payer des inscriptions
              */
             dueCents: number;
             /**
@@ -2593,6 +2679,21 @@ export interface components {
              * @description Inscriptions payées
              */
             paidCount: number;
+            /**
+             * Format: int64
+             * @description Reste à percevoir
+             */
+            remainingCents: number;
+            /**
+             * Format: int64
+             * @description Total des majorations
+             */
+            surchargeCents: number;
+            /**
+             * Format: int64
+             * @description Montant théorique total (prix figés à l'inscription)
+             */
+            theoreticalCents: number;
         };
         EventWindow: {
             /**
@@ -3074,6 +3175,16 @@ export interface components {
              * @description Paiements par carte en mode test (aucun débit réel)
              */
             collectedTest: number;
+            /**
+             * Format: int64
+             * @description Total des remises
+             */
+            discountCents: number;
+            /**
+             * Format: int64
+             * @description Dons compris dans l'encaissé
+             */
+            donationCents: number;
             dueByMethod: components["schemas"]["MembershipDueByMethod"];
             /** Format: int64 */
             dueCents: number;
@@ -3087,6 +3198,16 @@ export interface components {
             renewal: number;
             /** Format: int64 */
             seasonId: number;
+            /**
+             * Format: int64
+             * @description Total des majorations
+             */
+            surchargeCents: number;
+            /**
+             * Format: int64
+             * @description Montant théorique total (tarifs et types retenus)
+             */
+            theoreticalCents: number;
             /** Format: int64 */
             totalCents: number;
             /** Format: int64 */
@@ -3370,9 +3491,17 @@ export interface components {
         Payment: {
             /** @enum {string|null} */
             announcedMethod: "cash" | "cheque" | "transfer" | null;
+            /**
+             * Format: int64
+             * @description Don : excédent du montant reçu sur le montant à payer ; 0 sans don
+             */
+            donationCents: number;
             /** @description Carte : paiement HelloAsso qui a constaté l'adhésion */
             online: components["schemas"]["OnlinePaymentRef"];
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Montant reçu ; null tant que non payé
+             */
             paidAmountCents: number | null;
             /** @enum {string|null} */
             paidMethod: "card" | "cash" | "cheque" | "transfer" | null;
@@ -3485,6 +3614,8 @@ export interface components {
             /** @enum {string} */
             method: "cash" | "cheque" | "transfer";
             note?: string;
+            /** @description Montant reçu en euros, par exemple « 50 » ; vide : montant à payer. L'excédent est un don. */
+            receivedAmount?: string;
             /** Format: date */
             receivedOn: string;
         };
@@ -3492,9 +3623,13 @@ export interface components {
             memberIds: number[] | null;
         };
         RegisterMemberInputBody: {
+            /** @description Motif de l'ajustement, obligatoire si le montant diffère du prix */
+            adjustmentReason?: string;
+            /** @description Montant à payer en euros ; vide : prix de l'événement */
+            amount?: string;
             /** Format: int64 */
             memberId: number;
-            /** @description Règlement déjà reçu (événement payant) */
+            /** @description Règlement déjà reçu ; ignoré si l'inscription est gratuite */
             payment?: components["schemas"]["RecordPaymentBody"];
         };
         RegisterResult: {
@@ -3678,6 +3813,10 @@ export interface components {
             startsOn?: string;
         };
         ValidateBody: {
+            /** @description Motif de l'ajustement, obligatoire si le montant diffère du montant théorique */
+            adjustmentReason?: string;
+            /** @description Montant à payer en euros, par exemple « 55 » ; vide : montant théorique du tarif et du type */
+            amount?: string;
             /** @description Champs personnalisés d'adhésion ; un champ absent n'est pas modifié */
             customFields?: components["schemas"]["FieldInput"][] | null;
             /** Format: int64 */
@@ -5830,6 +5969,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "adjust-registration-amount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustRegistrationAmountInputBody"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

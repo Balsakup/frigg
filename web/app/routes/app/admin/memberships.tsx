@@ -347,7 +347,19 @@ function Stats({ stats }: { stats: MembershipStats }) {
           `${stats.first} première${stats.first > 1 ? "s" : ""} adhésion${stats.first > 1 ? "s" : ""}, ${stats.renewal} renouvellement${stats.renewal > 1 ? "s" : ""}`,
         )}
         {tile("Demandes en attente", String(stats.pending))}
-        {tile("Total attendu", formatMoney(stats.totalCents))}
+        {tile(
+          "Total à payer",
+          formatMoney(stats.totalCents),
+          stats.discountCents || stats.surchargeCents
+            ? [
+                `théorique ${formatMoney(stats.theoreticalCents)}`,
+                stats.discountCents ? `remises ${formatMoney(stats.discountCents)}` : "",
+                stats.surchargeCents ? `majorations ${formatMoney(stats.surchargeCents)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : undefined,
+        )}
         {tile(
           "Encaissé",
           formatMoney(stats.paidCents),
@@ -364,6 +376,7 @@ function Stats({ stats }: { stats: MembershipStats }) {
             stats.collectedByMethod.transfer
               ? `virement ${formatMoney(stats.collectedByMethod.transfer)}`
               : "",
+            stats.donationCents ? `dont dons ${formatMoney(stats.donationCents)}` : "",
             stats.collectedTest
               ? `dont paiements de test ${formatMoney(stats.collectedTest)} (hors total)`
               : "",

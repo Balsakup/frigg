@@ -117,6 +117,22 @@
         },
         "type": "object"
       },
+      "AdjustRegistrationAmountInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement, obligatoire si le montant diffère du montant théorique",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "amount": {
+            "description": "Montant à payer en euros ; vide : montant théorique (prix figé à l'inscription)",
+            "maxLength": 12,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "AdminAccount": {
         "additionalProperties": false,
         "properties": {
@@ -216,6 +232,16 @@
       "AdminCreateBody": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement, obligatoire si le montant diffère du montant théorique",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "amount": {
+            "description": "Montant à payer en euros ; vide : montant théorique du tarif et du type",
+            "maxLength": 12,
+            "type": "string"
+          },
           "customFields": {
             "description": "Champs personnalisés d'adhésion",
             "items": {
@@ -771,6 +797,18 @@
           "actions": {
             "$ref": "#/components/schemas/AdminMembershipActions"
           },
+          "adjustmentCents": {
+            "description": "Montant à payer moins montant théorique : négatif = remise, positif = majoration, 0 sans ajustement",
+            "format": "int64",
+            "type": "integer"
+          },
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "alerts": {
             "description": "Signalements de paiement, non traités d'abord",
             "items": {
@@ -789,6 +827,11 @@
           "amountFixed": {
             "description": "Le montant a été figé à la validation",
             "type": "boolean"
+          },
+          "baseAmountCents": {
+            "description": "Montant théorique : tarif et type retenus (montant du tarif actuel tant que la demande est en attente)",
+            "format": "int64",
+            "type": "integer"
           },
           "cancelledAt": {
             "format": "date-time",
@@ -936,6 +979,9 @@
           "cancelledBy",
           "paidBy",
           "paymentNote",
+          "baseAmountCents",
+          "adjustmentCents",
+          "adjustmentReason",
           "previousSeason",
           "seasonFees",
           "actions",
@@ -1059,8 +1105,21 @@
       "AdminMembershipRow": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentCents": {
+            "description": "Montant à payer moins montant théorique ; 0 sans ajustement",
+            "format": "int64",
+            "type": "integer"
+          },
           "amountCents": {
-            "description": "Montant appliqué ; null tant que l'adhésion n'est pas validée",
+            "description": "Montant à payer ; null tant que l'adhésion n'est pas validée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "baseAmountCents": {
+            "description": "Montant théorique ; null tant que l'adhésion n'est pas validée",
             "format": "int64",
             "type": [
               "integer",
@@ -1131,6 +1190,8 @@
           "kind",
           "declaredKind",
           "amountCents",
+          "baseAmountCents",
+          "adjustmentCents",
           "payment",
           "requestedAt",
           "openAlerts"
@@ -1143,6 +1204,18 @@
           "actions": {
             "$ref": "#/components/schemas/AdminRegistrationActions"
           },
+          "adjustmentCents": {
+            "description": "Montant à payer moins montant théorique : négatif = remise, positif = majoration, 0 sans ajustement",
+            "format": "int64",
+            "type": "integer"
+          },
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "alerts": {
             "description": "Détail seulement ; non traités d'abord",
             "items": {
@@ -1154,6 +1227,12 @@
             ]
           },
           "amountCents": {
+            "description": "Montant à payer",
+            "format": "int64",
+            "type": "integer"
+          },
+          "baseAmountCents": {
+            "description": "Montant théorique : prix de l'événement figé à l'inscription",
             "format": "int64",
             "type": "integer"
           },
@@ -1248,6 +1327,9 @@
           "cancelledAt",
           "cancelledBy",
           "amountCents",
+          "baseAmountCents",
+          "adjustmentCents",
+          "adjustmentReason",
           "payment",
           "paymentNote",
           "openAlerts",
@@ -1261,6 +1343,9 @@
       "AdminRegistrationActions": {
         "additionalProperties": false,
         "properties": {
+          "adjustAmount": {
+            "type": "boolean"
+          },
           "cancelPayment": {
             "type": "boolean"
           },
@@ -1276,6 +1361,7 @@
         },
         "required": [
           "remove",
+          "adjustAmount",
           "recordPayment",
           "cancelPayment",
           "verifyCardPayment"
@@ -1338,7 +1424,16 @@
       "AdminRegistrationRow": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentCents": {
+            "format": "int64",
+            "type": "integer"
+          },
           "amountCents": {
+            "description": "Montant à payer",
+            "format": "int64",
+            "type": "integer"
+          },
+          "baseAmountCents": {
             "format": "int64",
             "type": "integer"
           },
@@ -1378,6 +1473,8 @@
           "state",
           "registeredAt",
           "amountCents",
+          "baseAmountCents",
+          "adjustmentCents",
           "payment",
           "openAlerts"
         ],
@@ -2239,6 +2336,16 @@
       "DecisionBody": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement, obligatoire si le montant diffère du montant théorique",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "amount": {
+            "description": "Montant à payer en euros, par exemple « 55 » ; vide : montant théorique du tarif et du type",
+            "maxLength": 12,
+            "type": "string"
+          },
           "feeId": {
             "format": "int64",
             "type": "integer"
@@ -2689,7 +2796,7 @@
         "additionalProperties": false,
         "properties": {
           "collectedCents": {
-            "description": "Montant encaissé, hors paiements en mode test",
+            "description": "Montant encaissé, dons compris, hors paiements en mode test",
             "format": "int64",
             "type": "integer"
           },
@@ -2698,13 +2805,38 @@
             "format": "int64",
             "type": "integer"
           },
+          "discountCents": {
+            "description": "Total des remises",
+            "format": "int64",
+            "type": "integer"
+          },
+          "donationCents": {
+            "description": "Dons compris dans l'encaissé",
+            "format": "int64",
+            "type": "integer"
+          },
           "dueCents": {
-            "description": "Montant total dû des inscriptions payantes",
+            "description": "Montant total à payer des inscriptions",
             "format": "int64",
             "type": "integer"
           },
           "paidCount": {
             "description": "Inscriptions payées",
+            "format": "int64",
+            "type": "integer"
+          },
+          "remainingCents": {
+            "description": "Reste à percevoir",
+            "format": "int64",
+            "type": "integer"
+          },
+          "surchargeCents": {
+            "description": "Total des majorations",
+            "format": "int64",
+            "type": "integer"
+          },
+          "theoreticalCents": {
+            "description": "Montant théorique total (prix figés à l'inscription)",
             "format": "int64",
             "type": "integer"
           }
@@ -2713,7 +2845,12 @@
           "dueCents",
           "collectedCents",
           "collectedTestCents",
-          "paidCount"
+          "paidCount",
+          "theoreticalCents",
+          "discountCents",
+          "surchargeCents",
+          "donationCents",
+          "remainingCents"
         ],
         "type": "object"
       },
@@ -4320,6 +4457,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "discountCents": {
+            "description": "Total des remises",
+            "format": "int64",
+            "type": "integer"
+          },
+          "donationCents": {
+            "description": "Dons compris dans l'encaissé",
+            "format": "int64",
+            "type": "integer"
+          },
           "dueByMethod": {
             "$ref": "#/components/schemas/MembershipDueByMethod"
           },
@@ -4347,6 +4494,16 @@
             "format": "int64",
             "type": "integer"
           },
+          "surchargeCents": {
+            "description": "Total des majorations",
+            "format": "int64",
+            "type": "integer"
+          },
+          "theoreticalCents": {
+            "description": "Montant théorique total (tarifs et types retenus)",
+            "format": "int64",
+            "type": "integer"
+          },
           "totalCents": {
             "format": "int64",
             "type": "integer"
@@ -4368,7 +4525,11 @@
           "dueCents",
           "dueByMethod",
           "collectedByMethod",
-          "collectedTest"
+          "collectedTest",
+          "theoreticalCents",
+          "discountCents",
+          "surchargeCents",
+          "donationCents"
         ],
         "type": "object"
       },
@@ -5312,11 +5473,17 @@
               "null"
             ]
           },
+          "donationCents": {
+            "description": "Don : excédent du montant reçu sur le montant à payer ; 0 sans don",
+            "format": "int64",
+            "type": "integer"
+          },
           "online": {
             "$ref": "#/components/schemas/OnlinePaymentRef",
             "description": "Carte : paiement HelloAsso qui a constaté l'adhésion"
           },
           "paidAmountCents": {
+            "description": "Montant reçu ; null tant que non payé",
             "format": "int64",
             "type": [
               "integer",
@@ -5361,6 +5528,7 @@
           "paidMethod",
           "paidOn",
           "paidAmountCents",
+          "donationCents",
           "online"
         ],
         "type": "object"
@@ -5760,6 +5928,11 @@
             "maxLength": 200,
             "type": "string"
           },
+          "receivedAmount": {
+            "description": "Montant reçu en euros, par exemple « 50 » ; vide : montant à payer. L'excédent est un don.",
+            "maxLength": 12,
+            "type": "string"
+          },
           "receivedOn": {
             "format": "date",
             "type": "string"
@@ -5796,6 +5969,16 @@
       "RegisterMemberInputBody": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement, obligatoire si le montant diffère du prix",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "amount": {
+            "description": "Montant à payer en euros ; vide : prix de l'événement",
+            "maxLength": 12,
+            "type": "string"
+          },
           "memberId": {
             "format": "int64",
             "minimum": 1,
@@ -5803,7 +5986,7 @@
           },
           "payment": {
             "$ref": "#/components/schemas/RecordPaymentBody",
-            "description": "Règlement déjà reçu (événement payant)"
+            "description": "Règlement déjà reçu ; ignoré si l'inscription est gratuite"
           }
         },
         "required": [
@@ -6478,6 +6661,16 @@
       "ValidateBody": {
         "additionalProperties": false,
         "properties": {
+          "adjustmentReason": {
+            "description": "Motif de l'ajustement, obligatoire si le montant diffère du montant théorique",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "amount": {
+            "description": "Montant à payer en euros, par exemple « 55 » ; vide : montant théorique du tarif et du type",
+            "maxLength": 12,
+            "type": "string"
+          },
           "customFields": {
             "description": "Champs personnalisés d'adhésion ; un champ absent n'est pas modifié",
             "items": {
@@ -10170,6 +10363,65 @@
           }
         ],
         "summary": "Une inscription",
+        "tags": [
+          "Inscriptions"
+        ]
+      }
+    },
+    "/admin/registrations/{id}/amount": {
+      "put": {
+        "operationId": "adjust-registration-amount",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustRegistrationAmountInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ajuster le montant à payer d'une inscription",
         "tags": [
           "Inscriptions"
         ]

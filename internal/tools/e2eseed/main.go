@@ -571,6 +571,7 @@ func seedCommunication(ctx context.Context, q *sqlc.Queries, hash, now string) e
 		case "paid":
 			if _, err := q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
 				Method: str("cheque"), PaidOn: str(today.String()), ActorID: admin, Now: str(now), ID: msID,
+				PaidAmountCents: id(r.amount),
 			}); err != nil {
 				return err
 			}
@@ -764,6 +765,7 @@ func seedEvents(ctx context.Context, q *sqlc.Queries, hash, now string) error {
 	}
 	_, err = q.RecordRegistrationPayment(ctx, sqlc.RecordRegistrationPaymentParams{
 		Method: str("cheque"), PaidOn: str(season.Today(time.Now()).String()), ActorID: admin, Now: str(now), ID: r.ID,
+		PaidAmountCents: sql.NullInt64{Int64: 3500, Valid: true},
 	})
 	return err
 }

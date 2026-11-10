@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -10,11 +11,15 @@ import { formatEventRange } from "~/events/date";
 import { RegistrationBadges } from "~/events/RegistrationBadges";
 import { formatAmount, formatDate, formatDay, paymentMethodLabel } from "~/lib/format";
 import {
+  DialogShell,
   errorMessage,
   OnlinePaymentsPanel,
   PaymentAlertsPanel,
   RecordPaymentDialog,
 } from "~/payments/AdminPayments";
+import { AdjustmentNote, ReceivedAmount } from "~/payments/AmountDetails";
+import { AmountToPayField } from "~/payments/AmountToPayField";
+import { useTrackedAmount } from "~/payments/useTrackedAmount";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
@@ -158,7 +163,14 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
                 par {r.registeredBy?.email ?? "—"}
               </span>
             </Info>
-            <Info label="Montant">{formatAmount(r.amountCents)}</Info>
+            <Info label="Montant à payer">
+              {formatAmount(r.amountCents)}
+              <AdjustmentNote
+                baseAmountCents={r.baseAmountCents}
+                adjustmentCents={r.adjustmentCents}
+                reason={r.adjustmentReason}
+              />
+            </Info>
             <div>
               <dt className="text-sm text-muted">État</dt>
               <dd className="mt-0.5">
@@ -174,6 +186,14 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
                 ) : null}
               </Info>
             ) : null}
+            {p?.status === "paid" ? (
+              <Info label="Montant reçu">
+                <ReceivedAmount
+                  paidAmountCents={p.paidAmountCents}
+                  donationCents={p.donationCents}
+                />
+              </Info>
+            ) : null}
             {r.cancelledAt ? (
               <Info label="Annulée le">
                 {formatDate(r.cancelledAt)}
@@ -184,6 +204,9 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
             ) : null}
           </dl>
           <div className="mt-5 flex flex-wrap gap-2">
+            {r.actions.adjustAmount ? (
+              <AdjustAmountDialog registration={r} onDone={done} onError={failed} />
+            ) : null}
             {r.actions.recordPayment ? (
               <RecordPaymentDialog
                 amountCents={r.amountCents}
@@ -236,5 +259,79 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
         />
       </div>
     </Page>
+  );
+}
+
+interface AdjustAmountDialogProps {
+  registration: AdminRegistration;
+  onDone: (message: string) => Promise<void>;
+  onError: (e: unknown) => Promise<void>;
+}
+
+// Ajustement du montant à payer d'une inscription (014, US4).
+function AdjustAmountDialog({ registration: r, onDone, onError }: AdjustAmountDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [errors, setErrors] = useState<{
+    amount?: string;
+    adjustmentReason?: string;
+    root?: string;
+  }>({});
+  const adjust = $api.useMutation("put", "/admin/registrations/{id}/amount");
+  const initial = { amountCents: r.amountCents, adjustmentReason: r.adjustmentReason };
+  const amount = useTrackedAmount(r.baseAmountCents, initial);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await adjust.mutateAsync({ params: { path: { id: r.id } }, body: amount.payload() });
+    } catch (err) {
+      if (isProblem(err) && err.status === 422) {
+        const at = (loc: string) => err.errors?.find((x) => x.location === loc)?.message;
+        const next = { amount: at("body.amount"), adjustmentReason: at("body.adjustmentReason") };
+        setErrors({ ...next, root: next.amount || next.adjustmentReason ? undefined : err.detail });
+        return;
+      }
+      setOpen(false);
+      await onError(err);
+      return;
+    }
+    setOpen(false);
+    await onDone("Montant ajusté.");
+  };
+
+  return (
+    <DialogShell
+      title="Ajuster le montant"
+      trigger={<Button variant="secondary">Ajuster le montant</Button>}
+      open={open}
+      onOpenChange={(o) => {
+        if (o) {
+          amount.restart(initial);
+          setErrors({});
+        }
+        setOpen(o);
+      }}
+    >
+      <form onSubmit={submit} noValidate className="mt-4 flex flex-col gap-5">
+        {r.cardPaymentPending ? (
+          <Alert kind="warning">
+            Un paiement par carte est en cours. Le remboursement d'un éventuel écart se fait dans
+            l'espace HelloAsso de l'association.
+          </Alert>
+        ) : null}
+        <AmountToPayField
+          amount={amount}
+          theoreticalCents={r.baseAmountCents}
+          errors={{ amount: errors.amount, adjustmentReason: errors.adjustmentReason }}
+        />
+        {errors.root ? <Alert kind="danger">{errors.root}</Alert> : null}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Dialog.Close render={<Button variant="secondary">Annuler</Button>} />
+          <Button type="submit" aria-disabled={adjust.isPending}>
+            Enregistrer le montant
+          </Button>
+        </div>
+      </form>
+    </DialogShell>
   );
 }

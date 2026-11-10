@@ -4,7 +4,8 @@
 Le bureau de {{.Association}} a bien reçu le paiement de l'inscription à « {{.Event}} » ({{.When}}) pour :
 {{range .Members}}- {{.}}
 {{end}}
-Montant : {{.Amount}}
+Montant : {{.Amount}}{{if .Donation}}
+Dont {{.Donation}} de don : merci pour votre soutien !{{end}}
 Moyen de paiement : {{.Method}}{{if .PaidOn}}
 Date du paiement : {{.PaidOn}}{{end}}
 Référence : {{.Reference}}

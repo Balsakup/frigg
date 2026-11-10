@@ -13,8 +13,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
-	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/config"
+	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/membership"
@@ -59,18 +59,22 @@ type AdminMembershipActions struct {
 // AdminMembership est une adhésion vue par l'administration.
 type AdminMembership struct {
 	Membership
-	Account        *MemberAccount         `json:"account" doc:"Compte qui gère la fiche ; null : sans compte"`
-	RequestedBy    *AccountRef            `json:"requestedBy"`
-	CreatedBy      *AccountRef            `json:"createdBy"`
-	DecidedBy      *AccountRef            `json:"decidedBy"`
-	CancelledBy    *AccountRef            `json:"cancelledBy"`
-	PaidBy         *AccountRef            `json:"paidBy"`
-	PaymentNote    *string                `json:"paymentNote"`
-	PreviousSeason string                 `json:"previousSeason" enum:"yes,no,unknown" doc:"Adhérent la saison précédente dans Frigg"`
-	SeasonFees     []MembershipFeeRef     `json:"seasonFees" doc:"Tarifs de la saison, pour valider ou corriger"`
-	Actions        AdminMembershipActions `json:"actions"`
-	OnlinePayments []OnlinePayment        `json:"onlinePayments" doc:"Tentatives de paiement par carte, la plus récente d'abord"`
-	Alerts         []PaymentAlert         `json:"alerts" doc:"Signalements de paiement, non traités d'abord"`
+	Account     *MemberAccount `json:"account" doc:"Compte qui gère la fiche ; null : sans compte"`
+	RequestedBy *AccountRef    `json:"requestedBy"`
+	CreatedBy   *AccountRef    `json:"createdBy"`
+	DecidedBy   *AccountRef    `json:"decidedBy"`
+	CancelledBy *AccountRef    `json:"cancelledBy"`
+	PaidBy      *AccountRef    `json:"paidBy"`
+	PaymentNote *string        `json:"paymentNote"`
+	// Remises (014) : réservés aux administrateurs (research.md 014 › R9).
+	BaseAmountCents  int64                  `json:"baseAmountCents" doc:"Montant théorique : tarif et type retenus (montant du tarif actuel tant que la demande est en attente)"`
+	AdjustmentCents  int64                  `json:"adjustmentCents" doc:"Montant à payer moins montant théorique : négatif = remise, positif = majoration, 0 sans ajustement"`
+	AdjustmentReason *string                `json:"adjustmentReason" doc:"Motif de l'ajustement"`
+	PreviousSeason   string                 `json:"previousSeason" enum:"yes,no,unknown" doc:"Adhérent la saison précédente dans Frigg"`
+	SeasonFees       []MembershipFeeRef     `json:"seasonFees" doc:"Tarifs de la saison, pour valider ou corriger"`
+	Actions          AdminMembershipActions `json:"actions"`
+	OnlinePayments   []OnlinePayment        `json:"onlinePayments" doc:"Tentatives de paiement par carte, la plus récente d'abord"`
+	Alerts           []PaymentAlert         `json:"alerts" doc:"Signalements de paiement, non traités d'abord"`
 	// CardPaymentPending : une tentative de moins de 60 minutes est en cours.
 	CardPaymentPending bool `json:"cardPaymentPending"`
 	// CustomFields : champs d'adhésion actifs ; non modifiables si l'adhésion
@@ -93,10 +97,13 @@ type AdminMembershipRow struct {
 	Status       string             `json:"status" enum:"pending,validated,refused,cancelled"`
 	Kind         *string            `json:"kind" enum:"first,renewal"`
 	DeclaredKind *string            `json:"declaredKind" enum:"first,renewal"`
-	AmountCents  *int64             `json:"amountCents" doc:"Montant appliqué ; null tant que l'adhésion n'est pas validée"`
-	Payment      *Payment           `json:"payment"`
-	RequestedAt  string             `json:"requestedAt" format:"date-time"`
-	OpenAlerts   int64              `json:"openAlerts" doc:"Signalements de paiement à traiter"`
+	AmountCents  *int64             `json:"amountCents" doc:"Montant à payer ; null tant que l'adhésion n'est pas validée"`
+	// BaseAmountCents et AdjustmentCents : montant théorique et ajustement (014).
+	BaseAmountCents *int64   `json:"baseAmountCents" doc:"Montant théorique ; null tant que l'adhésion n'est pas validée"`
+	AdjustmentCents int64    `json:"adjustmentCents" doc:"Montant à payer moins montant théorique ; 0 sans ajustement"`
+	Payment         *Payment `json:"payment"`
+	RequestedAt     string   `json:"requestedAt" format:"date-time"`
+	OpenAlerts      int64    `json:"openAlerts" doc:"Signalements de paiement à traiter"`
 }
 
 // AdminMembershipPage est une page de la liste des adhésions.
@@ -140,6 +147,12 @@ type MembershipStats struct {
 	// paiements par carte en mode test, exclus de paidCents.
 	CollectedByMethod MembershipCollectedByMethod `json:"collectedByMethod"`
 	CollectedTest     int64                       `json:"collectedTest" doc:"Paiements par carte en mode test (aucun débit réel)"`
+	// Remises et dons (014). TotalCents est le montant total à payer,
+	// PaidCents l'encaissé dons compris, DueCents le reste à percevoir.
+	TheoreticalCents int64 `json:"theoreticalCents" doc:"Montant théorique total (tarifs et types retenus)"`
+	DiscountCents    int64 `json:"discountCents" doc:"Total des remises"`
+	SurchargeCents   int64 `json:"surchargeCents" doc:"Total des majorations"`
+	DonationCents    int64 `json:"donationCents" doc:"Dons compris dans l'encaissé"`
 }
 
 // MembershipCollectedByMethod est le montant encaissé par moyen constaté.
@@ -157,13 +170,16 @@ type MembershipDashboard struct {
 	PaymentAlerts      int64 `json:"paymentAlerts" doc:"Signalements de paiement des adhésions à traiter"`
 	// RegistrationPaymentAlerts : signalements des inscriptions (012).
 	RegistrationPaymentAlerts int64 `json:"registrationPaymentAlerts" doc:"Signalements de paiement des inscriptions à traiter"`
-	HelloAssoFailing   bool  `json:"helloassoFailing" doc:"Carte activée et connexion à HelloAsso en échec"`
+	HelloAssoFailing          bool  `json:"helloassoFailing" doc:"Carte activée et connexion à HelloAsso en échec"`
 }
 
-// DecisionBody est le tarif et le type retenus.
+// DecisionBody est le tarif et le type retenus, avec le montant à payer
+// éventuellement ajusté (014).
 type DecisionBody struct {
-	FeeID int64  `json:"feeId"`
-	Kind  string `json:"kind" enum:"first,renewal"`
+	FeeID            int64  `json:"feeId"`
+	Kind             string `json:"kind" enum:"first,renewal"`
+	Amount           string `json:"amount,omitempty" required:"false" maxLength:"12" doc:"Montant à payer en euros, par exemple « 55 » ; vide : montant théorique du tarif et du type"`
+	AdjustmentReason string `json:"adjustmentReason,omitempty" required:"false" maxLength:"200" doc:"Motif de l'ajustement, obligatoire si le montant diffère du montant théorique"`
 }
 
 // ValidateBody ajoute à la décision les champs personnalisés saisis (011).
@@ -197,6 +213,8 @@ type RecordPaymentBody struct {
 	Method     string `json:"method" enum:"cash,cheque,transfer"`
 	ReceivedOn string `json:"receivedOn" format:"date"`
 	Note       string `json:"note,omitempty" required:"false" maxLength:"200"`
+	// ReceivedAmount : montant reçu en euros (014) ; vide : montant à payer.
+	ReceivedAmount string `json:"receivedAmount,omitempty" required:"false" maxLength:"12" doc:"Montant reçu en euros, par exemple « 50 » ; vide : montant à payer. L'excédent est un don."`
 }
 
 // AdminCreateBody est une adhésion enregistrée directement.
@@ -206,6 +224,9 @@ type AdminCreateBody struct {
 	FeeID    int64              `json:"feeId"`
 	Kind     string             `json:"kind" enum:"first,renewal"`
 	Paid     *RecordPaymentBody `json:"paid,omitempty" required:"false" doc:"Règlement déjà reçu"`
+	// Montant à payer ajusté (014).
+	Amount           string `json:"amount,omitempty" required:"false" maxLength:"12" doc:"Montant à payer en euros ; vide : montant théorique du tarif et du type"`
+	AdjustmentReason string `json:"adjustmentReason,omitempty" required:"false" maxLength:"200" doc:"Motif de l'ajustement, obligatoire si le montant diffère du montant théorique"`
 	// CustomFields : champs personnalisés d'adhésion saisis (011).
 	CustomFields []FieldInput `json:"customFields,omitempty" required:"false" maxItems:"30" doc:"Champs personnalisés d'adhésion"`
 }
@@ -217,11 +238,11 @@ type ListMembershipsInput struct {
 	Member  int64  `query:"member" minimum:"0" doc:"Adhésions d'une fiche"`
 	Q       string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans la référence de paiement ou la fiche ; un nombre est aussi cherché parmi les commandes HelloAsso"`
 	// PaidMethod filtre les adhésions payées par un moyen.
-	PaidMethod string `query:"paidMethod" enum:"card,cash,cheque,transfer"`
+	PaidMethod string   `query:"paidMethod" enum:"card,cash,cheque,transfer"`
 	Alerts     string   `query:"alerts" enum:"open" doc:"open : adhésions portant un signalement de paiement à traiter"`
 	Field      []string `query:"field,explode" maxItems:"10" doc:"Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable"`
-	Page       int64  `query:"page" minimum:"1" default:"1"`
-	PageSize   int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
+	Page       int64    `query:"page" minimum:"1" default:"1"`
+	PageSize   int64    `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
 }
 
 type StatsInput struct {
@@ -363,6 +384,9 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 		}
 		if m.AmountCents.Valid {
 			row.AmountCents = &m.AmountCents.Int64
+			theoretical := membership.Theoretical(m.AmountCents.Int64, basePtr(m.BaseAmountCents))
+			row.BaseAmountCents = &theoretical
+			row.AdjustmentCents = membership.AdjustmentOf(m.AmountCents.Int64, basePtr(m.BaseAmountCents))
 		}
 		var withRef Membership
 		withRef.Payment = row.Payment
@@ -399,6 +423,7 @@ func (s *server) getMembershipStats(ctx context.Context, in *StatsInput) (*Membe
 			AnnouncedMethod: membership.Method(r.AnnouncedMethod.String),
 			PaidMethod:      membership.Method(r.PaidMethod.String),
 			PaidAmountCents: r.PaidAmountCents.Int64,
+			BaseCents:       basePtr(r.BaseAmountCents),
 			PaidTest:        r.PaidEnvironment.String == config.HelloAssoSandbox,
 		}
 	}
@@ -413,7 +438,9 @@ func (s *server) getMembershipStats(ctx context.Context, in *StatsInput) (*Membe
 		CollectedByMethod: MembershipCollectedByMethod{
 			Card: st.PaidByMethod.Card, Cash: st.PaidByMethod.Cash, Cheque: st.PaidByMethod.Cheque, Transfer: st.PaidByMethod.Transfer,
 		},
-		CollectedTest: st.TestPaidCents,
+		CollectedTest:    st.TestPaidCents,
+		TheoreticalCents: st.TheoreticalCents, DiscountCents: st.DiscountCents,
+		SurchargeCents: st.SurchargeCents, DonationCents: st.DonationCents,
 	}
 	for i, f := range st.ByFee {
 		out.ByFee[i] = MembershipFeeStat{FeeID: f.FeeID, Label: f.Label, Count: f.Count, AmountCents: f.AmountCents}
@@ -498,20 +525,23 @@ func (s *server) adminMembership(ctx context.Context, q *sqlc.Queries, id int64)
 	m := r.Membership
 	a := membership.AdminActionsFor(snapshotOf(m, seasons))
 	out := AdminMembership{
-		Membership:     toMembership(m, r.MembershipFee, r.FirstName, r.LastName, r.BirthDate, seasons, today),
-		RequestedBy:    accountRef(m.RequestedBy, r.RequestedByEmail),
-		CreatedBy:      accountRef(m.CreatedBy, r.CreatedByEmail),
-		DecidedBy:      accountRef(m.DecidedBy, r.DecidedByEmail),
-		CancelledBy:    accountRef(m.CancelledBy, r.CancelledByEmail),
-		PaidBy:         accountRef(m.PaidBy, r.PaidByEmail),
-		PaymentNote:    optionalValue(m.PaymentNote),
-		PreviousSeason: string(hint),
-		SeasonFees:     toFeeRefs(fees),
+		Membership:       toMembership(m, r.MembershipFee, r.FirstName, r.LastName, r.BirthDate, seasons, today),
+		RequestedBy:      accountRef(m.RequestedBy, r.RequestedByEmail),
+		CreatedBy:        accountRef(m.CreatedBy, r.CreatedByEmail),
+		DecidedBy:        accountRef(m.DecidedBy, r.DecidedByEmail),
+		CancelledBy:      accountRef(m.CancelledBy, r.CancelledByEmail),
+		PaidBy:           accountRef(m.PaidBy, r.PaidByEmail),
+		PaymentNote:      optionalValue(m.PaymentNote),
+		AdjustmentReason: optionalValue(m.AdjustmentReason),
+		PreviousSeason:   string(hint),
+		SeasonFees:       toFeeRefs(fees),
 		Actions: AdminMembershipActions{
 			Validate: a.Validate, Refuse: a.Refuse, Update: a.Update, Cancel: a.Cancel,
 			RecordPayment: a.RecordPayment, CancelPayment: a.CancelPayment,
 		},
 	}
+	out.BaseAmountCents = membership.Theoretical(out.AmountCents, basePtr(m.BaseAmountCents))
+	out.AdjustmentCents = membership.AdjustmentOf(out.AmountCents, basePtr(m.BaseAmountCents))
 	if r.MemberAccountID.Valid {
 		out.Account = &MemberAccount{ID: r.MemberAccountID.Int64, Email: r.AccountEmail.String, Disabled: r.AccountDisabledAt.Valid}
 	}
@@ -588,21 +618,29 @@ func (s *server) membershipWrite(ctx context.Context, id int64, fn func(w adminW
 	return current, nil
 }
 
-// decide calcule le tarif, le type et le montant retenus.
-func decide(ctx context.Context, w adminWriteContext, body DecisionBody) (sqlc.MembershipFee, int64, error) {
+// decide calcule le tarif, le type et le montant à payer retenus : le
+// montant théorique du tarif, éventuellement ajusté (research.md 014 › R5).
+func decide(ctx context.Context, w adminWriteContext, body DecisionBody) (sqlc.MembershipFee, membership.Adjustment, error) {
 	fees, err := w.q.ListMembershipFees(ctx, w.m.SeasonID)
 	if err != nil {
-		return sqlc.MembershipFee{}, 0, err
+		return sqlc.MembershipFee{}, membership.Adjustment{}, err
 	}
 	fee, err := feeOfSeason(fees, body.FeeID, "body.feeId")
 	if err != nil {
-		return fee, 0, err
+		return fee, membership.Adjustment{}, err
 	}
-	return fee, membership.AppliedAmount(toFee(fee), membership.Kind(body.Kind)), nil
+	a, err := adjust(membership.AppliedAmount(toFee(fee), membership.Kind(body.Kind)), body.Amount, body.AdjustmentReason, "body")
+	return fee, a, err
+}
+
+// adjustmentLog renvoie les attributs de journal d'un ajustement, sans motif
+// (research.md 014 › R7).
+func adjustmentLog(a membership.Adjustment) []any {
+	return []any{"amount_cents", a.AmountCents, "base_amount_cents", membership.Theoretical(a.AmountCents, a.BaseCents), "adjusted", a.BaseCents != nil}
 }
 
 func (s *server) validateMembership(ctx context.Context, in *ValidateInput) (*AdminMembershipOutput, error) {
-	var amount int64
+	var adj membership.Adjustment
 	fields := 0
 	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
 		if !membership.CanDecide(w.snap) {
@@ -612,15 +650,16 @@ func (s *server) validateMembership(ctx context.Context, in *ValidateInput) (*Ad
 		if err != nil {
 			return err
 		}
-		amount = a
-		ref, status, _, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], amount, w.m)
+		adj = a
+		ref, status, _, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], adj.AmountCents, w.m)
 		if err != nil {
 			return err
 		}
+		base, reason := adjustmentColumns(adj)
 		now := s.timestamp()
 		if err := changed(w.q.ValidateMembership(ctx, sqlc.ValidateMembershipParams{
-			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(amount),
-			PaymentReference: ref, PaymentStatus: status,
+			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(adj.AmountCents),
+			PaymentReference: ref, PaymentStatus: status, BaseAmountCents: base, AdjustmentReason: reason,
 			ActorID: nid(CurrentAccount(ctx).ID), Now: ns(now), ID: w.m.ID,
 		})); err != nil {
 			return err
@@ -633,7 +672,7 @@ func (s *server) validateMembership(ctx context.Context, in *ValidateInput) (*Ad
 	if err != nil {
 		return nil, err
 	}
-	s.logMembershipAction(ctx, "membership.validate", m, "admin", "kind", in.Body.Kind, "amount_cents", amount, "custom_fields", fields)
+	s.logMembershipAction(ctx, "membership.validate", m, "admin", append([]any{"kind", in.Body.Kind, "custom_fields", fields}, adjustmentLog(adj)...)...)
 	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }
 
@@ -661,7 +700,7 @@ func (s *server) refuseMembership(ctx context.Context, in *ReasonInput) (*AdminM
 }
 
 func (s *server) updateMembership(ctx context.Context, in *DecisionInput) (*AdminMembershipOutput, error) {
-	var amount int64
+	var adj membership.Adjustment
 	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
 		switch {
 		case w.snap.Status == membership.Validated && w.snap.PaymentStatus == membership.Paid:
@@ -675,21 +714,23 @@ func (s *server) updateMembership(ctx context.Context, in *DecisionInput) (*Admi
 		if err != nil {
 			return err
 		}
-		amount = a
-		ref, status, announced, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], amount, w.m)
+		adj = a
+		ref, status, announced, err := paymentColumns(ctx, w.q, w.seasons[w.m.SeasonID], adj.AmountCents, w.m)
 		if err != nil {
 			return err
 		}
+		base, reason := adjustmentColumns(adj)
 		return changed(w.q.UpdateValidatedMembership(ctx, sqlc.UpdateValidatedMembershipParams{
-			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(amount),
+			FeeID: fee.ID, Kind: ns(in.Body.Kind), AmountCents: nid(adj.AmountCents),
 			PaymentReference: ref, PaymentStatus: status, AnnouncedMethod: announced,
+			BaseAmountCents: base, AdjustmentReason: reason,
 			Now: s.timestamp(), ID: w.m.ID,
 		}))
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.logMembershipAction(ctx, "membership.update", m, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	s.logMembershipAction(ctx, "membership.update", m, "admin", append([]any{"kind", in.Body.Kind, "old_amount_cents", m.AmountCents.Int64}, adjustmentLog(adj)...)...)
 	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }
 
@@ -749,6 +790,7 @@ func (s *server) checkPayment(body RecordPaymentBody, location string, notBefore
 }
 
 func (s *server) recordMembershipPayment(ctx context.Context, in *RecordPaymentInput) (*AdminMembershipOutput, error) {
+	var received int64
 	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
 		if !membership.CanRecordPayment(w.snap) {
 			return huma.Error409Conflict(MsgMembershipChanged)
@@ -757,9 +799,12 @@ func (s *server) recordMembershipPayment(ctx context.Context, in *RecordPaymentI
 		if err != nil {
 			return err
 		}
+		if received, err = receivedAmount(in.Body, "body", w.m.AmountCents.Int64); err != nil {
+			return err
+		}
 		if err := changed(w.q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
 			Method: ns(in.Body.Method), PaidOn: ns(paidOn), ActorID: nid(CurrentAccount(ctx).ID),
-			Now: ns(s.timestamp()), Note: ns(note), ID: w.m.ID,
+			Now: ns(s.timestamp()), Note: ns(note), ID: w.m.ID, PaidAmountCents: nid(received),
 		})); err != nil {
 			return err
 		}
@@ -768,7 +813,8 @@ func (s *server) recordMembershipPayment(ctx context.Context, in *RecordPaymentI
 	if err != nil {
 		return nil, err
 	}
-	s.logMembershipAction(ctx, "membership.payment_record", m, "admin", "method", in.Body.Method)
+	s.logMembershipAction(ctx, "membership.payment_record", m, "admin", "method", in.Body.Method,
+		"received_cents", received, "donation_cents", membership.Donation(membership.Method(in.Body.Method), m.AmountCents.Int64, received))
 	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }
 
@@ -788,7 +834,8 @@ func (s *server) cancelMembershipPayment(ctx context.Context, in *MembershipIDIn
 
 func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput) (*AdminMembershipOutput, error) {
 	var created sqlc.Membership
-	var amount int64
+	var adj membership.Adjustment
+	var received int64
 	paid := false
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
 		if _, err := q.GetMember(ctx, in.Body.MemberID); errors.Is(err, sql.ErrNoRows) {
@@ -809,7 +856,11 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 			return err
 		}
 		info := seasons[in.Body.SeasonID]
-		amount = membership.AppliedAmount(toFee(fee), membership.Kind(in.Body.Kind))
+		adj, err = adjust(membership.AppliedAmount(toFee(fee), membership.Kind(in.Body.Kind)), in.Body.Amount, in.Body.AdjustmentReason, "body")
+		if err != nil {
+			return err
+		}
+		amount := adj.AmountCents
 		var paidOn, note string
 		if in.Body.Paid != nil && amount > 0 {
 			// Règlement d'un bulletin papier : reçu au plus tôt au début de la
@@ -818,18 +869,22 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 			if err != nil {
 				return err
 			}
+			if received, err = receivedAmount(*in.Body.Paid, "body.paid", amount); err != nil {
+				return err
+			}
 		}
 		ref, status, _, err := paymentColumns(ctx, q, info, amount, sqlc.Membership{})
 		if err != nil {
 			return err
 		}
+		base, reason := adjustmentColumns(adj)
 		now := s.timestamp()
 		actor := nid(CurrentAccount(ctx).ID)
 		id, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
 			MemberID: in.Body.MemberID, SeasonID: in.Body.SeasonID, FeeID: fee.ID,
 			Status: string(membership.Validated), Kind: ns(in.Body.Kind), AmountCents: nid(amount),
 			CreatedBy: actor, Now: now, DecidedBy: actor, DecidedAt: ns(now),
-			PaymentReference: ref, PaymentStatus: status,
+			PaymentReference: ref, PaymentStatus: status, BaseAmountCents: base, AdjustmentReason: reason,
 		})
 		if err != nil {
 			return activeConflict(err)
@@ -842,6 +897,7 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 			paid = true
 			if err := changed(q.RecordMembershipPayment(ctx, sqlc.RecordMembershipPaymentParams{
 				Method: ns(in.Body.Paid.Method), PaidOn: ns(paidOn), ActorID: actor, Now: ns(now), Note: ns(note), ID: id,
+				PaidAmountCents: nid(received),
 			})); err != nil {
 				return err
 			}
@@ -851,9 +907,10 @@ func (s *server) createMembership(ctx context.Context, in *CreateMembershipInput
 	if err != nil {
 		return nil, s.txError(ctx, "création de l'adhésion impossible", err)
 	}
-	s.logMembershipAction(ctx, "membership.create", created, "admin", "kind", in.Body.Kind, "amount_cents", amount)
+	s.logMembershipAction(ctx, "membership.create", created, "admin", append([]any{"kind", in.Body.Kind}, adjustmentLog(adj)...)...)
 	if paid {
-		s.logMembershipAction(ctx, "membership.payment_record", created, "admin", "method", in.Body.Paid.Method)
+		s.logMembershipAction(ctx, "membership.payment_record", created, "admin", "method", in.Body.Paid.Method,
+			"received_cents", received, "donation_cents", membership.Donation(membership.Method(in.Body.Paid.Method), adj.AmountCents, received))
 	}
 	out, err := s.adminMembership(ctx, s.Store.Read, created.ID)
 	if err != nil {

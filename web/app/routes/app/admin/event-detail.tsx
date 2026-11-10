@@ -293,17 +293,32 @@ function Figures({ event: e }: { event: AdminEvent }) {
           {e.confirmedCount}
           {e.capacity ? ` / ${e.capacity}` : ""}
         </Info>
-        {e.priceCents > 0 || t.dueCents > 0 ? (
+        {e.priceCents > 0 || t.dueCents > 0 || t.theoreticalCents > 0 ? (
           <>
-            <Info label="Total dû">{formatMoney(t.dueCents)}</Info>
+            <Info label="Total à payer">
+              {formatMoney(t.dueCents)}
+              {t.discountCents > 0 || t.surchargeCents > 0 ? (
+                <span className="block text-sm font-normal text-muted">
+                  théorique {formatMoney(t.theoreticalCents)}
+                  {t.discountCents > 0 ? ` · remises ${formatMoney(t.discountCents)}` : ""}
+                  {t.surchargeCents > 0 ? ` · majorations ${formatMoney(t.surchargeCents)}` : ""}
+                </span>
+              ) : null}
+            </Info>
             <Info label="Encaissé">
               {formatMoney(t.collectedCents)}
+              {t.donationCents > 0 ? (
+                <span className="block text-sm font-normal text-muted">
+                  dont {formatMoney(t.donationCents)} de dons
+                </span>
+              ) : null}
               {t.collectedTestCents > 0 ? (
                 <span className="block text-sm font-normal text-muted">
                   dont {formatMoney(t.collectedTestCents)} en mode test (non compté)
                 </span>
               ) : null}
             </Info>
+            <Info label="Reste à percevoir">{formatMoney(t.remainingCents)}</Info>
           </>
         ) : null}
       </dl>

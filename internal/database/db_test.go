@@ -536,3 +536,119 @@ func TestEventsMigration(t *testing.T) {
 	}
 	foreignKeysOn()
 }
+
+// Remises et dons (014) : reprise du montant reçu des paiements manuels,
+// contraintes de l'ajustement et retour arrière de 00013 (research.md 014 › R1, R2).
+func TestPaymentAdjustmentsMigration(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(filepath.Join(t.TempDir(), "frigg.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	fsys, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, store.WriteDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 12); err != nil {
+		t.Fatal(err)
+	}
+	db := store.WriteDB
+	const ts = "2026-09-01T10:00:00Z"
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err != nil {
+			t.Fatalf("%v\n%s", err, q)
+		}
+	}
+	refused := func(what, q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err == nil {
+			t.Errorf("%s accepté", what)
+		}
+	}
+	paid := func(table string, id int64) sql.NullInt64 {
+		t.Helper()
+		var v sql.NullInt64
+		if err := db.QueryRow(`SELECT paid_amount_cents FROM `+table+` WHERE id = ?`, id).Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+
+	// Base 00012 : adhésions payée en espèces, payée par carte, due ;
+	// inscriptions payée par virement et due.
+	exec(`INSERT INTO seasons (id, starts_on, ends_on, created_at) VALUES (1, '2026-09-01', '2027-08-31', ?)`, ts)
+	exec(`INSERT INTO membership_fees (id, season_id, label, amount_cents, created_at, updated_at) VALUES (1, 1, 'Adulte', 4500, ?, ?)`, ts, ts)
+	exec(`INSERT INTO members (id, first_name, last_name, birth_date, created_at, updated_at) VALUES
+		(1, 'A', 'A', '1980-01-01', ?, ?), (2, 'B', 'B', '1980-01-01', ?, ?), (3, 'C', 'C', '1980-01-01', ?, ?)`, ts, ts, ts, ts, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, kind, amount_cents, requested_at, updated_at, payment_reference,
+		payment_status, paid_method, paid_on) VALUES (1, 1, 1, 1, 'validated', 'first', 4500, ?, ?, 'ADH-2627-0001', 'paid', 'cash', '2026-09-02')`, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, kind, amount_cents, requested_at, updated_at, payment_reference, payment_status)
+		VALUES (2, 2, 1, 1, 'validated', 'first', 4500, ?, ?, 'ADH-2627-0002', 'due')`, ts, ts)
+	exec(`INSERT INTO online_payments (id, membership_id, environment, amount_cents, status, checkout_intent_id, order_id, helloasso_payment_id,
+		received_amount_cents, paid_at, created_at, finished_at, updated_at)
+		VALUES (7, 2, 'sandbox', 4500, 'succeeded', 70, 71, 72, 4000, ?, ?, ?, ?)`, ts, ts, ts, ts)
+	exec(`UPDATE memberships SET payment_status = 'paid', paid_method = 'card', paid_on = '2026-09-01', paid_online_payment_id = 7, paid_amount_cents = 4000 WHERE id = 2`)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, kind, amount_cents, requested_at, updated_at, payment_reference, payment_status)
+		VALUES (3, 3, 1, 1, 'validated', 'first', 4500, ?, ?, 'ADH-2627-0003', 'due')`, ts, ts)
+	exec(`INSERT INTO events (id, season_id, title, location, starts_at, ends_at, price_cents, status, published_at, created_at, updated_at)
+		VALUES (1, 1, 'Stage', 'Gymnase', '2026-12-12T13:00:00Z', '2026-12-12T16:00:00Z', 3500, 'published', ?, ?, ?)`, ts, ts, ts)
+	exec(`INSERT INTO event_registrations (id, event_id, member_id, status, registered_at, amount_cents, payment_reference, payment_status,
+		paid_method, paid_on, updated_at) VALUES (1, 1, 1, 'confirmed', ?, 3500, 'EVT-2627-0001', 'paid', 'transfer', '2026-09-03', ?)`, ts, ts)
+	exec(`INSERT INTO event_registrations (id, event_id, member_id, status, registered_at, amount_cents, payment_reference, payment_status, updated_at)
+		VALUES (2, 1, 2, 'confirmed', ?, 3500, 'EVT-2627-0002', 'due', ?)`, ts, ts)
+
+	if _, err := provider.UpTo(ctx, 13); err != nil {
+		t.Fatalf("migration 00013 : %v", err)
+	}
+	if v := paid("memberships", 1); v.Int64 != 4500 {
+		t.Errorf("espèces : paid_amount_cents = %v, attendu 4500", v)
+	}
+	if v := paid("memberships", 2); v.Int64 != 4000 {
+		t.Errorf("carte : paid_amount_cents = %v, attendu 4000 inchangé", v)
+	}
+	if v := paid("memberships", 3); v.Valid {
+		t.Errorf("due : paid_amount_cents = %v, attendu NULL", v)
+	}
+	if v := paid("event_registrations", 1); v.Int64 != 3500 {
+		t.Errorf("virement : paid_amount_cents = %v, attendu 3500", v)
+	}
+	if v := paid("event_registrations", 2); v.Valid {
+		t.Errorf("inscription due : paid_amount_cents = %v, attendu NULL", v)
+	}
+
+	long := strings.Repeat("x", 201)
+	for _, table := range []string{"memberships", "event_registrations"} {
+		refused(table+" : motif sans montant théorique", `UPDATE `+table+` SET adjustment_reason = 'remise' WHERE id = 2`)
+		refused(table+" : montant théorique sans motif", `UPDATE `+table+` SET base_amount_cents = 5000 WHERE id = 2`)
+		refused(table+" : montant théorique égal au montant", `UPDATE `+table+` SET base_amount_cents = amount_cents, adjustment_reason = 'x' WHERE id = 2`)
+		refused(table+" : motif de 201 caractères", `UPDATE `+table+` SET base_amount_cents = 9000, adjustment_reason = ? WHERE id = 2`, long)
+		exec(`UPDATE ` + table + ` SET base_amount_cents = 9000, adjustment_reason = 'remise' WHERE id = 2`)
+	}
+
+	if _, err := provider.DownTo(ctx, 12); err != nil {
+		t.Fatalf("retour arrière : %v", err)
+	}
+	for _, table := range []string{"memberships", "event_registrations"} {
+		if _, err := db.ExecContext(ctx, `SELECT base_amount_cents FROM `+table); err == nil {
+			t.Errorf("%s : base_amount_cents présente après retour arrière", table)
+		}
+	}
+	if v := paid("memberships", 1); v.Valid {
+		t.Errorf("retour arrière espèces : %v, attendu NULL", v)
+	}
+	if v := paid("memberships", 2); v.Int64 != 4000 {
+		t.Errorf("retour arrière carte : %v, attendu 4000", v)
+	}
+	if v := paid("event_registrations", 1); v.Valid {
+		t.Errorf("retour arrière virement : %v, attendu NULL", v)
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("réapplication : %v", err)
+	}
+}

@@ -31,7 +31,11 @@ test.describe("événements — inscrits (012 US5)", () => {
       const dialog = page.getByRole("dialog", { name: "Inscrire un membre" });
       await dialog.getByLabel(/^Membre/).fill("Petit");
       await page.getByRole("option", { name: /Petit Jeanne/ }).click();
-      await dialog.getByRole("checkbox", { name: /Déjà payé/ }).click();
+      // Remise (014) : 20 € au lieu du prix, avec motif.
+      await dialog.getByLabel("Montant à payer (€)").fill("20");
+      await dialog.getByLabel("Motif de l'ajustement").fill("Bénévole encadrant");
+      await dialog.getByRole("checkbox", { name: /Règlement déjà reçu/ }).click();
+      await expect(dialog.getByLabel("Montant reçu (€)")).toHaveValue("20");
       await dialog.getByRole("radio", { name: "Espèces" }).click();
       await expectNoBlockingA11yViolations(page);
       await dialog.getByRole("button", { name: "Inscrire" }).click();

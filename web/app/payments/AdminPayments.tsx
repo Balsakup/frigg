@@ -3,7 +3,13 @@ import { ExternalLink, RefreshCw } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { isProblem } from "~/api/problem";
 import type { components } from "~/api/schema";
-import { formatAmount, formatDate, formatMoney, type ManualPaymentMethod } from "~/lib/format";
+import {
+  amountInput,
+  formatAmount,
+  formatDate,
+  formatMoney,
+  type ManualPaymentMethod,
+} from "~/lib/format";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
 import { Button } from "~/ui/Button";
@@ -64,6 +70,8 @@ export interface RecordedPayment {
   method: ManualPaymentMethod;
   receivedOn: string;
   note?: string;
+  // Montant reçu en euros (014) ; absent : montant à payer.
+  receivedAmount?: string;
 }
 
 interface RecordPaymentDialogProps {
@@ -91,6 +99,8 @@ export function RecordPaymentDialog({
   const [method, setMethod] = useState<ManualPaymentMethod | "">(initialMethod);
   const [receivedOn, setReceivedOn] = useState(todayISO());
   const [note, setNote] = useState("");
+  // Montant reçu (014) : null tant qu'il n'est pas modifié (montant à payer).
+  const [received, setReceived] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -102,7 +112,12 @@ export function RecordPaymentDialog({
     }
     setPending(true);
     try {
-      await record({ method, receivedOn, ...(note.trim() ? { note } : {}) });
+      await record({
+        method,
+        receivedOn,
+        ...(note.trim() ? { note } : {}),
+        ...(received !== null ? { receivedAmount: received } : {}),
+      });
     } catch (err) {
       setPending(false);
       if (isProblem(err) && err.status === 422) {
@@ -131,6 +146,7 @@ export function RecordPaymentDialog({
           setMethod(initialMethod);
           setReceivedOn(todayISO());
           setNote("");
+          setReceived(null);
           setErrors({});
         }
         setOpen(o);
@@ -148,6 +164,16 @@ export function RecordPaymentDialog({
           onValueChange={setMethod}
           error={errors.method}
           options={methodOptions}
+        />
+        <Field
+          label="Montant reçu (€)"
+          inputMode="decimal"
+          autoComplete="off"
+          value={received ?? amountInput(amountCents)}
+          onChange={(e) => setReceived(e.target.value)}
+          hint="Un montant supérieur au montant à payer est enregistré comme un don."
+          error={errors.receivedAmount}
+          className="max-w-56"
         />
         <Field
           label="Date de réception"

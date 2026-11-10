@@ -9,6 +9,7 @@ import { type MyRegistration, myRegistrationQuery } from "~/api/registrations";
 import { formatEventRange } from "~/events/date";
 import { RegistrationBadges } from "~/events/RegistrationBadges";
 import { formatAmount, formatDate, formatDay, paymentMethodLabel } from "~/lib/format";
+import { receivedSentence } from "~/payments/AmountDetails";
 import { CardReturn, PaymentSection } from "~/payments/PaymentPanel";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
@@ -158,6 +159,7 @@ function RegistrationView({ reg: r }: { reg: MyRegistration }) {
           {p?.status === "paid" && p.paidOn && p.paidMethod ? (
             <Alert kind="success" className="mt-4">
               Payée le {formatDay(p.paidOn)} ({paymentMethodLabel(p.paidMethod).toLowerCase()}).
+              {receivedSentence(p.paidAmountCents, p.donationCents)}
               {p.online?.test ? " Mode test : aucun débit réel." : ""}
             </Alert>
           ) : null}

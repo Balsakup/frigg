@@ -10,6 +10,47 @@ import (
 	"database/sql"
 )
 
+const adjustRegistrationAmount = `-- name: AdjustRegistrationAmount :execrows
+
+UPDATE event_registrations
+SET amount_cents = ?1, base_amount_cents = ?2,
+    adjustment_reason = ?3, payment_reference = ?4,
+    payment_status = ?5, announced_method = ?6,
+    updated_at = ?7
+WHERE id = ?8 AND status = 'confirmed' AND payment_status IS NOT 'paid'
+`
+
+type AdjustRegistrationAmountParams struct {
+	AmountCents      int64
+	BaseAmountCents  sql.NullInt64
+	AdjustmentReason sql.NullString
+	PaymentReference sql.NullString
+	PaymentStatus    sql.NullString
+	AnnouncedMethod  sql.NullString
+	Now              string
+	ID               int64
+}
+
+// AdjustRegistrationAmount sets the amount to pay of an unpaid confirmed
+// registration (research.md 014 R6). base_amount_cents and adjustment_reason
+// are NULL when the amount equals the theoretical one.
+func (q *Queries) AdjustRegistrationAmount(ctx context.Context, arg AdjustRegistrationAmountParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, adjustRegistrationAmount,
+		arg.AmountCents,
+		arg.BaseAmountCents,
+		arg.AdjustmentReason,
+		arg.PaymentReference,
+		arg.PaymentStatus,
+		arg.AnnouncedMethod,
+		arg.Now,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const announceRegistrationPaymentOfAccount = `-- name: AnnounceRegistrationPaymentOfAccount :execrows
 UPDATE event_registrations
 SET payment_status = 'announced', announced_method = ?1, updated_at = ?2
@@ -82,7 +123,7 @@ const cancelRegistrationPayment = `-- name: CancelRegistrationPayment :execrows
 UPDATE event_registrations
 SET payment_status = CASE WHEN announced_method IS NULL THEN 'due' ELSE 'announced' END,
     paid_method = NULL, paid_on = NULL, paid_by = NULL, paid_at = NULL, payment_note = NULL,
-    updated_at = ?1
+    paid_amount_cents = NULL, updated_at = ?1
 WHERE id = ?2 AND payment_status = 'paid' AND paid_method IS NOT 'card'
 `
 
@@ -150,12 +191,13 @@ const createRegistration = `-- name: CreateRegistration :one
 
 INSERT INTO event_registrations (
     event_id, member_id, status, registered_by, registered_at, amount_cents, payment_reference,
-    payment_status, updated_at
+    payment_status, base_amount_cents, adjustment_reason, updated_at
 ) VALUES (
     ?1, ?2, 'confirmed', ?3, ?4,
-    ?5, ?6, ?7, ?4
+    ?5, ?6, ?7,
+    ?8, ?9, ?4
 )
-RETURNING id, event_id, member_id, status, registered_by, registered_at, cancelled_by, cancelled_at, amount_cents, payment_reference, payment_status, announced_method, paid_method, paid_on, paid_by, paid_at, payment_note, paid_online_payment_id, paid_amount_cents, updated_at
+RETURNING id, event_id, member_id, status, registered_by, registered_at, cancelled_by, cancelled_at, amount_cents, payment_reference, payment_status, announced_method, paid_method, paid_on, paid_by, paid_at, payment_note, paid_online_payment_id, paid_amount_cents, updated_at, base_amount_cents, adjustment_reason
 `
 
 type CreateRegistrationParams struct {
@@ -166,6 +208,8 @@ type CreateRegistrationParams struct {
 	AmountCents      int64
 	PaymentReference sql.NullString
 	PaymentStatus    sql.NullString
+	BaseAmountCents  sql.NullInt64
+	AdjustmentReason sql.NullString
 }
 
 // Event registrations (research.md 012 R1, R6, R11, R12). Member-space
@@ -179,6 +223,8 @@ func (q *Queries) CreateRegistration(ctx context.Context, arg CreateRegistration
 		arg.AmountCents,
 		arg.PaymentReference,
 		arg.PaymentStatus,
+		arg.BaseAmountCents,
+		arg.AdjustmentReason,
 	)
 	var i EventRegistration
 	err := row.Scan(
@@ -202,12 +248,14 @@ func (q *Queries) CreateRegistration(ctx context.Context, arg CreateRegistration
 		&i.PaidOnlinePaymentID,
 		&i.PaidAmountCents,
 		&i.UpdatedAt,
+		&i.BaseAmountCents,
+		&i.AdjustmentReason,
 	)
 	return i, err
 }
 
 const getRegistration = `-- name: GetRegistration :one
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name, m.birth_date, m.phone,
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name, m.birth_date, m.phone,
        m.email AS member_email, m.account_id AS member_account_id,
        a.email AS account_email, a.disabled_at AS account_disabled_at,
        rb.email AS registered_by_email, xb.email AS cancelled_by_email, pb.email AS paid_by_email,
@@ -264,6 +312,8 @@ func (q *Queries) GetRegistration(ctx context.Context, id int64) (GetRegistratio
 		&i.EventRegistration.PaidOnlinePaymentID,
 		&i.EventRegistration.PaidAmountCents,
 		&i.EventRegistration.UpdatedAt,
+		&i.EventRegistration.BaseAmountCents,
+		&i.EventRegistration.AdjustmentReason,
 		&i.Event.ID,
 		&i.Event.SeasonID,
 		&i.Event.Title,
@@ -350,7 +400,7 @@ func (q *Queries) GetRegistrationNotice(ctx context.Context, id int64) (GetRegis
 }
 
 const getRegistrationOfAccount = `-- name: GetRegistrationOfAccount :one
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name
 FROM event_registrations r
 JOIN events e ON e.id = r.event_id
 JOIN members m ON m.id = r.member_id
@@ -393,6 +443,8 @@ func (q *Queries) GetRegistrationOfAccount(ctx context.Context, arg GetRegistrat
 		&i.EventRegistration.PaidOnlinePaymentID,
 		&i.EventRegistration.PaidAmountCents,
 		&i.EventRegistration.UpdatedAt,
+		&i.EventRegistration.BaseAmountCents,
+		&i.EventRegistration.AdjustmentReason,
 		&i.Event.ID,
 		&i.Event.SeasonID,
 		&i.Event.Title,
@@ -421,7 +473,7 @@ func (q *Queries) GetRegistrationOfAccount(ctx context.Context, arg GetRegistrat
 }
 
 const listAccountRegistrationsOfEvent = `-- name: ListAccountRegistrationsOfEvent :many
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at FROM event_registrations r
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason FROM event_registrations r
 JOIN members m ON m.id = r.member_id
 WHERE r.event_id = ?1 AND r.status = 'confirmed' AND m.account_id = ?2
 `
@@ -461,6 +513,8 @@ func (q *Queries) ListAccountRegistrationsOfEvent(ctx context.Context, arg ListA
 			&i.PaidOnlinePaymentID,
 			&i.PaidAmountCents,
 			&i.UpdatedAt,
+			&i.BaseAmountCents,
+			&i.AdjustmentReason,
 		); err != nil {
 			return nil, err
 		}
@@ -477,7 +531,7 @@ func (q *Queries) ListAccountRegistrationsOfEvent(ctx context.Context, arg ListA
 
 const listDueRegistrationsOfAccount = `-- name: ListDueRegistrationsOfAccount :many
 
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, e.title AS event_title, m.first_name, m.last_name
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, e.title AS event_title, m.first_name, m.last_name
 FROM event_registrations r
 JOIN events e ON e.id = r.event_id
 JOIN members m ON m.id = r.member_id
@@ -524,6 +578,8 @@ func (q *Queries) ListDueRegistrationsOfAccount(ctx context.Context, accountID s
 			&i.EventRegistration.PaidOnlinePaymentID,
 			&i.EventRegistration.PaidAmountCents,
 			&i.EventRegistration.UpdatedAt,
+			&i.EventRegistration.BaseAmountCents,
+			&i.EventRegistration.AdjustmentReason,
 			&i.EventTitle,
 			&i.FirstName,
 			&i.LastName,
@@ -629,7 +685,7 @@ func (q *Queries) ListRegistrationReferences(ctx context.Context, prefix string)
 }
 
 const listRegistrations = `-- name: ListRegistrations :many
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, e.title AS event_title, e.starts_at AS event_starts_at, e.status AS event_status,
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, e.title AS event_title, e.starts_at AS event_starts_at, e.status AS event_status,
        m.first_name, m.last_name
 FROM event_registrations r
 JOIN events e ON e.id = r.event_id
@@ -700,6 +756,8 @@ func (q *Queries) ListRegistrations(ctx context.Context, arg ListRegistrationsPa
 			&i.EventRegistration.PaidOnlinePaymentID,
 			&i.EventRegistration.PaidAmountCents,
 			&i.EventRegistration.UpdatedAt,
+			&i.EventRegistration.BaseAmountCents,
+			&i.EventRegistration.AdjustmentReason,
 			&i.EventTitle,
 			&i.EventStartsAt,
 			&i.EventStatus,
@@ -720,7 +778,7 @@ func (q *Queries) ListRegistrations(ctx context.Context, arg ListRegistrationsPa
 }
 
 const listRegistrationsOfAccount = `-- name: ListRegistrationsOfAccount :many
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, m.first_name, m.last_name
 FROM event_registrations r
 JOIN events e ON e.id = r.event_id
 JOIN members m ON m.id = r.member_id
@@ -765,6 +823,8 @@ func (q *Queries) ListRegistrationsOfAccount(ctx context.Context, accountID sql.
 			&i.EventRegistration.PaidOnlinePaymentID,
 			&i.EventRegistration.PaidAmountCents,
 			&i.EventRegistration.UpdatedAt,
+			&i.EventRegistration.BaseAmountCents,
+			&i.EventRegistration.AdjustmentReason,
 			&i.Event.ID,
 			&i.Event.SeasonID,
 			&i.Event.Title,
@@ -803,7 +863,7 @@ func (q *Queries) ListRegistrationsOfAccount(ctx context.Context, accountID sql.
 }
 
 const listRegistrationsOfEvent = `-- name: ListRegistrationsOfEvent :many
-SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, m.first_name, m.last_name, m.birth_date, m.phone,
+SELECT r.id, r.event_id, r.member_id, r.status, r.registered_by, r.registered_at, r.cancelled_by, r.cancelled_at, r.amount_cents, r.payment_reference, r.payment_status, r.announced_method, r.paid_method, r.paid_on, r.paid_by, r.paid_at, r.payment_note, r.paid_online_payment_id, r.paid_amount_cents, r.updated_at, r.base_amount_cents, r.adjustment_reason, m.first_name, m.last_name, m.birth_date, m.phone,
        m.email AS member_email, a.email AS account_email, a.disabled_at AS account_disabled_at,
        rb.email AS registered_by_email,
        EXISTS (SELECT 1 FROM memberships ms WHERE ms.member_id = r.member_id AND ms.season_id = ?1
@@ -869,6 +929,8 @@ func (q *Queries) ListRegistrationsOfEvent(ctx context.Context, arg ListRegistra
 			&i.EventRegistration.PaidOnlinePaymentID,
 			&i.EventRegistration.PaidAmountCents,
 			&i.EventRegistration.UpdatedAt,
+			&i.EventRegistration.BaseAmountCents,
+			&i.EventRegistration.AdjustmentReason,
 			&i.FirstName,
 			&i.LastName,
 			&i.BirthDate,
@@ -960,17 +1022,18 @@ const recordRegistrationPayment = `-- name: RecordRegistrationPayment :execrows
 UPDATE event_registrations
 SET payment_status = 'paid', paid_method = ?1, paid_on = ?2,
     paid_by = ?3, paid_at = ?4, payment_note = ?5,
-    updated_at = ?4
-WHERE id = ?6 AND status = 'confirmed' AND payment_status IN ('due', 'announced')
+    paid_amount_cents = ?6, updated_at = ?4
+WHERE id = ?7 AND status = 'confirmed' AND payment_status IN ('due', 'announced')
 `
 
 type RecordRegistrationPaymentParams struct {
-	Method  sql.NullString
-	PaidOn  sql.NullString
-	ActorID sql.NullInt64
-	Now     sql.NullString
-	Note    sql.NullString
-	ID      int64
+	Method          sql.NullString
+	PaidOn          sql.NullString
+	ActorID         sql.NullInt64
+	Now             sql.NullString
+	Note            sql.NullString
+	PaidAmountCents sql.NullInt64
+	ID              int64
 }
 
 func (q *Queries) RecordRegistrationPayment(ctx context.Context, arg RecordRegistrationPaymentParams) (int64, error) {
@@ -980,6 +1043,7 @@ func (q *Queries) RecordRegistrationPayment(ctx context.Context, arg RecordRegis
 		arg.ActorID,
 		arg.Now,
 		arg.Note,
+		arg.PaidAmountCents,
 		arg.ID,
 	)
 	if err != nil {

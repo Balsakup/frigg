@@ -31,7 +31,9 @@ func TestRenderMembershipTemplates(t *testing.T) {
 			"Adhésion de Léo Martin validée", []string{"Aucun paiement n'est demandé"}, []string{"Référence"}},
 		{"membership-refused", data, "Demande d'adhésion de Léo Martin refusée", []string{"Doublon de fiche"}, nil},
 		{"membership-cancelled", data, "Adhésion de Léo Martin annulée", []string{"Doublon de fiche"}, nil},
-		{"membership-paid", data, "Paiement de l'adhésion de Léo Martin reçu", []string{"virement", "ADH-2627-0001"}, nil},
+		{"membership-paid", data, "Paiement de l'adhésion de Léo Martin reçu", []string{"virement", "ADH-2627-0001"}, []string{"de don"}},
+		{"membership-paid", Data{Association: "Club", Member: "Léo Martin", Season: "2026-2027", Amount: "80,00 €", Donation: "35,00 €", Method: "virement"},
+			"Paiement de l'adhésion de Léo Martin reçu", []string{"80,00", "Dont 35,00 € de don : merci pour votre soutien !"}, nil},
 	}
 	for _, c := range cases {
 		msg, err := Render(c.name, c.data)
@@ -203,6 +205,18 @@ func TestRenderEventTemplates(t *testing.T) {
 		}
 		if strings.Contains(msg.HTML, "<b>printemps</b>") {
 			t.Errorf("%s : balisage du titre interprété dans le HTML", c.name)
+		}
+	}
+	for _, donation := range []string{"", "5,00 €"} {
+		d := data
+		d.Donation = donation
+		msg, err := Render("registration-paid", d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		has := strings.Contains(msg.Text, "de don") && strings.Contains(msg.HTML, "de don")
+		if has != (donation != "") || (donation != "" && !strings.Contains(msg.Text, "Dont 5,00 € de don")) {
+			t.Errorf("registration-paid, don %q : %q", donation, msg.Text)
 		}
 	}
 	free, err := Render("registration-confirmed", Data{Association: "Club", Event: "AG", When: "w", Location: "l", Members: []string{"Lucas"}})

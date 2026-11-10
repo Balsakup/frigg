@@ -3,9 +3,11 @@ import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import { isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
-import { formatAmount, type ManualPaymentMethod } from "~/lib/format";
+import type { ManualPaymentMethod } from "~/lib/format";
 import { type MemberOption, MemberPicker } from "~/memberships/MemberPicker";
 import { DialogShell, methodOptions, todayISO } from "~/payments/AdminPayments";
+import { AmountToPayField } from "~/payments/AmountToPayField";
+import { useTrackedAmount } from "~/payments/useTrackedAmount";
 import { Alert } from "~/ui/Alert";
 import { Button } from "~/ui/Button";
 import { Checkbox } from "~/ui/Checkbox";
@@ -28,6 +30,10 @@ export function RegisterMemberDialog({ eventId, priceCents, onDone, onError }: P
   const [paid, setPaid] = useState(false);
   const [method, setMethod] = useState<ManualPaymentMethod | "">("");
   const [receivedOn, setReceivedOn] = useState(todayISO());
+  // Montant à payer et montant reçu (014) ; le montant reçu recopie le
+  // montant à payer tant qu'il n'est pas modifié.
+  const amount = useTrackedAmount(priceCents);
+  const [received, setReceived] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const create = $api.useMutation("post", "/admin/events/{id}/registrations");
 
@@ -46,7 +52,16 @@ export function RegisterMemberDialog({ eventId, priceCents, onDone, onError }: P
         params: { path: { id: eventId } },
         body: {
           memberId: member.id,
-          ...(paid && method ? { payment: { method, receivedOn } } : {}),
+          ...amount.payload(),
+          ...(paid && method
+            ? {
+                payment: {
+                  method,
+                  receivedOn,
+                  ...(received !== null ? { receivedAmount: received } : {}),
+                },
+              }
+            : {}),
         },
       });
     } catch (err) {
@@ -82,6 +97,8 @@ export function RegisterMemberDialog({ eventId, priceCents, onDone, onError }: P
           setPaid(false);
           setMethod("");
           setReceivedOn(todayISO());
+          amount.restart(null);
+          setReceived(null);
           setErrors({});
         }
         setOpen(o);
@@ -94,34 +111,48 @@ export function RegisterMemberDialog({ eventId, priceCents, onDone, onError }: P
           </Alert>
         ) : null}
         <MemberPicker value={member} onChange={setMember} error={errors.memberId} />
-        {priceCents > 0 ? (
+        <AmountToPayField
+          amount={amount}
+          theoreticalCents={priceCents}
+          errors={{ amount: errors.amount, adjustmentReason: errors.adjustmentReason }}
+        />
+
+        <Checkbox checked={paid} onCheckedChange={setPaid}>
+          Règlement déjà reçu
+        </Checkbox>
+        {paid ? (
           <>
-            <Checkbox checked={paid} onCheckedChange={setPaid}>
-              Déjà payé ({formatAmount(priceCents)})
-            </Checkbox>
-            {paid ? (
-              <>
-                <RadioGroup
-                  legend="Moyen de paiement"
-                  required
-                  value={method}
-                  onValueChange={setMethod}
-                  error={errors["payment.method"]}
-                  options={methodOptions}
-                />
-                <Field
-                  label="Date de réception"
-                  type="date"
-                  required
-                  value={receivedOn}
-                  onChange={(ev) => setReceivedOn(ev.target.value)}
-                  error={errors["payment.receivedOn"]}
-                  className="max-w-56"
-                />
-              </>
-            ) : null}
+            <p className="text-sm text-muted">Ignoré si l'inscription est gratuite.</p>
+            <Field
+              label="Montant reçu (€)"
+              inputMode="decimal"
+              autoComplete="off"
+              value={received ?? amount.text}
+              onChange={(ev) => setReceived(ev.target.value)}
+              hint="Un montant supérieur au montant à payer est enregistré comme un don."
+              error={errors["payment.receivedAmount"]}
+              className="max-w-56"
+            />
+            <RadioGroup
+              legend="Moyen de paiement"
+              required
+              value={method}
+              onValueChange={setMethod}
+              error={errors["payment.method"]}
+              options={methodOptions}
+            />
+            <Field
+              label="Date de réception"
+              type="date"
+              required
+              value={receivedOn}
+              onChange={(ev) => setReceivedOn(ev.target.value)}
+              error={errors["payment.receivedOn"]}
+              className="max-w-56"
+            />
           </>
         ) : null}
+
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Dialog.Close render={<Button variant="secondary">Annuler</Button>} />
           <Button type="submit" aria-disabled={create.isPending}>

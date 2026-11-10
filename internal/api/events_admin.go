@@ -12,9 +12,11 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/config"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/event"
 	"github.com/balsakup/frigg/internal/mail"
+	"github.com/balsakup/frigg/internal/membership"
 	"github.com/balsakup/frigg/internal/season"
 )
 
@@ -43,12 +45,17 @@ type EventLocal struct {
 	RegistrationClosesAt *string `json:"registrationClosesAt"`
 }
 
-// EventTotals sont les chiffres des inscriptions confirmées (FR-026).
+// EventTotals sont les chiffres des inscriptions confirmées (FR-026, 014).
 type EventTotals struct {
-	DueCents           int64 `json:"dueCents" doc:"Montant total dû des inscriptions payantes"`
-	CollectedCents     int64 `json:"collectedCents" doc:"Montant encaissé, hors paiements en mode test"`
+	DueCents           int64 `json:"dueCents" doc:"Montant total à payer des inscriptions"`
+	CollectedCents     int64 `json:"collectedCents" doc:"Montant encaissé, dons compris, hors paiements en mode test"`
 	CollectedTestCents int64 `json:"collectedTestCents" doc:"Montant encaissé en mode test HelloAsso"`
 	PaidCount          int64 `json:"paidCount" doc:"Inscriptions payées"`
+	TheoreticalCents   int64 `json:"theoreticalCents" doc:"Montant théorique total (prix figés à l'inscription)"`
+	DiscountCents      int64 `json:"discountCents" doc:"Total des remises"`
+	SurchargeCents     int64 `json:"surchargeCents" doc:"Total des majorations"`
+	DonationCents      int64 `json:"donationCents" doc:"Dons compris dans l'encaissé"`
+	RemainingCents     int64 `json:"remainingCents" doc:"Reste à percevoir"`
 }
 
 // AdminEventActions sont les actions proposées à un administrateur.
@@ -214,9 +221,7 @@ func (s *server) adminEvent(ctx context.Context, q *sqlc.Queries, id int64) (*Ad
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des inscriptions impossible", err)
 	}
-	for _, reg := range regs {
-		addTotals(&out.Totals, reg.EventRegistration, reg.PaidEnvironment)
-	}
+	out.Totals = eventTotals(regs)
 	return &AdminEventOutput{Body: out}, nil
 }
 
@@ -228,24 +233,27 @@ func localPtr(t *time.Time) *string {
 	return &v
 }
 
-// addTotals ajoute une inscription confirmée aux chiffres de l'événement.
-func addTotals(t *EventTotals, r sqlc.EventRegistration, paidEnvironment sql.NullString) {
-	if !r.PaymentStatus.Valid {
-		return
+// eventTotals calcule les chiffres des inscriptions confirmées d'un
+// événement (research.md 014 › R3).
+func eventTotals(regs []sqlc.ListRegistrationsOfEventRow) EventTotals {
+	var t membership.AmountTotals
+	var paid int64
+	for _, reg := range regs {
+		r := reg.EventRegistration
+		if r.PaymentStatus.String == string(membership.Paid) {
+			paid++
+		}
+		t.Add(membership.AmountRow{
+			AmountCents: r.AmountCents, BaseCents: basePtr(r.BaseAmountCents),
+			PaymentStatus: membership.PaymentStatus(r.PaymentStatus.String), AnnouncedMethod: membership.Method(r.AnnouncedMethod.String),
+			PaidMethod: membership.Method(r.PaidMethod.String), PaidAmountCents: r.PaidAmountCents.Int64,
+			PaidTest: reg.PaidEnvironment.String == config.HelloAssoSandbox,
+		})
 	}
-	t.DueCents += r.AmountCents
-	if r.PaymentStatus.String != "paid" {
-		return
-	}
-	t.PaidCount++
-	amount := r.AmountCents
-	if r.PaidAmountCents.Valid {
-		amount = r.PaidAmountCents.Int64
-	}
-	if paidEnvironment.String == "sandbox" {
-		t.CollectedTestCents += amount
-	} else {
-		t.CollectedCents += amount
+	return EventTotals{
+		DueCents: t.Due, CollectedCents: t.Collected, CollectedTestCents: t.CollectedTest, PaidCount: paid,
+		TheoreticalCents: t.Theoretical, DiscountCents: t.Discounts, SurchargeCents: t.Surcharges,
+		DonationCents: t.Donations, RemainingCents: t.Remaining,
 	}
 }
 

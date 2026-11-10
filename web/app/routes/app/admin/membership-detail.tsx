@@ -19,7 +19,7 @@ import {
   paymentMethodLabel,
   previousSeasonLabel,
 } from "~/lib/format";
-import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
+import { FeeChoice } from "~/memberships/FeeChoice";
 import { MembershipBadges } from "~/memberships/MembershipBadges";
 import {
   DialogShell,
@@ -29,6 +29,9 @@ import {
   PaymentAlertsPanel,
   RecordPaymentDialog,
 } from "~/payments/AdminPayments";
+import { AdjustmentNote, ReceivedAmount } from "~/payments/AmountDetails";
+import { AmountToPayField } from "~/payments/AmountToPayField";
+import { useTrackedAmount } from "~/payments/useTrackedAmount";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
@@ -172,11 +175,16 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
               {m.declaredKind ? membershipKindLabel(m.declaredKind) : "—"}
             </Info>
             <Info label="Type retenu">{m.kind ? membershipKindLabel(m.kind) : "—"}</Info>
-            <Info label="Montant">
+            <Info label={m.amountFixed ? "Montant à payer" : "Montant"}>
               {formatAmount(m.amountCents)}
               {!m.amountFixed ? (
                 <span className="font-normal text-muted"> (calculé avec le tarif actuel)</span>
               ) : null}
+              <AdjustmentNote
+                baseAmountCents={m.baseAmountCents}
+                adjustmentCents={m.adjustmentCents}
+                reason={m.adjustmentReason}
+              />
             </Info>
             <Info label={m.createdBy ? "Créée" : "Demandée"}>
               <span className="font-normal">
@@ -282,6 +290,14 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
                       </span>
                     ) : null}
                   </Info>
+                  {m.payment.paidMethod !== "card" ? (
+                    <Info label="Montant reçu">
+                      <ReceivedAmount
+                        paidAmountCents={m.payment.paidAmountCents}
+                        donationCents={m.payment.donationCents}
+                      />
+                    </Info>
+                  ) : null}
                   {m.payment.paidMethod === "card" && m.payment.online ? (
                     <>
                       <Info label="Montant reçu">
@@ -359,11 +375,24 @@ function DecisionDialog({
   const initialKind = (m.kind ?? m.declaredKind ?? "") as MembershipKind | "";
   const [feeId, setFeeId] = useState<number | null>(m.fee.id);
   const [kind, setKind] = useState<MembershipKind | "">(initialKind);
-  const [errors, setErrors] = useState<{ feeId?: string; kind?: string; root?: string }>({});
+  const [errors, setErrors] = useState<{
+    feeId?: string;
+    kind?: string;
+    amount?: string;
+    adjustmentReason?: string;
+    root?: string;
+  }>({});
   const validate = $api.useMutation("post", "/admin/memberships/{id}/validate");
   const update = $api.useMutation("put", "/admin/memberships/{id}");
   const fee = (m.seasonFees ?? []).find((f) => f.id === feeId);
   const isValidate = mode === "validate";
+  // Montant à payer (014) : en correction, une adhésion ajustée garde son
+  // montant saisi.
+  const initialAmount = isValidate
+    ? null
+    : { amountCents: m.amountCents, adjustmentReason: m.adjustmentReason };
+  const theoretical = fee && kind ? fee.amounts[kind] : undefined;
+  const amount = useTrackedAmount(theoretical, initialAmount);
   // Les champs personnalisés font partie de la validation (011, US3).
   const fields = isValidate ? (m.customFields ?? []) : [];
   const custom = useCustomFieldsForm(fields);
@@ -377,7 +406,10 @@ function DecisionDialog({
       });
       return;
     }
-    const args = { params: { path: { id: m.id } }, body: { feeId: fee.id, kind } };
+    const args = {
+      params: { path: { id: m.id } },
+      body: { feeId: fee.id, kind, ...amount.payload() },
+    };
     custom.clearErrors();
     try {
       if (isValidate)
@@ -390,9 +422,16 @@ function DecisionDialog({
       const p = err as Problem;
       if (isProblem(p) && p.status === 422) {
         const placed = custom.applyProblem(p);
+        const at = (loc: string) => p.errors?.find((x) => x.location === loc)?.message;
+        const amountErrors = {
+          amount: at("body.amount"),
+          adjustmentReason: at("body.adjustmentReason"),
+        };
+        const own = at("body.feeId") ?? amountErrors.amount ?? amountErrors.adjustmentReason;
         setErrors({
-          feeId: p.errors?.find((x) => x.location === "body.feeId")?.message,
-          root: placed ? undefined : p.detail,
+          feeId: at("body.feeId"),
+          ...amountErrors,
+          root: placed || own ? undefined : p.detail,
         });
         return;
       }
@@ -413,6 +452,7 @@ function DecisionDialog({
         if (o) {
           setFeeId(m.fee.id);
           setKind(initialKind);
+          amount.restart(initialAmount);
           setErrors({});
           custom.reset(fields);
         }
@@ -445,8 +485,13 @@ function DecisionDialog({
           error={errors.kind}
           options={kindOptions}
         />
-        <AmountSummary fee={fee} kind={kind} />
+        <AmountToPayField
+          amount={amount}
+          theoreticalCents={theoretical}
+          errors={{ amount: errors.amount, adjustmentReason: errors.adjustmentReason }}
+        />
         <CustomFieldInputs fields={fields} control={custom.control} errors={custom.errors} />
+        {errors.root ? <Alert kind="danger">{errors.root}</Alert> : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Dialog.Close render={<Button variant="secondary">Annuler</Button>} />
           <Button type="submit" aria-disabled={validate.isPending || update.isPending}>

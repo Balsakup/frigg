@@ -13,8 +13,10 @@ import { CustomFieldInputs } from "~/customfields/CustomFieldInputs";
 import { adminFormFields } from "~/customfields/form";
 import { useCustomFieldsForm } from "~/customfields/useCustomFieldsForm";
 import { formatAge, type ManualPaymentMethod, type MembershipKind } from "~/lib/format";
-import { AmountSummary, FeeChoice } from "~/memberships/FeeChoice";
+import { FeeChoice } from "~/memberships/FeeChoice";
 import { type MemberOption, MemberPicker } from "~/memberships/MemberPicker";
+import { AmountToPayField } from "~/payments/AmountToPayField";
+import { useTrackedAmount } from "~/payments/useTrackedAmount";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Button, buttonClasses } from "~/ui/Button";
@@ -70,6 +72,8 @@ export default function MembershipNew() {
   const [method, setMethod] = useState<ManualPaymentMethod | "">("");
   const [receivedOn, setReceivedOn] = useState(todayISO());
   const [note, setNote] = useState("");
+  // Montant reçu (014) : recopie le montant à payer tant qu'il n'est pas modifié.
+  const [received, setReceived] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [existing, setExisting] = useState<number | null>(null);
   const create = $api.useMutation("post", "/admin/memberships");
@@ -88,6 +92,7 @@ export default function MembershipNew() {
       : null);
   const feeList = fees.data?.items ?? [];
   const fee = feeList.find((f) => f.id === feeId);
+  const amount = useTrackedAmount(fee && kind ? fee.amounts[kind] : undefined);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,9 +114,17 @@ export default function MembershipNew() {
           seasonId: season.id,
           feeId: fee.id,
           kind,
+          ...amount.payload(),
           customFields: custom.inputs(),
           ...(paid && method
-            ? { paid: { method, receivedOn, ...(note.trim() ? { note } : {}) } }
+            ? {
+                paid: {
+                  method,
+                  receivedOn,
+                  ...(note.trim() ? { note } : {}),
+                  ...(received !== null ? { receivedAmount: received } : {}),
+                },
+              }
             : {}),
         },
       });
@@ -210,7 +223,11 @@ export default function MembershipNew() {
             error={errors.kind}
             options={kindOptions}
           />
-          <AmountSummary fee={fee} kind={kind} />
+          <AmountToPayField
+            amount={amount}
+            theoreticalCents={fee && kind ? fee.amounts[kind] : undefined}
+            errors={{ amount: errors.amount, adjustmentReason: errors.adjustmentReason }}
+          />
 
           <label className="flex items-center gap-2.5 font-bold">
             <input
@@ -230,6 +247,16 @@ export default function MembershipNew() {
                 onValueChange={setMethod}
                 error={errors["paid.method"]}
                 options={methodOptions}
+              />
+              <Field
+                label="Montant reçu (€)"
+                inputMode="decimal"
+                autoComplete="off"
+                value={received ?? amount.text}
+                onChange={(e) => setReceived(e.target.value)}
+                hint="Un montant supérieur au montant à payer est enregistré comme un don."
+                error={errors["paid.receivedAmount"]}
+                className="max-w-56"
               />
               <Field
                 label="Date de réception"

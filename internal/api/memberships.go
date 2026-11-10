@@ -90,9 +90,12 @@ type Payment struct {
 	AnnouncedMethod *string `json:"announcedMethod" enum:"cash,cheque,transfer"`
 	PaidMethod      *string `json:"paidMethod" enum:"card,cash,cheque,transfer"`
 	PaidOn          *string `json:"paidOn" format:"date"`
-	// PaidAmountCents : carte, montant reçu hors contribution volontaire.
-	PaidAmountCents *int64            `json:"paidAmountCents"`
-	Online          *OnlinePaymentRef `json:"online" doc:"Carte : paiement HelloAsso qui a constaté l'adhésion"`
+	// PaidAmountCents : montant reçu d'un paiement constaté (carte : hors
+	// contribution volontaire).
+	PaidAmountCents *int64 `json:"paidAmountCents" doc:"Montant reçu ; null tant que non payé"`
+	// DonationCents : excédent du montant reçu sur le montant à payer (014).
+	DonationCents int64             `json:"donationCents" doc:"Don : excédent du montant reçu sur le montant à payer ; 0 sans don"`
+	Online        *OnlinePaymentRef `json:"online" doc:"Carte : paiement HelloAsso qui a constaté l'adhésion"`
 }
 
 // OnlinePaymentRef résume le paiement HelloAsso d'une adhésion payée par carte.
@@ -247,6 +250,7 @@ func paymentOf(m sqlc.Membership) *Payment {
 		PaidMethod:      optionalValue(m.PaidMethod),
 		PaidOn:          optionalValue(m.PaidOn),
 		PaidAmountCents: optionalInt(m.PaidAmountCents),
+		DonationCents:   membership.Donation(membership.Method(m.PaidMethod.String), m.AmountCents.Int64, m.PaidAmountCents.Int64),
 	}
 }
 
@@ -447,6 +451,9 @@ func (s *server) notifyMembership(ctx context.Context, q *sqlc.Queries, template
 	}
 	if m.PaidAmountCents.Valid {
 		data.Amount = formatEuros(m.PaidAmountCents.Int64)
+		if d := membership.Donation(membership.Method(m.PaidMethod.String), m.AmountCents.Int64, m.PaidAmountCents.Int64); d > 0 {
+			data.Donation = formatEuros(d)
+		}
 	}
 	if d, err := season.ParseDate(m.PaidOn.String); err == nil && m.PaidOn.Valid {
 		data.PaidOn = frenchDate(d)

@@ -41,7 +41,7 @@ func TestExportEventRegistrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 3 || rows[0][0] != "Nom" || rows[0][4] != "Adresse de contact" || rows[0][10] != "Référence" {
+	if len(rows) != 3 || rows[0][0] != "Nom" || rows[0][4] != "Adresse de contact" || rows[0][8] != "Montant à payer" || rows[0][14] != "Référence" {
 		t.Fatalf("en-tête : %v", rows)
 	}
 	var lucas []string
@@ -50,7 +50,7 @@ func TestExportEventRegistrations(t *testing.T) {
 			lucas = row
 		}
 	}
-	if lucas == nil || lucas[1] != "'=1+1" || lucas[5] != "non" || lucas[8] != "À payer" || lucas[10] != "EVT-2627-0002" {
+	if lucas == nil || lucas[1] != "'=1+1" || lucas[5] != "non" || lucas[10] != "À payer" || lucas[14] != "EVT-2627-0002" {
 		t.Fatalf("ligne : %v", lucas)
 	}
 	if res := f.claire.Do("GET", eventPath(ev.ID, "/registrations.csv"), nil); res.Status != http.StatusForbidden {

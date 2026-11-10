@@ -90,6 +90,9 @@ func (s *server) notifyRegistrationPaid(ctx context.Context, q *sqlc.Queries, ev
 	data := mail.Data{Method: methodLabels[r.PaidMethod.String], Amount: formatEuros(r.AmountCents)}
 	if r.PaidAmountCents.Valid {
 		data.Amount = formatEuros(r.PaidAmountCents.Int64)
+		if d := membership.Donation(membership.Method(r.PaidMethod.String), r.AmountCents, r.PaidAmountCents.Int64); d > 0 {
+			data.Donation = formatEuros(d)
+		}
 	}
 	if d, err := season.ParseDate(r.PaidOn.String); err == nil && r.PaidOn.Valid {
 		data.PaidOn = frenchDate(d)

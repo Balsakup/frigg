@@ -177,6 +177,8 @@ type EventRegistration struct {
 	PaidOnlinePaymentID sql.NullInt64
 	PaidAmountCents     sql.NullInt64
 	UpdatedAt           string
+	BaseAmountCents     sql.NullInt64
+	AdjustmentReason    sql.NullString
 }
 
 type EventRegistrationsFt struct {
@@ -264,6 +266,8 @@ type Membership struct {
 	UpdatedAt           string
 	PaidOnlinePaymentID sql.NullInt64
 	PaidAmountCents     sql.NullInt64
+	BaseAmountCents     sql.NullInt64
+	AdjustmentReason    sql.NullString
 }
 
 type MembershipFee struct {

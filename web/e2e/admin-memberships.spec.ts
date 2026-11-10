@@ -29,9 +29,12 @@ test.describe("adhésions — administration (006)", () => {
       ).toBeVisible();
       await main.getByRole("button", { name: "Valider" }).click();
       const dialog = page.getByRole("dialog");
-      await expect(dialog.getByText("Montant : 40,00 €")).toBeVisible();
+      const amount = dialog.getByLabel("Montant à payer (€)");
+      await expect(amount).toHaveValue("40");
+      await expect(dialog.getByText(/Montant théorique : 40,00/)).toBeVisible();
       await dialog.getByRole("radio", { name: "Première adhésion" }).click();
-      await expect(dialog.getByText("Montant : 60,00 €")).toBeVisible();
+      await expect(amount).toHaveValue("60");
+      await expect(dialog.getByText(/Montant théorique : 60,00/)).toBeVisible();
       await expectNoBlockingA11yViolations(page);
       await dialog.getByRole("button", { name: "Valider l'adhésion" }).click();
       await expect(main.getByText("Adhésion validée.").first()).toBeVisible();
@@ -74,14 +77,19 @@ test.describe("adhésions — administration (006)", () => {
     await expect(main.getByLabel(/^Membre/)).toHaveValue("Petit Jeanne");
     await main.getByRole("radio", { name: /Jeune/ }).click();
     await main.getByRole("radio", { name: "Première adhésion" }).click();
-    await expect(main.getByText("Montant : 30,00 €")).toBeVisible();
+    await expect(main.getByText(/Montant théorique : 30,00/)).toBeVisible();
+    await expect(main.getByLabel("Montant à payer (€)")).toHaveValue("30");
     await main.getByLabel("Règlement déjà reçu").check();
+    // Don (014) : 35 € reçus pour 30 € à payer.
+    await expect(main.getByLabel("Montant reçu (€)")).toHaveValue("30");
+    await main.getByLabel("Montant reçu (€)").fill("35");
     await main.getByRole("radio", { name: "Chèque" }).click();
     await main.getByLabel(/Commentaire/).fill("Chèque n° 4521");
     await expectNoBlockingA11yViolations(page);
     await main.getByRole("button", { name: "Enregistrer l'adhésion" }).click();
     await expect(main.getByText("Adhésion enregistrée.").first()).toBeVisible();
     await expect(main.getByText(/^Payée le /).first()).toBeVisible();
+    await expect(main.getByText(/dont 5,00\s€ de don/)).toBeVisible();
 
     await main.getByRole("link", { name: "Jeanne Petit" }).click();
     const section = main.getByRole("region", { name: "Adhésions" });
@@ -100,9 +108,17 @@ test.describe("adhésions — administration (006)", () => {
     await main.getByRole("button", { name: "Corriger" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: /Jeune/ }).click();
+    // Remise (014) : 25 € au lieu de 30 €, motif obligatoire.
+    await dialog.getByLabel("Montant à payer (€)").fill("25");
+    await dialog.getByRole("button", { name: "Corriger l'adhésion" }).click();
+    await expect(dialog.getByText("Indiquez le motif de l'ajustement.")).toBeVisible();
+    await dialog.getByLabel("Motif de l'ajustement").fill("Réduction accordée par le bureau");
+    await expectNoBlockingA11yViolations(page);
     await dialog.getByRole("button", { name: "Corriger l'adhésion" }).click();
     await expect(main.getByText("Adhésion corrigée.").first()).toBeVisible();
-    await expect(main.getByText("30,00 €").first()).toBeVisible();
+    await expect(main.getByText("25,00 €").first()).toBeVisible();
+    await expect(main.getByText(/Théorique 30,00\s€ · Remise 5,00\s€/)).toBeVisible();
+    await expect(main.getByText("Motif : Réduction accordée par le bureau")).toBeVisible();
 
     await main.getByRole("button", { name: "Annuler l'adhésion" }).click();
     await page.getByRole("dialog").getByLabel(/Motif/).fill("Départ de l'association");

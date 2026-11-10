@@ -16,6 +16,7 @@ import {
   paymentMethodLabel,
 } from "~/lib/format";
 import { MembershipBadges } from "~/memberships/MembershipBadges";
+import { receivedSentence } from "~/payments/AmountDetails";
 import {
   CardReturn as SharedCardReturn,
   PaymentSection as SharedPaymentSection,
@@ -173,6 +174,7 @@ function PaymentStatus({ membership: m }: { membership: MyMembership }) {
       <Alert kind="success" className="max-w-3xl">
         Payée le {formatDay(m.payment.paidOn)} (
         {paymentMethodLabel(m.payment.paidMethod).toLowerCase()}).
+        {receivedSentence(m.payment.paidAmountCents, m.payment.donationCents)}
         {m.payment.online?.test ? " Mode test : aucun débit réel." : ""}
       </Alert>
     );

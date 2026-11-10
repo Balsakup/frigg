@@ -8,17 +8,20 @@ import (
 )
 
 // StatRow est une adhésion d'une saison, réduite à ce que comptent les
-// chiffres (research.md 006 › R10).
+// chiffres (research.md 006 › R10, 014 › R3).
 type StatRow struct {
-	Status          Status
-	Kind            Kind
+	Status Status
+	Kind   Kind
+	// AmountCents : montant à payer ; BaseCents : montant théorique s'il y a
+	// un ajustement.
 	AmountCents     int64
+	BaseCents       *int64
 	FeeID           int64
 	FeeLabel        string
 	PaymentStatus   PaymentStatus
 	AnnouncedMethod Method
-	// PaidMethod et PaidAmountCents : moyen constaté et, pour la carte,
-	// montant reçu hors contribution volontaire.
+	// PaidMethod et PaidAmountCents : moyen constaté et montant reçu (hors
+	// contribution volontaire pour la carte).
 	PaidMethod      Method
 	PaidAmountCents int64
 	// PaidTest : payée par carte en mode test (environnement sandbox).
@@ -48,17 +51,22 @@ type DueByMethod struct {
 type Stats struct {
 	Validated, First, Renewal, Pending int
 	ByFee                              []FeeStat
-	TotalCents, PaidCents, DueCents    int64
-	DueByMethod                        DueByMethod
+	// TotalCents : montant total à payer ; PaidCents : encaissé, dons
+	// compris ; DueCents : restant à percevoir.
+	TotalCents, PaidCents, DueCents int64
+	DueByMethod                     DueByMethod
 	// PaidByMethod détaille PaidCents ; TestPaidCents compte à part les
 	// paiements par carte en mode test, exclus de PaidCents.
 	PaidByMethod  PaidByMethod
 	TestPaidCents int64
+	// Remises et dons (014).
+	TheoreticalCents, DiscountCents, SurchargeCents, DonationCents int64
 }
 
 // ComputeStats calcule les chiffres d'une saison.
 func ComputeStats(rows []StatRow) Stats {
 	var s Stats
+	var t AmountTotals
 	byFee := map[int64]*FeeStat{}
 	for _, r := range rows {
 		if r.Status == Pending {
@@ -81,42 +89,15 @@ func ComputeStats(rows []StatRow) Stats {
 		}
 		f.Count++
 		f.AmountCents += r.AmountCents
-		s.TotalCents += r.AmountCents
-		switch r.PaymentStatus {
-		case Paid:
-			received := r.AmountCents
-			if r.PaidMethod == Card {
-				received = r.PaidAmountCents
-			}
-			if r.PaidTest {
-				s.TestPaidCents += received
-				break
-			}
-			s.PaidCents += received
-			switch r.PaidMethod {
-			case Card:
-				s.PaidByMethod.Card += received
-			case Cash:
-				s.PaidByMethod.Cash += received
-			case Cheque:
-				s.PaidByMethod.Cheque += received
-			case Transfer:
-				s.PaidByMethod.Transfer += received
-			}
-		case Due, Announced:
-			s.DueCents += r.AmountCents
-			switch r.AnnouncedMethod {
-			case Cash:
-				s.DueByMethod.Cash += r.AmountCents
-			case Cheque:
-				s.DueByMethod.Cheque += r.AmountCents
-			case Transfer:
-				s.DueByMethod.Transfer += r.AmountCents
-			default:
-				s.DueByMethod.None += r.AmountCents
-			}
-		}
+		t.Add(AmountRow{
+			AmountCents: r.AmountCents, BaseCents: r.BaseCents, PaymentStatus: r.PaymentStatus,
+			AnnouncedMethod: r.AnnouncedMethod, PaidMethod: r.PaidMethod, PaidAmountCents: r.PaidAmountCents,
+			PaidTest: r.PaidTest,
+		})
 	}
+	s.TotalCents, s.PaidCents, s.DueCents = t.Due, t.Collected, t.Remaining
+	s.DueByMethod, s.PaidByMethod, s.TestPaidCents = t.RemainingByMethod, t.CollectedByMethod, t.CollectedTest
+	s.TheoreticalCents, s.DiscountCents, s.SurchargeCents, s.DonationCents = t.Theoretical, t.Discounts, t.Surcharges, t.Donations
 	s.ByFee = make([]FeeStat, 0, len(byFee))
 	for _, f := range byFee {
 		s.ByFee = append(s.ByFee, *f)

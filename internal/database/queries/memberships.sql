@@ -40,13 +40,14 @@ WHERE m.account_id = sqlc.arg(account_id) AND ms.status IN ('pending', 'validate
 INSERT INTO memberships (
     member_id, season_id, fee_id, status, declared_kind, kind, amount_cents,
     requested_by, created_by, requested_at, decided_by, decided_at,
-    payment_reference, payment_status, updated_at
+    payment_reference, payment_status, base_amount_cents, adjustment_reason, updated_at
 ) VALUES (
     sqlc.arg(member_id), sqlc.arg(season_id), sqlc.arg(fee_id), sqlc.arg(status),
     sqlc.narg(declared_kind), sqlc.narg(kind), sqlc.narg(amount_cents),
     sqlc.narg(requested_by), sqlc.narg(created_by), sqlc.arg(now),
     sqlc.narg(decided_by), sqlc.narg(decided_at),
-    sqlc.narg(payment_reference), sqlc.narg(payment_status), sqlc.arg(now)
+    sqlc.narg(payment_reference), sqlc.narg(payment_status),
+    sqlc.narg(base_amount_cents), sqlc.narg(adjustment_reason), sqlc.arg(now)
 )
 RETURNING id;
 
@@ -110,7 +111,8 @@ WHERE (CAST(sqlc.narg(season_id) AS INTEGER) IS NULL OR ms.season_id = CAST(sqlc
 UPDATE memberships
 SET status = 'validated', fee_id = sqlc.arg(fee_id), kind = sqlc.arg(kind),
     amount_cents = sqlc.arg(amount_cents), payment_reference = sqlc.narg(payment_reference),
-    payment_status = sqlc.narg(payment_status), decided_by = sqlc.arg(actor_id),
+    payment_status = sqlc.narg(payment_status), base_amount_cents = sqlc.narg(base_amount_cents),
+    adjustment_reason = sqlc.narg(adjustment_reason), decided_by = sqlc.arg(actor_id),
     decided_at = sqlc.arg(now), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'pending';
 
@@ -124,7 +126,8 @@ WHERE id = sqlc.arg(id) AND status = 'pending';
 UPDATE memberships
 SET fee_id = sqlc.arg(fee_id), kind = sqlc.arg(kind), amount_cents = sqlc.arg(amount_cents),
     payment_reference = sqlc.narg(payment_reference), payment_status = sqlc.narg(payment_status),
-    announced_method = sqlc.narg(announced_method), updated_at = sqlc.arg(now)
+    announced_method = sqlc.narg(announced_method), base_amount_cents = sqlc.narg(base_amount_cents),
+    adjustment_reason = sqlc.narg(adjustment_reason), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status IS NOT 'paid';
 
 -- name: CancelMembership :execrows
@@ -137,14 +140,14 @@ WHERE id = sqlc.arg(id) AND status = 'validated';
 UPDATE memberships
 SET payment_status = 'paid', paid_method = sqlc.arg(method), paid_on = sqlc.arg(paid_on),
     paid_by = sqlc.arg(actor_id), paid_at = sqlc.arg(now), payment_note = sqlc.narg(note),
-    updated_at = sqlc.arg(now)
+    paid_amount_cents = sqlc.arg(paid_amount_cents), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status IN ('due', 'announced');
 
 -- name: CancelMembershipPayment :execrows
 UPDATE memberships
 SET payment_status = CASE WHEN announced_method IS NULL THEN 'due' ELSE 'announced' END,
     paid_method = NULL, paid_on = NULL, paid_by = NULL, paid_at = NULL, payment_note = NULL,
-    updated_at = sqlc.arg(now)
+    paid_amount_cents = NULL, updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'validated' AND payment_status = 'paid'
   AND paid_method IS NOT 'card';
 
@@ -184,7 +187,7 @@ WHERE member_id = sqlc.arg(member_id) AND season_id = sqlc.arg(season_id) AND st
 -- name: ListSeasonMembershipsForStats :many
 SELECT ms.status, ms.kind, ms.amount_cents, ms.fee_id, f.label AS fee_label,
        ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_amount_cents,
-       op.environment AS paid_environment
+       ms.base_amount_cents, op.environment AS paid_environment
 FROM memberships ms
 JOIN membership_fees f ON f.id = ms.fee_id
 LEFT JOIN online_payments op ON op.id = ms.paid_online_payment_id

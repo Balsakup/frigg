@@ -1,5 +1,5 @@
 {{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
 <p style="margin:0 0 12px">Le bureau de {{.Association}} a bien reçu le paiement de l'inscription à <strong>{{.Event}}</strong> ({{.When}}) pour :</p>
 <ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>
-<p style="margin:0 0 12px">Montant : <strong>{{.Amount}}</strong><br>Moyen de paiement : {{.Method}}{{if .PaidOn}}<br>Date du paiement : {{.PaidOn}}{{end}}<br>Référence : {{.Reference}}</p>
+<p style="margin:0 0 12px">Montant : <strong>{{.Amount}}</strong>{{if .Donation}}<br>Dont {{.Donation}} de don : merci pour votre soutien !{{end}}<br>Moyen de paiement : {{.Method}}{{if .PaidOn}}<br>Date du paiement : {{.PaidOn}}{{end}}<br>Référence : {{.Reference}}</p>
 <p style="margin:0 0 12px">Merci !</p>{{end}}

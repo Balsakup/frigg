@@ -53,6 +53,8 @@ type Data struct {
 	Reference   string
 	Reason      string
 	Method      string
+	// Donation : don d'un paiement reçu (014), « 35,00 € » ; vide : pas de don.
+	Donation string
 	// PaidOn : date de réception du paiement, « 3 novembre 2026 ».
 	PaidOn string
 	// Subject et Body : objet et texte saisis d'une communication.

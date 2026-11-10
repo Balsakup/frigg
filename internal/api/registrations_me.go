@@ -118,6 +118,7 @@ func registrationPayment(ctx context.Context, q *sqlc.Queries, r sqlc.EventRegis
 		PaidMethod:      optionalValue(r.PaidMethod),
 		PaidOn:          optionalValue(r.PaidOn),
 		PaidAmountCents: optionalInt(r.PaidAmountCents),
+		DonationCents:   membership.Donation(membership.Method(r.PaidMethod.String), r.AmountCents, r.PaidAmountCents.Int64),
 	}
 	if r.PaidOnlinePaymentID.Valid {
 		op, err := q.GetOnlinePayment(ctx, r.PaidOnlinePaymentID.Int64)

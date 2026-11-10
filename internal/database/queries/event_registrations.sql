@@ -4,10 +4,11 @@
 -- name: CreateRegistration :one
 INSERT INTO event_registrations (
     event_id, member_id, status, registered_by, registered_at, amount_cents, payment_reference,
-    payment_status, updated_at
+    payment_status, base_amount_cents, adjustment_reason, updated_at
 ) VALUES (
     sqlc.arg(event_id), sqlc.arg(member_id), 'confirmed', sqlc.narg(actor_id), sqlc.arg(now),
-    sqlc.arg(amount_cents), sqlc.narg(payment_reference), sqlc.narg(payment_status), sqlc.arg(now)
+    sqlc.arg(amount_cents), sqlc.narg(payment_reference), sqlc.narg(payment_status),
+    sqlc.narg(base_amount_cents), sqlc.narg(adjustment_reason), sqlc.arg(now)
 )
 RETURNING *;
 
@@ -114,14 +115,26 @@ WHERE event_registrations.id = sqlc.arg(id) AND status = 'confirmed' AND payment
 UPDATE event_registrations
 SET payment_status = 'paid', paid_method = sqlc.arg(method), paid_on = sqlc.arg(paid_on),
     paid_by = sqlc.narg(actor_id), paid_at = sqlc.arg(now), payment_note = sqlc.narg(note),
-    updated_at = sqlc.arg(now)
+    paid_amount_cents = sqlc.arg(paid_amount_cents), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'confirmed' AND payment_status IN ('due', 'announced');
+
+-- AdjustRegistrationAmount sets the amount to pay of an unpaid confirmed
+-- registration (research.md 014 R6). base_amount_cents and adjustment_reason
+-- are NULL when the amount equals the theoretical one.
+
+-- name: AdjustRegistrationAmount :execrows
+UPDATE event_registrations
+SET amount_cents = sqlc.arg(amount_cents), base_amount_cents = sqlc.narg(base_amount_cents),
+    adjustment_reason = sqlc.narg(adjustment_reason), payment_reference = sqlc.narg(payment_reference),
+    payment_status = sqlc.narg(payment_status), announced_method = sqlc.narg(announced_method),
+    updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'confirmed' AND payment_status IS NOT 'paid';
 
 -- name: CancelRegistrationPayment :execrows
 UPDATE event_registrations
 SET payment_status = CASE WHEN announced_method IS NULL THEN 'due' ELSE 'announced' END,
     paid_method = NULL, paid_on = NULL, paid_by = NULL, paid_at = NULL, payment_note = NULL,
-    updated_at = sqlc.arg(now)
+    paid_amount_cents = NULL, updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND payment_status = 'paid' AND paid_method IS NOT 'card';
 
 -- RecordRegistrationCardPayment is only called by the HelloAsso verification
