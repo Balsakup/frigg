@@ -299,5 +299,7 @@ func (s *server) logMemberAction(ctx context.Context, action string, memberID in
 
 func (s *server) registerMembers(api huma.API) {
 	s.registerMyMembers(api)
+	// Avant /admin/members/{id} (research.md 013 › R11).
+	s.registerMemberImport(api)
 	s.registerAdminMembers(api)
 }

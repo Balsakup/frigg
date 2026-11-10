@@ -3276,6 +3276,403 @@
         ],
         "type": "object"
       },
+      "ImportAnalysis": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ImportColumn"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "fieldsVersion": {
+            "type": "string"
+          },
+          "file": {
+            "$ref": "#/components/schemas/ImportFile"
+          },
+          "suggested": {
+            "description": "Cible proposée par colonne ; vide : ne pas importer",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ImportTargetOption"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "columns",
+          "suggested",
+          "targets",
+          "fieldsVersion"
+        ],
+        "type": "object"
+      },
+      "ImportCellError": {
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "description": "Index de la colonne ; null : ligne entière",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "columnLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "column",
+          "columnLabel",
+          "message"
+        ],
+        "type": "object"
+      },
+      "ImportColumn": {
+        "additionalProperties": false,
+        "properties": {
+          "header": {
+            "description": "Intitulé tel que lu ; vide s'il est absent",
+            "type": "string"
+          },
+          "index": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "description": "Intitulé, ou « Colonne 3 » s'il est vide ou en double",
+            "type": "string"
+          },
+          "samples": {
+            "description": "Au plus 3 premières valeurs non vides, 80 caractères au plus chacune",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "index",
+          "header",
+          "label",
+          "samples"
+        ],
+        "type": "object"
+      },
+      "ImportCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "duplicates": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "errors": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ready": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "errors",
+          "duplicates"
+        ],
+        "type": "object"
+      },
+      "ImportFile": {
+        "additionalProperties": false,
+        "properties": {
+          "encoding": {
+            "enum": [
+              "utf-8",
+              "windows-1252"
+            ],
+            "type": "string"
+          },
+          "rowCount": {
+            "description": "Lignes de données non vides",
+            "format": "int64",
+            "type": "integer"
+          },
+          "separator": {
+            "description": "« ; », « , » ou tabulation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "encoding",
+          "separator",
+          "rowCount"
+        ],
+        "type": "object"
+      },
+      "ImportMemberRef": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "description": "« Dupont Marie (12/03/2012) »",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "ImportMissing": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fieldId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fieldId",
+          "label",
+          "count"
+        ],
+        "type": "object"
+      },
+      "ImportPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/ImportCounts"
+          },
+          "fieldsVersion": {
+            "type": "string"
+          },
+          "file": {
+            "$ref": "#/components/schemas/ImportFile"
+          },
+          "incompleteCount": {
+            "description": "Lignes à importer auxquelles manque au moins une valeur obligatoire",
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingRequired": {
+            "items": {
+              "$ref": "#/components/schemas/ImportMissing"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRow"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "file",
+          "counts",
+          "missingRequired",
+          "incompleteCount",
+          "rows",
+          "fieldsVersion"
+        ],
+        "type": "object"
+      },
+      "ImportReport": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "duplicates": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "errors": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "incompleteCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingRequired": {
+            "items": {
+              "$ref": "#/components/schemas/ImportMissing"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "newDuplicates": {
+            "description": "Lignes à importer à l'aperçu devenues doublons",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "created",
+          "errors",
+          "duplicates",
+          "newDuplicates",
+          "missingRequired",
+          "incompleteCount"
+        ],
+        "type": "object"
+      },
+      "ImportRow": {
+        "additionalProperties": false,
+        "properties": {
+          "birthDate": {
+            "type": "string"
+          },
+          "duplicateOfLine": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duplicateOfMember": {
+            "$ref": "#/components/schemas/ImportMemberRef"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ImportCellError"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "firstName": {
+            "description": "Valeur brute de la colonne associée",
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "line": {
+            "description": "Numéro de ligne dans le tableur (intitulés = 1)",
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingRequired": {
+            "description": "Champs personnalisés obligatoires sans valeur (lignes ready seulement)",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "error",
+              "duplicate"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "status",
+          "firstName",
+          "lastName",
+          "birthDate",
+          "errors",
+          "duplicateOfMember",
+          "duplicateOfLine",
+          "missingRequired"
+        ],
+        "type": "object"
+      },
+      "ImportTargetOption": {
+        "additionalProperties": false,
+        "properties": {
+          "fieldType": {
+            "description": "Type du champ personnalisé ; null pour un champ de la fiche",
+            "enum": [
+              "short_text",
+              "long_text",
+              "number",
+              "date",
+              "bool",
+              "choice"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "requiredForImport": {
+            "description": "Vrai : une colonne doit lui être associée",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "firstName, lastName… ou field:\u003cid\u003e",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "label",
+          "requiredForImport",
+          "fieldType"
+        ],
+        "type": "object"
+      },
       "Invitation": {
         "additionalProperties": false,
         "properties": {
@@ -8234,6 +8631,336 @@
           }
         ],
         "summary": "Créer un membre",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/import": {
+      "post": {
+        "operationId": "run-member-import",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "expectedReady": {
+                  "contentType": "text/plain"
+                },
+                "fieldsVersion": {
+                  "contentType": "text/plain"
+                },
+                "file": {
+                  "contentType": "application/octet-stream"
+                },
+                "mapping": {
+                  "contentType": "text/plain"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "expectedReady": {
+                    "description": "Lignes à importer affichées par l'aperçu ; sert à compter les doublons apparus depuis",
+                    "format": "int64",
+                    "maximum": 2000,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "fieldsVersion": {
+                    "pattern": "^[0-9a-f]{32}$",
+                    "patternDescription": "l'empreinte renvoyée par l'aperçu",
+                    "type": "string"
+                  },
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "mapping": {
+                    "description": "Tableau JSON des cibles, une par colonne",
+                    "maxLength": 4096,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file",
+                  "mapping",
+                  "fieldsVersion"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReport"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Importer des membres",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/import/analyze": {
+      "post": {
+        "operationId": "analyze-member-import",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAnalysis"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lire un fichier d'import",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/import/preview": {
+      "post": {
+        "operationId": "preview-member-import",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                },
+                "mapping": {
+                  "contentType": "text/plain"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "mapping": {
+                    "description": "Tableau JSON des cibles, une par colonne",
+                    "maxLength": 4096,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file",
+                  "mapping"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreview"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Aperçu d'un import",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/import/rejected": {
+      "post": {
+        "operationId": "export-member-import-rejected",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream"
+                },
+                "mapping": {
+                  "contentType": "text/plain"
+                }
+              },
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "contentMediaType": "application/octet-stream",
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "mapping": {
+                    "description": "Tableau JSON des cibles, une par colonne",
+                    "maxLength": 4096,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file",
+                  "mapping"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Lignes rejetées (UTF-8, séparateur point-virgule)"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lignes rejetées d'un import (CSV)",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
+    "/admin/members/import/template": {
+      "get": {
+        "operationId": "get-member-import-template",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Modèle de fichier (UTF-8, séparateur point-virgule)"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Modèle de fichier d'import (CSV)",
         "tags": [
           "Membres"
         ]

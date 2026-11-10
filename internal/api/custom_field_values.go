@@ -273,6 +273,30 @@ func checkFields(ctx context.Context, q *sqlc.Queries, scope customfield.Scope, 
 	return details, err
 }
 
+// fieldValueParams range une valeur normalisée dans la colonne de son type.
+func fieldValueParams(ownerID, fieldID int64, v customfield.Value, now string) sqlc.UpsertMemberFieldValueParams {
+	p := sqlc.UpsertMemberFieldValueParams{OwnerID: ownerID, FieldID: fieldID, Now: now}
+	if v.Text != nil {
+		p.ValueText = sql.NullString{String: *v.Text, Valid: true}
+	}
+	if v.Long != nil {
+		p.ValueLong = sql.NullString{String: *v.Long, Valid: true}
+	}
+	if v.Number != nil {
+		p.ValueNumber = sql.NullFloat64{Float64: *v.Number, Valid: true}
+	}
+	if v.Date != nil {
+		p.ValueDate = sql.NullString{String: *v.Date, Valid: true}
+	}
+	if v.Bool != nil {
+		p.ValueBool = sql.NullInt64{Int64: boolInt(*v.Bool), Valid: true}
+	}
+	if v.ChoiceID != nil {
+		p.ValueChoiceID = sql.NullInt64{Int64: *v.ChoiceID, Valid: true}
+	}
+	return p
+}
+
 // writeFields applique une saisie dans la transaction en cours et renvoie le
 // nombre de valeurs modifiées ; une saisie invalide donne un 422.
 func writeFields(ctx context.Context, q *sqlc.Queries, scope customfield.Scope, ownerID int64, inputs []FieldInput, a customfield.Audience) (int, error) {
@@ -285,25 +309,7 @@ func writeFields(ctx context.Context, q *sqlc.Queries, scope customfield.Scope, 
 	}
 	now := nowString()
 	for fieldID, v := range plan.Upserts {
-		p := sqlc.UpsertMemberFieldValueParams{OwnerID: ownerID, FieldID: fieldID, Now: now}
-		if v.Text != nil {
-			p.ValueText = sql.NullString{String: *v.Text, Valid: true}
-		}
-		if v.Long != nil {
-			p.ValueLong = sql.NullString{String: *v.Long, Valid: true}
-		}
-		if v.Number != nil {
-			p.ValueNumber = sql.NullFloat64{Float64: *v.Number, Valid: true}
-		}
-		if v.Date != nil {
-			p.ValueDate = sql.NullString{String: *v.Date, Valid: true}
-		}
-		if v.Bool != nil {
-			p.ValueBool = sql.NullInt64{Int64: boolInt(*v.Bool), Valid: true}
-		}
-		if v.ChoiceID != nil {
-			p.ValueChoiceID = sql.NullInt64{Int64: *v.ChoiceID, Valid: true}
-		}
+		p := fieldValueParams(ownerID, fieldID, v, now)
 		if scope == customfield.ScopeMember {
 			err = q.UpsertMemberFieldValue(ctx, p)
 		} else {

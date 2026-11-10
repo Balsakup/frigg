@@ -507,6 +507,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/members/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Importer des membres */
+        post: operations["run-member-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/import/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lire un fichier d'import */
+        post: operations["analyze-member-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aperçu d'un import */
+        post: operations["preview-member-import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/import/rejected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lignes rejetées d'un import (CSV) */
+        post: operations["export-member-import-rejected"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/import/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Modèle de fichier d'import (CSV) */
+        get: operations["get-member-import-template"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/members/{id}": {
         parameters: {
             query?: never;
@@ -2656,6 +2741,124 @@ export interface components {
             name: string;
             palette: components["schemas"]["Palette"];
         };
+        ImportAnalysis: {
+            columns: components["schemas"]["ImportColumn"][] | null;
+            fieldsVersion: string;
+            file: components["schemas"]["ImportFile"];
+            /** @description Cible proposée par colonne ; vide : ne pas importer */
+            suggested: string[] | null;
+            targets: components["schemas"]["ImportTargetOption"][] | null;
+        };
+        ImportCellError: {
+            /**
+             * Format: int64
+             * @description Index de la colonne ; null : ligne entière
+             */
+            column: number | null;
+            columnLabel: string | null;
+            message: string;
+        };
+        ImportColumn: {
+            /** @description Intitulé tel que lu ; vide s'il est absent */
+            header: string;
+            /** Format: int64 */
+            index: number;
+            /** @description Intitulé, ou « Colonne 3 » s'il est vide ou en double */
+            label: string;
+            /** @description Au plus 3 premières valeurs non vides, 80 caractères au plus chacune */
+            samples: string[] | null;
+        };
+        ImportCounts: {
+            /** Format: int64 */
+            duplicates: number;
+            /** Format: int64 */
+            errors: number;
+            /** Format: int64 */
+            ready: number;
+        };
+        ImportFile: {
+            /** @enum {string} */
+            encoding: "utf-8" | "windows-1252";
+            /**
+             * Format: int64
+             * @description Lignes de données non vides
+             */
+            rowCount: number;
+            /** @description « ; », « , » ou tabulation */
+            separator: string;
+        };
+        ImportMemberRef: {
+            /** Format: int64 */
+            id: number;
+            /** @description « Dupont Marie (12/03/2012) » */
+            label: string;
+        };
+        ImportMissing: {
+            /** Format: int64 */
+            count: number;
+            /** Format: int64 */
+            fieldId: number;
+            label: string;
+        };
+        ImportPreview: {
+            counts: components["schemas"]["ImportCounts"];
+            fieldsVersion: string;
+            file: components["schemas"]["ImportFile"];
+            /**
+             * Format: int64
+             * @description Lignes à importer auxquelles manque au moins une valeur obligatoire
+             */
+            incompleteCount: number;
+            missingRequired: components["schemas"]["ImportMissing"][] | null;
+            rows: components["schemas"]["ImportRow"][] | null;
+        };
+        ImportReport: {
+            /** Format: int64 */
+            created: number;
+            /** Format: int64 */
+            duplicates: number;
+            /** Format: int64 */
+            errors: number;
+            /** Format: int64 */
+            incompleteCount: number;
+            missingRequired: components["schemas"]["ImportMissing"][] | null;
+            /**
+             * Format: int64
+             * @description Lignes à importer à l'aperçu devenues doublons
+             */
+            newDuplicates: number;
+        };
+        ImportRow: {
+            birthDate: string;
+            /** Format: int64 */
+            duplicateOfLine: number | null;
+            duplicateOfMember: components["schemas"]["ImportMemberRef"];
+            errors: components["schemas"]["ImportCellError"][] | null;
+            /** @description Valeur brute de la colonne associée */
+            firstName: string;
+            lastName: string;
+            /**
+             * Format: int64
+             * @description Numéro de ligne dans le tableur (intitulés = 1)
+             */
+            line: number;
+            /** @description Champs personnalisés obligatoires sans valeur (lignes ready seulement) */
+            missingRequired: number[] | null;
+            /** @enum {string} */
+            status: "ready" | "error" | "duplicate";
+        };
+        ImportTargetOption: {
+            /**
+             * @description Type du champ personnalisé ; null pour un champ de la fiche
+             * @enum {string|null}
+             */
+            fieldType: "short_text" | "long_text" | "number" | "date" | "bool" | "choice" | null;
+            label: string;
+            /** @description Vrai : une colonne doit lui être associée */
+            requiredForImport: boolean;
+            /** @description firstName, lastName… ou field:<id> */
+            target: string;
+        };
         Invitation: {
             /** Format: date-time */
             createdAt: string;
@@ -4766,6 +4969,191 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminMember"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "run-member-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: int64
+                     * @description Lignes à importer affichées par l'aperçu ; sert à compter les doublons apparus depuis
+                     */
+                    expectedReady?: number;
+                    fieldsVersion: string;
+                    /** Format: binary */
+                    file: string;
+                    /** @description Tableau JSON des cibles, une par colonne */
+                    mapping: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "analyze-member-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportAnalysis"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-member-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Tableau JSON des cibles, une par colonne */
+                    mapping: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreview"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "export-member-import-rejected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @description Tableau JSON des cibles, une par colonne */
+                    mapping: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Lignes rejetées (UTF-8, séparateur point-virgule) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-member-import-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Modèle de fichier (UTF-8, séparateur point-virgule) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             /** @description Error */

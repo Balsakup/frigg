@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { UserPlus, X } from "lucide-react";
+import { Upload, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { customFieldsQuery } from "~/api/custom-fields";
@@ -82,10 +82,16 @@ export default function Members() {
       title="Membres"
       intro="Toutes les personnes de l'association."
       actions={
-        <Link to="/admin/membres/nouveau" className={buttonClasses({})}>
-          <Icon icon={UserPlus} className="h-4 w-4" />
-          Ajouter un membre
-        </Link>
+        <>
+          <Link to="/admin/membres/importer" className={buttonClasses({ variant: "secondary" })}>
+            <Icon icon={Upload} className="h-4 w-4" />
+            Importer
+          </Link>
+          <Link to="/admin/membres/nouveau" className={buttonClasses({})}>
+            <Icon icon={UserPlus} className="h-4 w-4" />
+            Ajouter un membre
+          </Link>
+        </>
       }
     >
       <p role="status" className="sr-only">

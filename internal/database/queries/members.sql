@@ -117,6 +117,10 @@ SELECT count(*) FROM members WHERE account_id = sqlc.arg(account_id);
 -- name: ListMembersByBirthDate :many
 SELECT id, first_name, last_name FROM members WHERE birth_date = sqlc.arg(birth_date);
 
+-- name: ListMemberIdentities :many
+-- Identites de toutes les fiches, pour la detection des doublons a l'import.
+SELECT id, first_name, last_name, birth_date FROM members;
+
 -- name: ListMemberIDsOfAccount :many
 SELECT id FROM members WHERE account_id = sqlc.arg(account_id) ORDER BY id;
 

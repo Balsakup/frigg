@@ -1,0 +1,8 @@
+NOM;Prénom;Date de naissance;Mail;Tél.;Code postal;Ville;Adresse;Licence;Catégorie;Remarques
+Lefèvre;Léa;03/04/2014;lea@example.org;06 12 34 56 78;69001;Lyon;3 rue Neuve;L-001;poussin;
+Dupont;Marie;12/03/2012;;;;;;L-002;Benjamin;déjà là
+Martin;Paul;3/4/12;paul.example.org;;;;;;Minime;
+Martin;Paul;15-09-2013;;;;;;;minime;
+Martin;Paul;15.09.2013;;;;;;;Minime;répété
+;Sans nom;01/01/2015;;;;;;;Cadet;
+Durand;Hugo;2011-06-30;;+32 470 12 34 56;1000;Lyon;1 place;;;

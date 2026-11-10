@@ -52,6 +52,7 @@ export default [
         route("membres", "routes/app/admin/members-layout.tsx", [
           index("routes/app/admin/members.tsx"),
           route("nouveau", "routes/app/admin/member-new.tsx"),
+          route("importer", "routes/app/admin/member-import.tsx"),
           route(":id", "routes/app/admin/member-detail.tsx"),
         ]),
         route("adhesions", "routes/app/admin/memberships-layout.tsx", [

@@ -300,6 +300,46 @@ func (q *Queries) ListMemberIDsOfAccount(ctx context.Context, accountID sql.Null
 	return items, nil
 }
 
+const listMemberIdentities = `-- name: ListMemberIdentities :many
+SELECT id, first_name, last_name, birth_date FROM members
+`
+
+type ListMemberIdentitiesRow struct {
+	ID        int64
+	FirstName string
+	LastName  string
+	BirthDate string
+}
+
+// Identites de toutes les fiches, pour la detection des doublons a l'import.
+func (q *Queries) ListMemberIdentities(ctx context.Context) ([]ListMemberIdentitiesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMemberIdentities)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMemberIdentitiesRow{}
+	for rows.Next() {
+		var i ListMemberIdentitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FirstName,
+			&i.LastName,
+			&i.BirthDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMembers = `-- name: ListMembers :many
 
 SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,

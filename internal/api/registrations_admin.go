@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/balsakup/frigg/internal/auth"
+	"github.com/balsakup/frigg/internal/csvfile"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
 	"github.com/balsakup/frigg/internal/event"
@@ -506,14 +506,6 @@ func (s *server) resolveRegistrationAlert(ctx context.Context, in *PaymentAlertI
 
 // Export CSV des inscrits (R13).
 
-// csvCell neutralise une cellule interprétable comme une formule.
-func csvCell(v string) string {
-	if v != "" && strings.ContainsRune("=+-@\t\r", rune(v[0])) {
-		return "'" + v
-	}
-	return v
-}
-
 var paymentLabels = map[string]string{"due": "À payer", "announced": "Paiement annoncé", "paid": "Payée"}
 
 func (s *server) exportEventRegistrations(ctx context.Context, in *EventIDInput) (*huma.StreamResponse, error) {
@@ -530,9 +522,7 @@ func (s *server) exportEventRegistrations(ctx context.Context, in *EventIDInput)
 		return nil, s.internalError(ctx, "lecture des inscriptions impossible", err)
 	}
 	var buf bytes.Buffer
-	buf.WriteString("\xef\xbb\xbf") // BOM UTF-8 : accents corrects dans un tableur
-	w := csv.NewWriter(&buf)
-	w.Comma = ';'
+	w := csvfile.NewWriter(&buf)
 	_ = w.Write([]string{"Nom", "Prénom", "Date de naissance", "Téléphone", "Adresse de contact", "Adhérent",
 		"Date d'inscription", "Montant dû", "Paiement", "Moyen", "Référence"})
 	for _, r := range rows {
@@ -559,7 +549,7 @@ func (s *server) exportEventRegistrations(ctx context.Context, in *EventIDInput)
 		if d, err := season.ParseDate(r.BirthDate); err == nil {
 			birth = fmt.Sprintf("%02d/%02d/%d", d.Day(), d.Month(), d.Year())
 		}
-		_ = w.Write([]string{csvCell(r.LastName), csvCell(r.FirstName), birth, csvCell(r.Phone.String), csvCell(contact), adherent,
+		_ = w.Write([]string{csvfile.SafeCell(r.LastName), csvfile.SafeCell(r.FirstName), birth, csvfile.SafeCell(r.Phone.String), csvfile.SafeCell(contact), adherent,
 			registered, amount, payment, method, reg.PaymentReference.String})
 	}
 	w.Flush()

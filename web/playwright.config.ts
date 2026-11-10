@@ -41,6 +41,11 @@ const customFieldsSpec = /custom-fields\.spec\.ts/;
 const eventsPort = 8097;
 const eventsDb = "../data/e2e/frigg-evenements.db";
 const eventsSpecs = /(events|admin-events)\.spec\.ts/;
+// Huitième serveur pour l'import des membres (013) : le test crée des champs
+// personnalisés, globaux, et des fiches « Sans compte ».
+const importPort = 8098;
+const importDb = "../data/e2e/frigg-import.db";
+const importSpec = /member-import\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -85,6 +90,7 @@ export default defineConfig({
         appearanceSpec,
         customFieldsSpec,
         eventsSpecs,
+        importSpec,
       ],
     },
     {
@@ -139,6 +145,11 @@ export default defineConfig({
       name: "evenements",
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${eventsPort}` },
       testMatch: eventsSpecs,
+    },
+    {
+      name: "import",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${importPort}` },
+      testMatch: importSpec,
     },
   ],
   webServer: [
@@ -195,6 +206,12 @@ export default defineConfig({
       url: `http://localhost:${eventsPort}`,
       reuseExistingServer: false,
       env: serverEnv(eventsDb, eventsPort, "../data/e2e/files-evenements"),
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${importDb} && ../bin/frigg serve`,
+      url: `http://localhost:${importPort}`,
+      reuseExistingServer: false,
+      env: serverEnv(importDb, importPort, "../data/e2e/files-import"),
     },
   ],
 });

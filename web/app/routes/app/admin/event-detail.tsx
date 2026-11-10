@@ -14,6 +14,7 @@ import { EventBadges, priceLabel } from "~/events/EventBadges";
 import { RegisterMemberDialog } from "~/events/RegisterMemberDialog";
 import { RegistrationBadges } from "~/events/RegistrationBadges";
 import { formatDate, formatMoney } from "~/lib/format";
+import { downloadBlob } from "~/members/import/download";
 import { errorMessage, RecordPaymentDialog } from "~/payments/AdminPayments";
 import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
@@ -330,12 +331,7 @@ function Registrations({ event: e, onDone, onError }: { event: AdminEvent } & Ac
         parseAs: "blob",
       });
       if (error || !data) throw error ?? new Error("export");
-      const url = URL.createObjectURL(data as Blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `inscrits-${e.id}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(data as Blob, `inscrits-${e.id}.csv`);
     } catch (err) {
       await onError(err);
     } finally {
