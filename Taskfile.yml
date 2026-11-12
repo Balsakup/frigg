@@ -62,6 +62,20 @@ tasks:
     cmds:
       - bun run dev
 
+  docs:dev:
+    desc: Prévisualise la documentation (http://localhost:5174)
+    dir: docs
+    cmds:
+      - bun install --frozen-lockfile
+      - bun run dev
+
+  docs:build:
+    desc: Construit la documentation comme en production
+    dir: docs
+    cmds:
+      - bun install --frozen-lockfile
+      - bun run build
+
   test:
     desc: Tests Go et tests unitaires du frontend
     cmds:

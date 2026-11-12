@@ -64,3 +64,20 @@ updates:
     ignore:
       - dependency-name: typescript
         versions: [">=7"]
+
+  # Documentation (docs/, VitePress) : correctifs de sécurité seulement, comme
+  # pour /web. VitePress est une alpha épinglée exactement, mise à jour
+  # manuelle jusqu'à la 2.0 stable (spec 015, research.md › R11).
+  - package-ecosystem: bun
+    directory: /docs
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "⬆️"
+    groups:
+      docs:
+        applies-to: security-updates
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: vitepress

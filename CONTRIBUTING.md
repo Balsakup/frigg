@@ -35,92 +35,28 @@ vérification, commentez `recheck`.
 Si vous reprenez du code d'un autre projet, indiquez-le dans la description de
 la Pull Request en précisant son auteur et sa licence.
 
-## Mettre en place l'environnement
-
-Prérequis : Go (version indiquée dans `go.mod`), [Bun](https://bun.sh) et
-Docker (pour les tests de bout en bout).
-
-```sh
-go tool task dev     # API sur :8080, frontend sur :5173
-go tool task test    # tests Go et tests unitaires du frontend
-go tool task check   # contrôles exigés avant fusion
-```
-
-Les principes d'architecture du projet sont décrits dans
-[la constitution](.specify/memory/constitution.md). Toute contribution doit les
-respecter.
-
 ## Proposer une modification
 
 1. Créez une branche à partir de `main`.
-2. Ajoutez des tests pour toute modification de comportement.
+2. Ajoutez des tests pour toute modification de comportement, et mettez à
+   jour la documentation (`docs/`) si le comportement visible change.
 3. Vérifiez que `go tool task check` passe.
 4. Rédigez vos messages de commit en français : un
    [gitmoji](https://gitmoji.dev) suivi d'un titre court à l'indicatif, par
    exemple `🔒 Limite les essais du mot de passe actuel`.
 5. Ouvrez une Pull Request en décrivant le problème résolu et la solution.
 
-## Construire l'image en local
+## Pour aller plus loin
 
-Pour déboguer un comportement propre au conteneur, construisez l'image avec la
-même recette que la release :
+Le guide complet est publié avec la documentation :
 
-```sh
-go tool task docker:build   # produit l'image frigg:dev, jamais publiée
-```
+- [Environnement de développement](https://balsakup.github.io/frigg/contributing/setup)
+- [Cycle de développement](https://balsakup.github.io/frigg/contributing/workflow)
+  (Spec Kit, conventions de langue et de commit)
+- [Contrôles avant fusion](https://balsakup.github.io/frigg/contributing/checks)
+- [Rédiger la documentation](https://balsakup.github.io/frigg/contributing/documentation)
+- [Releases et image locale](https://balsakup.github.io/frigg/contributing/release)
 
-L'étiquette `org.opencontainers.image.version` vaut `dev-<commit>`, suffixée de
-`-modifie` si l'arbre de travail contient des modifications non commitées.
-Pour la lancer avec Mailpit (`docker compose up -d`) :
-
-```sh
-docker run --rm --network host \
-  -e FRIGG_BASE_URL=http://localhost:8080 \
-  -e FRIGG_SMTP_HOST=localhost -e FRIGG_SMTP_PORT=1025 -e FRIGG_SMTP_TLS=none \
-  -e FRIGG_MAIL_FROM=frigg@localhost \
-  -v frigg-dev-data:/data frigg:dev
-```
-
-L'image n'a pas de shell : pour inspecter un conteneur, utilisez `docker logs`,
-`docker inspect` et `docker cp <conteneur>:/data/… .`. Les options
-d'exploitation sont décrites dans la section
-[Installer avec Docker](README.md#installer-avec-docker) du README.
-
-## Publier une release
-
-La publication d'une release GitHub construit et publie automatiquement
-l'image `ghcr.io/balsakup/frigg` (workflow `.github/workflows/release.yml`).
-
-1. Vérifiez que `main` passe `go tool task check`.
-2. Créez la release depuis GitHub (ou `gh release create`) avec une étiquette
-   `vX.Y.Z` ; pour une préversion, `vX.Y.Z-rc.N` et la case « Set as a
-   pre-release ».
-3. Suivez l'exécution dans l'onglet Actions. En cas de succès, une ligne
-   « Image » avec l'empreinte est ajoutée aux notes de la release ; en cas
-   d'échec, GitHub vous notifie et rien n'est publié.
-
-| Étiquette de la release | Étiquettes de l'image |
-| --- | --- |
-| `v1.2.0`, plus haute version stable | `1.2.0` et `latest` |
-| `v1.1.4` publiée après `v1.2.0` | `1.1.4` seulement |
-| `v1.3.0-rc.1`, ou toute release marquée préversion | `1.3.0-rc.1` seulement |
-| `1.2.0`, `v1.2`, `release-1`… | aucune : le workflow échoue |
-
-Avant de publier, le workflow vérifie l'étiquette, compile (`CGO_ENABLED=0`),
-lance `go vet`, les tests Go, le typecheck, Biome et Vitest, puis analyse
-l'image (vulnérabilités critiques ou élevées corrigeables bloquantes). L'image
-est publiée pour `linux/amd64` et `linux/arm64`, avec une attestation de
-provenance et un SBOM. Les tests de bout en bout ne sont pas rejoués : ils
-doivent passer avant la fusion.
-
-**Première publication** : GitHub crée le paquet `frigg` en privé. Rendez-le
-public une fois pour toutes (page du paquet → Package settings → Change
-visibility → Public), sans quoi les exploitants ne peuvent pas télécharger
-l'image.
-
-**Relancer** : « Re-run jobs » sur l'exécution de la release reconstruit le
-même code et remplace l'image sous la même étiquette ; les autres versions ne
-sont pas touchées.
-
-**Retirer une image** : supprimer une release ne supprime pas l'image. Pour la
-retirer, supprimez la version correspondante dans la page du paquet.
+Les principes d'architecture du projet sont décrits dans
+[la constitution](.specify/memory/constitution.md). Toute contribution doit les
+respecter.

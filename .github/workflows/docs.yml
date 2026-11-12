@@ -1,0 +1,169 @@
+# Construit et publie la documentation (docs/, VitePress) sur GitHub Pages
+# (specs/015-vitepress-docs/contracts/workflow.md) :
+#   build  → détermine la dernière release (préversions comprises), construit
+#            la version main (/frigg/main/) et celle de la release (/frigg/),
+#            puis assemble le site ; sans release documentée, la racine
+#            redirige vers main. Sur une Pull Request : construction seule,
+#            les liens morts sont bloquants ;
+#   deploy → publie l'artefact sur GitHub Pages (déploiement atomique : un
+#            échec ne publie rien et le site précédent reste en ligne).
+# Chaque version est construite avec la configuration de sa propre source :
+# les variables DOCS_* forment un contrat rétrocompatible
+# (specs/015-vitepress-docs/contracts/build-env.md).
+# Les actions tierces sont épinglées par SHA, comme dans ci.yml.
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions: {}
+
+# Les déploiements sont sérialisés sans annulation : la dernière exécution
+# reconstruit l'état le plus récent des deux versions.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('docs-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BUN_VERSION: 1.4.4 # garder alignée sur ci.yml
+  SITE_URL: https://balsakup.github.io/frigg/
+
+jobs:
+  build:
+    name: Construit la documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # Sur une release, GitHub exécute le workflow de l'étiquette : la
+      # version main est donc toujours extraite explicitement.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: src
+          ref: ${{ (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && 'main' || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      # Seule étape à recevoir le jeton. Remplacer le premier « - » par « ~ »
+      # fait passer une préversion avant la version stable correspondante
+      # dans sort -V (research.md › R6).
+      - name: Détermine la dernière release
+        id: release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 200 --json tagName -q '.[].tagName' \
+            | { grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$' || true; } \
+            | sed 's/-/~/' | sort -V | sed 's/~/-/' | tail -n1)
+          if [[ -n "$tag" ]] && ! git -C src cat-file -e "$tag:docs/.vitepress/config.mts" 2>/dev/null; then
+            echo "::notice::$tag ne contient pas la documentation : seule la version main est publiée"
+            tag=
+          fi
+          echo "Dernière release documentée : ${tag:-aucune}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Construit la version main
+        working-directory: src/docs
+        env:
+          DOCS_BASE: /frigg/main/
+          DOCS_VERSION: main
+          DOCS_RELEASE_VERSION: ${{ steps.release.outputs.tag }}
+          DOCS_SITE_URL: ${{ env.SITE_URL }}
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Construit la version release
+        if: steps.release.outputs.tag != ''
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          DOCS_BASE: /frigg/
+          DOCS_VERSION: ${{ steps.release.outputs.tag }}
+          DOCS_RELEASE_VERSION: ${{ steps.release.outputs.tag }}
+          DOCS_SITE_URL: ${{ env.SITE_URL }}
+        run: |
+          set -euo pipefail
+          git -C src worktree add ../release "$TAG"
+          cd release/docs
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Assemble le site
+        if: github.event_name != 'pull_request'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir site
+          if [[ -n "$TAG" ]]; then
+            cp -R release/docs/.vitepress/dist/. site/
+            if [[ -e site/main ]]; then
+              echo "::error::la version $TAG contient déjà un chemin main/, réservé à la version main"
+              exit 1
+            fi
+            mkdir site/main
+            cp -R src/docs/.vitepress/dist/. site/main/
+            echo "Versions publiées : main, $TAG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            mkdir site/main
+            cp -R src/docs/.vitepress/dist/. site/main/
+            cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="fr">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Documentation de Frigg</title>
+            <meta http-equiv="refresh" content="0; url=main/">
+          </head>
+          <body>
+            <p><a href="main/">Accéder à la documentation (version en développement)</a></p>
+          </body>
+          </html>
+          HTML
+            cp site/main/404.html site/404.html
+            echo "Versions publiées : main (aucune release documentée)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        if: github.event_name != 'pull_request'
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    name: Publie sur GitHub Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Déploie
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
