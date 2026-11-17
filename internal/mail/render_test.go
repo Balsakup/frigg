@@ -29,7 +29,12 @@ func TestRenderMembershipTemplates(t *testing.T) {
 			[]string{"2026-2027", "ADH-2627-0001", data.Link, "40,00"}, []string{"Aucun paiement"}},
 		{"membership-validated", Data{Association: "Club", Member: "Léo Martin", Season: "2026-2027"},
 			"Adhésion de Léo Martin validée", []string{"Aucun paiement n'est demandé"}, []string{"Référence"}},
-		{"membership-refused", data, "Demande d'adhésion de Léo Martin refusée", []string{"Doublon de fiche"}, nil},
+		{"membership-refused", data, "Demande d'adhésion de Léo Martin refusée", []string{"Doublon de fiche", data.Link}, nil},
+		{"membership-refused", Data{Association: "Club", Member: "Léo Martin", Reason: "Motif"},
+			"Demande d'adhésion de Léo Martin refusée", []string{"Motif"}, []string{"lien personnel"}},
+		// Fiche suivie par lien (016 FR-035) : adhésion gratuite avec un lien de suivi.
+		{"membership-validated", Data{Association: "Club", Member: "Léo Martin", Season: "2026-2027", Link: "https://frigg.example/suivi#jeton=abc"},
+			"Adhésion de Léo Martin validée", []string{"Aucun paiement n'est demandé", "https://frigg.example/suivi#jeton=abc", "lien personnel"}, []string{"Référence"}},
 		{"membership-cancelled", data, "Adhésion de Léo Martin annulée", []string{"Doublon de fiche"}, nil},
 		{"membership-paid", data, "Paiement de l'adhésion de Léo Martin reçu", []string{"virement", "ADH-2627-0001"}, []string{"de don"}},
 		{"membership-paid", Data{Association: "Club", Member: "Léo Martin", Season: "2026-2027", Amount: "80,00 €", Donation: "35,00 €", Method: "virement"},
@@ -103,6 +108,7 @@ func TestRenderCommunication(t *testing.T) {
 var contentTemplates = []string{
 	"invitation", "password-reset", "email-verification", "membership-validated",
 	"membership-refused", "membership-cancelled", "membership-paid", "communication", "test",
+	"public-confirm", "tracking-link", "public-registration-confirmed",
 }
 
 // Render ne produit que le contenu ; Wrap applique l'en-tête, les couleurs de
@@ -222,5 +228,63 @@ func TestRenderEventTemplates(t *testing.T) {
 	free, err := Render("registration-confirmed", Data{Association: "Club", Event: "AG", When: "w", Location: "l", Members: []string{"Lucas"}})
 	if err != nil || strings.Contains(free.Text, "Montant") {
 		t.Fatalf("inscription gratuite : %v %q", err, free.Text)
+	}
+}
+
+// Parcours publics (016) : confirmation d'un dépôt selon l'état du compte de
+// l'adresse (research.md › R7) et lien personnel de suivi.
+func TestRenderPublicTemplates(t *testing.T) {
+	const (
+		exists = "Un compte Frigg existe déjà pour cette adresse : après confirmation, votre demande apparaîtra dans votre espace membre."
+		full   = "Votre compte gère déjà 20 fiches : cette demande ne pourra pas y être ajoutée et sera suivie par un lien personnel."
+	)
+	link := "https://frigg.example/confirmer-demande#jeton=abc"
+	base := Data{Association: "Club de Frigg", Link: link, Member: "Léo Martin", Season: "2026-2027"}
+	withAccount, fullAccount := base, base
+	withAccount.AccountExists = true
+	fullAccount.AccountFull = true
+	event := Data{Association: "Club de Frigg", Link: link, Member: "Léo Martin", Event: "Stage d'escalade"}
+	cases := []struct {
+		name, label string
+		data        Data
+		subject     string
+		contains    []string
+		absent      []string
+	}{
+		{"public-confirm", "sans compte", base, "Confirmez votre demande",
+			[]string{link, "48 heures", "adhésion de Léo Martin pour la saison 2026-2027", "Club de Frigg"}, []string{"compte", "20 fiches"}},
+		{"public-confirm", "compte existant", withAccount, "Confirmez votre demande", []string{link, exists}, []string{"20 fiches"}},
+		{"public-confirm", "compte plein", fullAccount, "Confirmez votre demande", []string{link, full}, []string{"existe déjà"}},
+		{"public-confirm", "inscription", event, "Confirmez votre demande",
+			[]string{"inscription de Léo Martin à « Stage d'escalade »"}, []string{"adhésion"}},
+		{"tracking-link", "lien", Data{Association: "Club de Frigg", Link: "https://frigg.example/suivi#jeton=abc"}, "Votre lien de suivi",
+			[]string{"https://frigg.example/suivi#jeton=abc", "30 jours", "Club de Frigg"}, nil},
+		{"public-registration-confirmed", "payante", Data{Association: "Club de Frigg", Link: "https://frigg.example/suivi/inscriptions/7#jeton=abc",
+			Member: "Léo Martin", Event: "Stage d'escalade", When: "samedi 12 décembre 2026 de 14 h à 17 h", Location: "Gymnase",
+			Amount: "35,00 €", Reference: "EVT-2627-0001"}, "Inscription confirmée : Stage d'escalade",
+			[]string{"https://frigg.example/suivi/inscriptions/7#jeton=abc", "Léo Martin", "samedi 12 décembre 2026 de 14 h à 17 h", "Gymnase",
+				"35,00 €", "EVT-2627-0001", "30 jours"}, nil},
+		{"public-registration-confirmed", "gratuite", Data{Association: "Club de Frigg", Link: "https://frigg.example/suivi/inscriptions/7#jeton=abc",
+			Member: "Léo Martin", Event: "Portes ouvertes", When: "w", Location: "l"}, "Inscription confirmée : Portes ouvertes",
+			[]string{"https://frigg.example/suivi/inscriptions/7#jeton=abc", "30 jours", "annuler"}, []string{"Montant", "Référence"}},
+	}
+	for _, c := range cases {
+		msg, err := Render(c.name, c.data)
+		if err != nil {
+			t.Fatalf("%s (%s) : %v", c.name, c.label, err)
+		}
+		if msg.Subject != c.subject {
+			t.Errorf("%s (%s) : objet %q", c.name, c.label, msg.Subject)
+		}
+		for _, want := range c.contains {
+			if !strings.Contains(msg.Text, want) || !strings.Contains(msg.HTML, strings.ReplaceAll(want, "'", "&#39;")) {
+				t.Errorf("%s (%s) : %q absent du texte ou du HTML\n%s\n%s", c.name, c.label, want, msg.Text, msg.HTML)
+			}
+		}
+		for _, no := range c.absent {
+			if strings.Contains(msg.Text, no) || strings.Contains(msg.HTML, no) {
+				t.Errorf("%s (%s) : %q ne devrait pas figurer", c.name, c.label, no)
+			}
+		}
 	}
 }

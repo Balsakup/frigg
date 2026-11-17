@@ -414,23 +414,19 @@ func formatEuros(cents int64) string {
 
 var methodLabels = map[string]string{"card": "carte bancaire", "cash": "espèces", "cheque": "chèque", "transfer": "virement"}
 
-// noticeRecipient renvoie l'adresse du compte qui gère la fiche, s'il existe et
-// n'est pas désactivé (FR-023).
-func noticeRecipient(r sqlc.GetMembershipRow) string {
-	if !r.MemberAccountID.Valid || !r.AccountEmail.Valid || r.AccountDisabledAt.Valid {
-		return ""
-	}
-	return r.AccountEmail.String
-}
-
-// notifyMembership met en file un e-mail d'adhésion au compte qui gère la
-// fiche, relu dans la transaction (research.md 006 › R8).
+// notifyMembership met en file un e-mail d'adhésion, relu dans la
+// transaction (research.md 006 › R8). Le destinataire est le compte actif qui
+// gère la fiche, ou la fiche elle-même si elle est sans compte, avec un lien
+// personnel (016 FR-035) ; rien pour un compte désactivé (006 FR-023).
 func (s *server) notifyMembership(ctx context.Context, q *sqlc.Queries, template string, id int64, withLink bool) error {
 	r, err := q.GetMembership(ctx, id)
 	if err != nil {
 		return err
 	}
-	to := noticeRecipient(r)
+	to, tracked := recipientOf(noticeContact{
+		AccountID: r.MemberAccountID, AccountEmail: r.AccountEmail.String,
+		AccountDisabled: r.AccountDisabledAt.Valid, MemberEmail: r.MemberEmail.String,
+	}, false)
 	if to == "" {
 		return nil
 	}
@@ -458,9 +454,14 @@ func (s *server) notifyMembership(ctx context.Context, q *sqlc.Queries, template
 	if d, err := season.ParseDate(m.PaidOn.String); err == nil && m.PaidOn.Valid {
 		data.PaidOn = frenchDate(d)
 	}
-	path := ""
+	memberPath, trackingPath := "", "/suivi"
 	if withLink && m.PaymentStatus.Valid {
-		path = fmt.Sprintf("/adhesions/%d", m.ID)
+		memberPath = fmt.Sprintf("/adhesions/%d", m.ID)
+		trackingPath = fmt.Sprintf("/suivi/adhesions/%d", m.ID)
+	}
+	path, err := s.noticePath(ctx, q, to, tracked, memberPath, trackingPath)
+	if err != nil {
+		return err
 	}
 	return s.enqueueNotice(ctx, q, template, to, data, path)
 }

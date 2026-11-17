@@ -3,8 +3,8 @@
 -- A target is either a membership or an event registration (012 R2).
 
 -- name: CreateOnlinePayment :one
-INSERT INTO online_payments (membership_id, registration_id, account_id, environment, amount_cents, status, created_at, updated_at)
-VALUES (sqlc.narg(membership_id), sqlc.narg(registration_id), sqlc.narg(account_id), sqlc.arg(environment),
+INSERT INTO online_payments (membership_id, registration_id, account_id, via_link, environment, amount_cents, status, created_at, updated_at)
+VALUES (sqlc.narg(membership_id), sqlc.narg(registration_id), sqlc.narg(account_id), sqlc.arg(via_link), sqlc.arg(environment),
         sqlc.arg(amount_cents), 'pending', sqlc.arg(now), sqlc.arg(now))
 RETURNING *;
 
@@ -135,3 +135,18 @@ WHERE registration_id = CAST(sqlc.arg(registration_id) AS INTEGER) AND checkout_
   AND (status IN ('pending', 'succeeded')
        OR (status IN ('failed', 'abandoned', 'expired') AND finished_at > sqlc.arg(since)))
 ORDER BY created_at;
+
+-- Personal link scope (research.md 016 R1, R11): only attempts of a target
+-- whose member has no account and the email of the link.
+
+-- name: GetOnlinePaymentOfTrackedEmail :one
+SELECT op.* FROM online_payments op
+LEFT JOIN memberships ms ON ms.id = op.membership_id
+LEFT JOIN event_registrations r ON r.id = op.registration_id
+JOIN members m ON m.id = coalesce(ms.member_id, r.member_id)
+WHERE op.id = sqlc.arg(id)
+  AND ((CAST(sqlc.narg(membership_id) AS INTEGER) IS NOT NULL
+        AND op.membership_id = CAST(sqlc.narg(membership_id) AS INTEGER))
+       OR (CAST(sqlc.narg(registration_id) AS INTEGER) IS NOT NULL
+        AND op.registration_id = CAST(sqlc.narg(registration_id) AS INTEGER)))
+  AND m.account_id IS NULL AND m.email = sqlc.arg(email) COLLATE NOCASE;

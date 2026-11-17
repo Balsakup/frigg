@@ -65,7 +65,10 @@ function MemberView({ member }: { member: AdminMember }) {
   const navigate = useNavigate();
   const update = $api.useMutation("put", "/admin/members/{id}");
   const remove = $api.useMutation("delete", "/admin/members/{id}");
+  const sendLink = $api.useMutation("post", "/admin/members/{id}/tracking-link");
   const [error, setError] = useState("");
+  const [linkStatus, setLinkStatus] = useState("");
+  const [linkError, setLinkError] = useState("");
   const path = { params: { path: { id: member.id } } };
   const name = fullName(member);
   const account = member.account
@@ -84,6 +87,19 @@ function MemberView({ member }: { member: AdminMember }) {
     qc.removeQueries({ queryKey: memberQuery(member.id).queryKey });
     await invalidateMembers(qc);
     navigate("/admin/membres", { state: { flash: "Membre supprimé." } });
+  };
+
+  const onSendLink = async () => {
+    setLinkStatus("");
+    setLinkError("");
+    try {
+      await sendLink.mutateAsync(path);
+    } catch (e) {
+      setLinkError(isProblem(e) && e.detail ? e.detail : "Une erreur inattendue s'est produite.");
+      await invalidateMembers(qc);
+      return;
+    }
+    setLinkStatus(`Lien de suivi envoyé à ${member.email ?? "l'adresse de la fiche"}.`);
   };
 
   return (
@@ -118,6 +134,20 @@ function MemberView({ member }: { member: AdminMember }) {
               "Sans compte"
             )}
           </dd>
+          <dt className="font-bold">Origine</dt>
+          <dd>{member.origin === "public" ? <Badge tone="info">Publique</Badge> : "Interne"}</dd>
+          {member.emailConfirmedAt ? (
+            <>
+              <dt className="font-bold">Adresse confirmée le</dt>
+              <dd>{formatDate(member.emailConfirmedAt)}</dd>
+            </>
+          ) : null}
+          {member.consentedAt ? (
+            <>
+              <dt className="font-bold">Consentement le</dt>
+              <dd>{formatDate(member.consentedAt)}</dd>
+            </>
+          ) : null}
           <dt className="font-bold">Fiche du titulaire</dt>
           <dd>{member.isSelf ? "Oui" : "Non"}</dd>
           <dt className="font-bold">Téléphone</dt>
@@ -127,6 +157,36 @@ function MemberView({ member }: { member: AdminMember }) {
           <dt className="font-bold">Modifiée le</dt>
           <dd>{formatDate(member.updatedAt)}</dd>
         </dl>
+        {member.trackedByLink ? (
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="text-sm text-muted">
+              Sans compte : les notifications partent à l'adresse de la fiche, avec un lien
+              personnel de suivi et de paiement.
+            </p>
+            <p role="status" className="sr-only">
+              {linkStatus}
+            </p>
+            {linkStatus ? (
+              <Alert kind="success" className="mt-3">
+                {linkStatus}
+              </Alert>
+            ) : null}
+            {linkError ? (
+              <Alert kind="danger" role="alert" className="mt-3">
+                {linkError}
+              </Alert>
+            ) : null}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={onSendLink}
+              aria-disabled={sendLink.isPending}
+            >
+              Envoyer un lien de suivi
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       <section

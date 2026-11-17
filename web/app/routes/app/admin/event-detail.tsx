@@ -1,6 +1,6 @@
 import { Menu } from "@base-ui/react/menu";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Download, Ellipsis, Pencil, RotateCcw, Send, Trash2 } from "lucide-react";
+import { Ban, Download, Ellipsis, Pencil, RefreshCw, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { client } from "~/api/client";
@@ -22,7 +22,8 @@ import { Badge } from "~/ui/Badge";
 import { Button, buttonClasses } from "~/ui/Button";
 import { Checkbox } from "~/ui/Checkbox";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
-import { TextAreaField } from "~/ui/Field";
+import { CopyButton } from "~/ui/CopyButton";
+import { Field, TextAreaField } from "~/ui/Field";
 import { Icon } from "~/ui/Icon";
 import { Table, TableCell, TableRow } from "~/ui/Table";
 import NotFound from "../not-found";
@@ -71,6 +72,12 @@ function Info({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
+
+const opennessLabel: Record<AdminEvent["openness"], string> = {
+  season_members: "Adhérents de la saison",
+  all_members: "Toutes les fiches",
+  public: "Ouvert au public",
+};
 
 const itemClass =
   "flex cursor-pointer items-center gap-2 px-3 py-2 outline-none data-[highlighted]:bg-brand/10";
@@ -234,9 +241,7 @@ function EventView({ event: e }: { event: AdminEvent }) {
             <Info label="Date">{formatEventRange(e.startsAt, e.endsAt)}</Info>
             <Info label="Lieu">{e.location}</Info>
             <Info label="Saison">{e.season.label}</Info>
-            <Info label="Qui peut s'inscrire">
-              {e.openness === "all_members" ? "Toutes les fiches" : "Adhérents de la saison"}
-            </Info>
+            <Info label="Qui peut s'inscrire">{opennessLabel[e.openness]}</Info>
             <Info label="Capacité">{e.capacity ? `${e.capacity} places` : "Illimitée"}</Info>
             <Info label="Prix">{priceLabel(e.priceCents)}</Info>
             {e.window ? (
@@ -254,6 +259,9 @@ function EventView({ event: e }: { event: AdminEvent }) {
             ) : null}
           </dl>
         </section>
+        {e.publicUrl ? (
+          <PublicLink event={e} url={e.publicUrl} onDone={done} onError={failed} />
+        ) : null}
         {e.status !== "draft" ? <Figures event={e} /> : null}
         {e.status !== "draft" ? <Registrations event={e} onDone={done} onError={failed} /> : null}
       </div>
@@ -274,6 +282,72 @@ function EventView({ event: e }: { event: AdminEvent }) {
         <p>L'événement sera supprimé définitivement. Cette action est irréversible.</p>
       </ConfirmDialog>
     </Page>
+  );
+}
+
+// Lien public d'un événement « Ouvert au public » (016 FR-024) : adresse,
+// copie et régénération, qui invalide l'ancien lien.
+function PublicLink({
+  event: e,
+  url,
+  onDone,
+  onError,
+}: {
+  event: AdminEvent;
+  url: string;
+  onDone: (message: string) => Promise<void>;
+  onError: (err: unknown) => Promise<void>;
+}) {
+  const regenerate = $api.useMutation("post", "/admin/events/{id}/public-link");
+  const onRegenerate = async () => {
+    try {
+      await regenerate.mutateAsync({ params: { path: { id: e.id } } });
+    } catch (err) {
+      await onError(err);
+      return;
+    }
+    await onDone("Lien public régénéré : l'ancien lien ne fonctionne plus.");
+  };
+  return (
+    <section
+      aria-labelledby="evenement-lien-public"
+      className="max-w-3xl rounded-lg border border-line bg-surface p-5"
+    >
+      <h2 id="evenement-lien-public" className="font-display text-lg font-bold">
+        Lien public
+      </h2>
+      <p className="mt-2 text-muted">
+        Toute personne qui reçoit ce lien peut voir l'événement et s'y inscrire, sans compte.
+        {e.status === "draft" ? " Il ne fonctionnera qu'une fois l'événement publié." : ""}
+      </p>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <Field
+          label="Adresse de la page publique"
+          readOnly
+          value={url}
+          className="min-w-0 flex-1"
+        />
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <CopyButton value={url} what="le lien public de l'événement" />
+          <ConfirmDialog
+            title="Régénérer le lien public ?"
+            confirmLabel="Régénérer le lien"
+            onConfirm={onRegenerate}
+            trigger={
+              <Button variant="secondary" size="sm">
+                <Icon icon={RefreshCw} className="h-4 w-4" />
+                Régénérer
+              </Button>
+            }
+          >
+            <p>
+              L'ancien lien cessera immédiatement de fonctionner : les personnes qui l'ont reçu
+              verront « Événement introuvable ». Les inscriptions déjà faites sont conservées.
+            </p>
+          </ConfirmDialog>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -444,7 +518,7 @@ function RegistrationRow({ reg: r, onDone, onError }: { reg: AdminRegistration }
       <TableCell className="whitespace-nowrap">
         {formatDate(r.registeredAt)}
         <span className="block text-sm text-muted">
-          {r.registeredBy ? r.registeredBy.email : "—"}
+          {r.viaPublic ? "Inscription publique" : r.registeredBy ? r.registeredBy.email : "—"}
         </span>
       </TableCell>
       <TableCell>

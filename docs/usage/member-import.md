@@ -6,6 +6,10 @@ Pour démarrer avec Frigg sans tout ressaisir, importez vos fiches depuis un
 tableur. L'importation se lance depuis la rubrique *Membres* ; elle crée des
 fiches **sans compte**, sans adhésion, et n'envoie aucun e-mail.
 
+Une fiche importée avec une adresse électronique recevra ensuite, à cette
+adresse, les e-mails de ses adhésions et de ses inscriptions, avec un
+[lien personnel de suivi](./public-journeys#le-lien-de-suivi).
+
 ## 1. Préparer le fichier
 
 - Format **CSV** uniquement (« Enregistrer sous… CSV » dans votre tableur).

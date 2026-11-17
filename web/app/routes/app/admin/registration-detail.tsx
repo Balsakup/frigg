@@ -160,7 +160,8 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
             <Info label="Inscrit le">
               {formatDate(r.registeredAt)}
               <span className="block text-sm font-normal text-muted">
-                par {r.registeredBy?.email ?? "—"}
+                {/* Inscription publique (016) : aucun compte à l'origine. */}
+                {r.viaPublic ? "Inscription publique" : `par ${r.registeredBy?.email ?? "—"}`}
               </span>
             </Info>
             <Info label="Montant à payer">
@@ -174,7 +175,10 @@ function RegistrationView({ reg: r }: { reg: AdminRegistration }) {
             <div>
               <dt className="text-sm text-muted">État</dt>
               <dd className="mt-0.5">
-                <RegistrationBadges state={r.state} payment={p} />
+                <span className="flex flex-wrap items-center gap-2">
+                  {r.viaPublic ? <Badge tone="info">Publique</Badge> : null}
+                  <RegistrationBadges state={r.state} payment={p} />
+                </span>
               </dd>
             </div>
             {p ? <Info label="Référence">{p.reference}</Info> : null}

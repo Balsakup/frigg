@@ -9,7 +9,7 @@ describe("critères des adhésions", () => {
   it("lit l'URL en ignorant les valeurs inconnues", () => {
     const f = parseMembershipFilters(
       new URLSearchParams(
-        "season=all&status=pending&payment=x&paidMethod=bitcoin&alerts=all&page=0",
+        "season=all&status=pending&payment=x&paidMethod=bitcoin&alerts=all&origin=x&page=0",
       ),
     );
     expect(f).toEqual({
@@ -18,6 +18,7 @@ describe("critères des adhésions", () => {
       payment: "",
       paidMethod: "",
       alerts: "",
+      origin: "",
       fields: [],
       q: "",
       page: 1,
@@ -37,6 +38,13 @@ describe("critères des adhésions", () => {
     const f = parseMembershipFilters(new URLSearchParams("paidMethod=card&alerts=open"));
     expect(toMembershipApiQuery(f)).toEqual({ paidMethod: "card", alerts: "open", page: 1 });
     expect(toMembershipSearchParams(f).toString()).toBe("paidMethod=card&alerts=open");
+  });
+
+  it("filtre les demandes publiques (016)", () => {
+    const f = parseMembershipFilters(new URLSearchParams("origin=public&status=pending"));
+    expect(f.origin).toBe("public");
+    expect(toMembershipApiQuery(f)).toEqual({ status: "pending", origin: "public", page: 1 });
+    expect(toMembershipSearchParams(f).toString()).toBe("status=pending&origin=public");
   });
 
   it("n'envoie pas une recherche trop courte", () => {

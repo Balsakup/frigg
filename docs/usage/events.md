@@ -35,7 +35,7 @@ Dans *Événements* :
 | Début et fin | Dates et heures de Paris ; la fin suit le début |
 | Lieu | 200 caractères au plus |
 | Description | Facultative, 5 000 caractères au plus |
-| Ouverture | *Adhérents de la saison* (adhésion validée, par défaut) ou *Toutes les fiches* |
+| Ouverture | *Adhérents de la saison* (adhésion validée, par défaut), *Toutes les fiches* ou *Ouvert au public* (inscription sans compte par un lien public) |
 | Capacité | Facultative, de 1 à 10 000 places, sans liste d'attente |
 | Prix | Facultatif, de 0 à 10 000 € |
 | Période d'inscription | Facultative ; par défaut, de la publication au début de l'événement |
@@ -48,6 +48,14 @@ Dans *Événements* :
   suivantes : le prix est figé à l'inscription. Les inscrits devenus non
   éligibles sont signalés, mais pas retirés.
 - La capacité ne peut pas descendre sous le nombre d'inscrits.
+
+### Ouvrir au public
+
+Un événement *Ouvert au public* a un **lien public** : toute personne qui le
+reçoit peut s'inscrire sans compte, après avoir confirmé son adresse. Pour un
+compte connecté, il se comporte comme *Toutes les fiches*. L'encart « Lien
+public » de la page de l'événement permet de **copier** et de **régénérer**
+ce lien. Voir [Parcours publics](./public-journeys#evenements-ouverts-au-public).
 
 ### Annuler, rétablir, supprimer
 
@@ -65,7 +73,8 @@ Dans *Événements* :
   d'inscription, et retirer toute inscription avant la fin de l'événement.
   Il peut ajuster le montant à payer (voir [Remises et dons](./adjustments)).
 - *Inscriptions* liste les inscriptions de tous les événements : recherche
-  par nom ou référence, filtres par événement, état et état du paiement, et
+  par nom ou référence, filtres par événement, état, état du paiement et
+  origine (« Publique » pour les inscriptions faites par un lien public), et
   signalements de paiement à traiter.
 - Les paiements se constatent comme pour les adhésions ; une inscription
   peut être marquée payée dès sa création.
@@ -78,3 +87,8 @@ Le membre reçoit un e-mail à son inscription (avec le lien de paiement si
 elle est payante), à la constatation de son paiement et s'il est retiré. Les
 inscrits sont prévenus d'un changement de date, d'heure ou de lieu, d'une
 annulation et d'un rétablissement, à raison d'un seul e-mail par adresse.
+
+Pour une fiche **sans compte qui a une adresse**, ces e-mails partent à
+l'adresse de la fiche et contiennent un
+[lien personnel de suivi](./public-journeys#le-lien-de-suivi), qui permet de
+payer ou d'annuler l'inscription sans compte.

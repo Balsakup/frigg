@@ -73,14 +73,15 @@ const createEvent = `-- name: CreateEvent :one
 
 INSERT INTO events (
     season_id, title, location, description, starts_at, ends_at, openness, capacity, price_cents,
-    registration_opens_at, registration_closes_at, status, created_by, updated_by, created_at, updated_at
+    registration_opens_at, registration_closes_at, status, created_by, updated_by, created_at, updated_at,
+    public_slug
 ) VALUES (
     ?1, ?2, ?3, ?4, ?5,
     ?6, ?7, ?8, ?9,
     ?10, ?11, 'draft', ?12,
-    ?12, ?13, ?13
+    ?12, ?13, ?13, ?14
 )
-RETURNING id, season_id, title, location, description, starts_at, ends_at, openness, capacity, price_cents, registration_opens_at, registration_closes_at, status, cancel_message, published_at, cancelled_at, cancelled_by, created_by, updated_by, created_at, updated_at
+RETURNING id, season_id, title, location, description, starts_at, ends_at, openness, capacity, price_cents, registration_opens_at, registration_closes_at, status, cancel_message, published_at, cancelled_at, cancelled_by, created_by, updated_by, created_at, updated_at, public_slug
 `
 
 type CreateEventParams struct {
@@ -97,6 +98,7 @@ type CreateEventParams struct {
 	RegistrationClosesAt sql.NullString
 	ActorID              sql.NullInt64
 	Now                  string
+	PublicSlug           sql.NullString
 }
 
 // Events (research.md 012 R1, R9). Instants are UTC text, compared as text.
@@ -116,6 +118,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		arg.RegistrationClosesAt,
 		arg.ActorID,
 		arg.Now,
+		arg.PublicSlug,
 	)
 	var i Event
 	err := row.Scan(
@@ -140,6 +143,7 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.UpdatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PublicSlug,
 	)
 	return i, err
 }
@@ -159,7 +163,7 @@ func (q *Queries) DeleteEventWithoutRegistrations(ctx context.Context, id int64)
 }
 
 const getEvent = `-- name: GetEvent :one
-SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at,
+SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, e.public_slug,
        (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count,
        (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id) AS registration_count,
        cb.email AS created_by_email, ub.email AS updated_by_email, xb.email AS cancelled_by_email
@@ -204,6 +208,7 @@ func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
 		&i.Event.UpdatedBy,
 		&i.Event.CreatedAt,
 		&i.Event.UpdatedAt,
+		&i.Event.PublicSlug,
 		&i.ConfirmedCount,
 		&i.RegistrationCount,
 		&i.CreatedByEmail,
@@ -213,8 +218,51 @@ func (q *Queries) GetEvent(ctx context.Context, id int64) (GetEventRow, error) {
 	return i, err
 }
 
+const getEventByPublicSlug = `-- name: GetEventByPublicSlug :one
+SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, e.public_slug,
+       (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count
+FROM events e
+WHERE e.public_slug = ?1
+`
+
+type GetEventByPublicSlugRow struct {
+	Event          Event
+	ConfirmedCount int64
+}
+
+func (q *Queries) GetEventByPublicSlug(ctx context.Context, publicSlug sql.NullString) (GetEventByPublicSlugRow, error) {
+	row := q.db.QueryRowContext(ctx, getEventByPublicSlug, publicSlug)
+	var i GetEventByPublicSlugRow
+	err := row.Scan(
+		&i.Event.ID,
+		&i.Event.SeasonID,
+		&i.Event.Title,
+		&i.Event.Location,
+		&i.Event.Description,
+		&i.Event.StartsAt,
+		&i.Event.EndsAt,
+		&i.Event.Openness,
+		&i.Event.Capacity,
+		&i.Event.PriceCents,
+		&i.Event.RegistrationOpensAt,
+		&i.Event.RegistrationClosesAt,
+		&i.Event.Status,
+		&i.Event.CancelMessage,
+		&i.Event.PublishedAt,
+		&i.Event.CancelledAt,
+		&i.Event.CancelledBy,
+		&i.Event.CreatedBy,
+		&i.Event.UpdatedBy,
+		&i.Event.CreatedAt,
+		&i.Event.UpdatedAt,
+		&i.Event.PublicSlug,
+		&i.ConfirmedCount,
+	)
+	return i, err
+}
+
 const getMemberEvent = `-- name: GetMemberEvent :one
-SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at,
+SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, e.public_slug,
        (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count
 FROM events e
 WHERE e.id = ?1 AND e.status <> 'draft'
@@ -250,13 +298,14 @@ func (q *Queries) GetMemberEvent(ctx context.Context, id int64) (GetMemberEventR
 		&i.Event.UpdatedBy,
 		&i.Event.CreatedAt,
 		&i.Event.UpdatedAt,
+		&i.Event.PublicSlug,
 		&i.ConfirmedCount,
 	)
 	return i, err
 }
 
 const listEvents = `-- name: ListEvents :many
-SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at,
+SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, e.public_slug,
        (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count
 FROM events e
 WHERE (CAST(?1 AS INTEGER) IS NULL OR e.season_id = CAST(?1 AS INTEGER))
@@ -299,6 +348,7 @@ func (q *Queries) ListEvents(ctx context.Context, seasonID sql.NullInt64) ([]Lis
 			&i.Event.UpdatedBy,
 			&i.Event.CreatedAt,
 			&i.Event.UpdatedAt,
+			&i.Event.PublicSlug,
 			&i.ConfirmedCount,
 		); err != nil {
 			return nil, err
@@ -316,7 +366,7 @@ func (q *Queries) ListEvents(ctx context.Context, seasonID sql.NullInt64) ([]Lis
 
 const listMemberEvents = `-- name: ListMemberEvents :many
 
-SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at,
+SELECT e.id, e.season_id, e.title, e.location, e.description, e.starts_at, e.ends_at, e.openness, e.capacity, e.price_cents, e.registration_opens_at, e.registration_closes_at, e.status, e.cancel_message, e.published_at, e.cancelled_at, e.cancelled_by, e.created_by, e.updated_by, e.created_at, e.updated_at, e.public_slug,
        (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count
 FROM events e
 WHERE e.status IN ('published', 'cancelled') AND e.ends_at > ?1
@@ -360,6 +410,7 @@ func (q *Queries) ListMemberEvents(ctx context.Context, now string) ([]ListMembe
 			&i.Event.UpdatedBy,
 			&i.Event.CreatedAt,
 			&i.Event.UpdatedAt,
+			&i.Event.PublicSlug,
 			&i.ConfirmedCount,
 		); err != nil {
 			return nil, err
@@ -415,15 +466,43 @@ func (q *Queries) RestoreEvent(ctx context.Context, arg RestoreEventParams) (int
 	return result.RowsAffected()
 }
 
+const setEventPublicSlug = `-- name: SetEventPublicSlug :execrows
+
+UPDATE events SET public_slug = ?1, updated_by = ?2, updated_at = ?3
+WHERE id = ?4 AND public_slug IS NOT NULL
+`
+
+type SetEventPublicSlugParams struct {
+	PublicSlug sql.NullString
+	ActorID    sql.NullInt64
+	Now        string
+	ID         int64
+}
+
+// Public link (research.md 016 R5): the slug is stored in clear text so that
+// administrators can display it again; regenerating replaces it.
+func (q *Queries) SetEventPublicSlug(ctx context.Context, arg SetEventPublicSlugParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setEventPublicSlug,
+		arg.PublicSlug,
+		arg.ActorID,
+		arg.Now,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateEvent = `-- name: UpdateEvent :execrows
 UPDATE events
 SET season_id = ?1, title = ?2, location = ?3,
     description = ?4, starts_at = ?5, ends_at = ?6,
     openness = ?7, capacity = ?8, price_cents = ?9,
     registration_opens_at = ?10,
-    registration_closes_at = ?11,
-    updated_by = ?12, updated_at = ?13
-WHERE id = ?14 AND status <> 'cancelled'
+    registration_closes_at = ?11, public_slug = ?12,
+    updated_by = ?13, updated_at = ?14
+WHERE id = ?15 AND status <> 'cancelled'
 `
 
 type UpdateEventParams struct {
@@ -438,6 +517,7 @@ type UpdateEventParams struct {
 	PriceCents           int64
 	RegistrationOpensAt  sql.NullString
 	RegistrationClosesAt sql.NullString
+	PublicSlug           sql.NullString
 	ActorID              sql.NullInt64
 	Now                  string
 	ID                   int64
@@ -456,6 +536,7 @@ func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (int64
 		arg.PriceCents,
 		arg.RegistrationOpensAt,
 		arg.RegistrationClosesAt,
+		arg.PublicSlug,
 		arg.ActorID,
 		arg.Now,
 		arg.ID,

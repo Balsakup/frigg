@@ -17,6 +17,11 @@ import { DuplicateConfirm } from "./DuplicateConfirm";
 import { formToBody, type MemberFormValues, memberFieldNames } from "./form";
 import { MemberFields } from "./MemberFields";
 
+// Fiche sans compte : son adresse reçoit les notifications et un lien
+// personnel de suivi et de paiement (016 FR-040).
+export const TRACKED_EMAIL_HINT =
+  "Cette adresse recevra les notifications et un accès au suivi et au paiement.";
+
 export interface AdminMemberFormValues extends MemberFormValues {
   accountId: AccountOption;
 }
@@ -91,7 +96,11 @@ export function AdminMemberForm({
             />
           )}
         />
-        <MemberFields register={register} errors={formState.errors} />
+        <MemberFields
+          register={register}
+          errors={formState.errors}
+          emailHint={account.id === null ? TRACKED_EMAIL_HINT : undefined}
+        />
         <CustomFieldInputs
           fields={customFields}
           control={control as unknown as Control<WithCustomFields>}

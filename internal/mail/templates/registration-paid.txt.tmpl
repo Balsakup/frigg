@@ -10,4 +10,7 @@ Moyen de paiement : {{.Method}}{{if .PaidOn}}
 Date du paiement : {{.PaidOn}}{{end}}
 Référence : {{.Reference}}
 
-Merci !{{end}}
+Merci !{{if .Link}}
+
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}{{end}}{{end}}

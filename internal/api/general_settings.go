@@ -47,6 +47,9 @@ type GeneralSettings struct {
 	Phone        *string     `json:"phone" doc:"Forme nationale à 10 chiffres"`
 	Website      *string     `json:"website"`
 	Social       SocialLinks `json:"social"`
+	// Adhésions publiques (016, FR-004).
+	PublicMembershipEnabled bool   `json:"publicMembershipEnabled" doc:"Accepter les demandes d'adhésion publiques"`
+	PublicMembershipURL     string `json:"publicMembershipUrl" doc:"Adresse de la page d'adhésion publique"`
 }
 
 // AddressBody est l'adresse saisie ; chaque élément est facultatif.
@@ -82,6 +85,8 @@ type GeneralSettingsBody struct {
 	Phone        *string         `json:"phone,omitempty" required:"false" nullable:"true" maxLength:"30"`
 	Website      *string         `json:"website,omitempty" required:"false" nullable:"true" maxLength:"300"`
 	Social       SocialLinksBody `json:"social,omitempty" required:"false"`
+	// PublicMembershipEnabled : absent, le paramètre est inchangé (016, FR-004).
+	PublicMembershipEnabled *bool `json:"publicMembershipEnabled,omitempty" required:"false" doc:"Accepter les demandes d'adhésion publiques ; absent : inchangé"`
 }
 
 type GeneralSettingsOutput struct{ Body GeneralSettings }
@@ -120,7 +125,7 @@ func ptrNS(p *string) sql.NullString {
 	return sql.NullString{String: *p, Valid: true}
 }
 
-func toGeneralSettings(a sqlc.Association) GeneralSettings {
+func (s *server) toGeneralSettings(a sqlc.Association) GeneralSettings {
 	return GeneralSettings{
 		Name:      a.Name.String,
 		Tagline:   nsPtr(a.Tagline),
@@ -137,6 +142,9 @@ func toGeneralSettings(a sqlc.Association) GeneralSettings {
 		Phone:        nsPtr(a.Phone),
 		Website:      nsPtr(a.Website),
 		Social:       toSocialLinks(a),
+
+		PublicMembershipEnabled: a.PublicMembershipEnabled == 1,
+		PublicMembershipURL:     s.Config.BaseURL + "/adherer",
 	}
 }
 
@@ -152,7 +160,7 @@ func (s *server) getGeneralSettings(ctx context.Context, _ *struct{}) (*GeneralS
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de l'association impossible", err)
 	}
-	return &GeneralSettingsOutput{Body: toGeneralSettings(a)}, nil
+	return &GeneralSettingsOutput{Body: s.toGeneralSettings(a)}, nil
 }
 
 func (s *server) updateGeneralSettings(ctx context.Context, in *UpdateGeneralSettingsInput) (*GeneralSettingsOutput, error) {
@@ -194,6 +202,10 @@ func (s *server) updateGeneralSettings(ctx context.Context, in *UpdateGeneralSet
 		if err != nil {
 			return err
 		}
+		params.PublicMembershipEnabled = before.PublicMembershipEnabled
+		if b.PublicMembershipEnabled != nil {
+			params.PublicMembershipEnabled = boolInt(*b.PublicMembershipEnabled)
+		}
 		changed = changedFields(before, params)
 		return q.UpdateGeneralSettings(ctx, params)
 	})
@@ -227,6 +239,9 @@ func changedFields(a sqlc.Association, p sqlc.UpdateGeneralSettingsParams) []str
 		if c.old != c.new {
 			changed = append(changed, c.name)
 		}
+	}
+	if a.PublicMembershipEnabled != p.PublicMembershipEnabled {
+		changed = append(changed, "publicMembershipEnabled")
 	}
 	return changed
 }

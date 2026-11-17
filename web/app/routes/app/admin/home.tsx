@@ -22,6 +22,7 @@ export default function AdminHome() {
   const seasons = useQuery(seasonListQuery());
   const memberships = useQuery(membershipDashboardQuery());
   const pending = memberships.data?.pendingCount ?? 0;
+  const inactive = memberships.data?.inactivePublicCount ?? 0;
   return (
     <Page title="Tableau de bord" intro="Vue d'ensemble de l'activité de l'association.">
       {seasons.data ? <SeasonSetupAlert list={seasons.data} /> : null}
@@ -107,6 +108,23 @@ export default function AdminHome() {
           }
         >
           Aucun moyen de paiement n'est proposé aux adhérents.
+        </Alert>
+      ) : null}
+      {inactive > 0 ? (
+        <Alert
+          kind="info"
+          className="mb-6 max-w-prose"
+          actions={
+            <Link
+              to="/admin/membres?origine=inactives"
+              className={buttonClasses({ variant: "secondary", size: "sm" })}
+            >
+              Voir les fiches
+            </Link>
+          }
+        >
+          {inactive} fiche{inactive > 1 ? "s" : ""} publique{inactive > 1 ? "s" : ""} inactive
+          {inactive > 1 ? "s" : ""} : sans compte ni activité depuis plus de 12 mois, à supprimer.
         </Alert>
       ) : null}
       <section className="max-w-prose rounded-lg border border-line bg-surface p-5">

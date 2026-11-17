@@ -74,6 +74,12 @@ type MemberAccount struct {
 type AdminMember struct {
 	Member
 	Account *MemberAccount `json:"account" doc:"Compte qui gère la fiche ; null : sans compte"`
+	// Origine et preuves d'une fiche venue d'un parcours public (016, R4).
+	Origin           string     `json:"origin" enum:"internal,public" doc:"public : créée par un parcours public"`
+	EmailConfirmedAt *time.Time `json:"emailConfirmedAt" doc:"Adresse confirmée par la personne ; null après une modification de l'adresse"`
+	ConsentedAt      *time.Time `json:"consentedAt" doc:"Consentement au traitement des données donné par un parcours public"`
+	TrackedByLink    bool       `json:"trackedByLink" doc:"Sans compte et avec une adresse : notifications et suivi par lien personnel (016 FR-040)"`
+	Inactive         bool       `json:"inactive" doc:"Fiche publique inactive, proposée à la suppression (016 FR-041)"`
 	// Memberships n'est renseigné que sur la fiche (get-member), pas dans la liste.
 	Memberships []MemberMembership `json:"memberships,omitempty" required:"false" doc:"Adhésions de la fiche, la saison la plus récente d'abord"`
 }
@@ -116,6 +122,7 @@ func fromListRow(r sqlc.ListMembersRow) memberRecord {
 			BirthDate: r.BirthDate, Email: r.Email, Phone: r.Phone, AddressLine1: r.AddressLine1,
 			AddressLine2: r.AddressLine2, PostalCode: r.PostalCode, City: r.City,
 			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			Origin: r.Origin, EmailConfirmedAt: r.EmailConfirmedAt, ConsentedAt: r.ConsentedAt,
 		},
 		AccountEmail:      r.AccountEmail,
 		AccountDisabledAt: r.AccountDisabledAt,
@@ -162,7 +169,13 @@ func toMember(r sqlc.Member, today season.Date) Member {
 }
 
 func toAdminMember(r memberRecord, today season.Date) AdminMember {
-	out := AdminMember{Member: toMember(r.Member, today)}
+	out := AdminMember{
+		Member:           toMember(r.Member, today),
+		Origin:           r.Origin,
+		EmailConfirmedAt: optionalTimeValue(r.EmailConfirmedAt),
+		ConsentedAt:      optionalTimeValue(r.ConsentedAt),
+		TrackedByLink:    !r.AccountID.Valid && r.Email.Valid && r.Email.String != "",
+	}
 	if r.AccountID.Valid {
 		out.Account = &MemberAccount{ID: r.AccountID.Int64, Email: r.AccountEmail.String, Disabled: r.AccountDisabledAt.Valid}
 	}

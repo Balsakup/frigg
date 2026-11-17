@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/mail"
 	"github.com/balsakup/frigg/internal/member"
+	"github.com/balsakup/frigg/internal/public"
 )
 
 // Administration (« Membres ») : toutes les fiches, rattachement compris.
@@ -62,14 +65,78 @@ func (s *server) registerAdminMembers(api huma.API) {
 		Tags:          []string{tagMembers},
 		DefaultStatus: http.StatusNoContent,
 	}, s.deleteMember)
+
+	register(api, auth.Admin, huma.Operation{
+		OperationID: "delete-inactive-members",
+		Method:      http.MethodPost,
+		Path:        "/admin/members/inactive/delete",
+		Summary:     "Supprimer des fiches publiques inactives",
+		Description: "Chaque fiche est revérifiée : une fiche redevenue active ou disparue est ignorée et comptée dans skipped (016 FR-041).",
+		Tags:        []string{tagMembers},
+	}, s.deleteInactiveMembers)
+
+	register(api, auth.Admin, huma.Operation{
+		OperationID:   "send-tracking-link",
+		Method:        http.MethodPost,
+		Path:          "/admin/members/{id}/tracking-link",
+		Summary:       "Envoyer un lien personnel de suivi",
+		Description:   "Fiche sans compte avec une adresse seulement (016 FR-040).",
+		Tags:          []string{tagMembers},
+		DefaultStatus: http.StatusNoContent,
+	}, s.sendTrackingLink)
+}
+
+const (
+	// MsgNotTrackable : seule une fiche sans compte avec une adresse reçoit
+	// un lien personnel (016 FR-040).
+	MsgNotTrackable = "Cette fiche a un compte ou n'a pas d'adresse."
+	// MsgTooManyMails : plafond d'e-mails de l'adresse atteint (R9).
+	MsgTooManyMails = "Trop d'envois vers cette adresse, réessayez plus tard."
+)
+
+// sendTrackingLink envoie à la demande d'un administrateur un lien personnel
+// à l'adresse d'une fiche sans compte (FR-040). Le plafond d'e-mails de
+// l'adresse est partagé avec les parcours publics (research.md 016 › R9).
+func (s *server) sendTrackingLink(ctx context.Context, in *MemberIDInput) (*struct{}, error) {
+	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		row, err := q.GetMember(ctx, in.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound(MsgMemberGone)
+		}
+		if err != nil {
+			return err
+		}
+		if row.AccountID.Valid || !row.Email.Valid || row.Email.String == "" {
+			return huma.Error409Conflict(MsgNotTrackable)
+		}
+		email := auth.NormalizeEmail(row.Email.String)
+		if !s.Limits.PublicMailEmail.Allow(email) {
+			h := http.Header{}
+			h.Set("Retry-After", strconv.Itoa(3600))
+			return huma.ErrorWithHeaders(huma.Error429TooManyRequests(MsgTooManyMails), h)
+		}
+		raw, err := s.issueTrackingLink(ctx, q, email)
+		if err != nil {
+			return err
+		}
+		return s.enqueueNotice(ctx, q, "tracking-link", row.Email.String, mail.Data{}, "/suivi#jeton="+raw)
+	})
+	if err != nil {
+		return nil, s.txError(ctx, "envoi du lien personnel impossible", err)
+	}
+	s.Logger.InfoContext(ctx, "lien personnel envoyé", "action", "tracking_link_sent",
+		"actor_id", CurrentAccount(ctx).ID, "member_id", in.ID)
+	return nil, nil
 }
 
 type ListMembersInput struct {
 	Q        string   `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères (prénom, nom, adresse, téléphone), séparés par des espaces, tous requis ; ou fragment de la valeur d'un champ personnalisé de type texte court"`
 	Field    []string `query:"field,explode" maxItems:"10" doc:"Filtre par champ personnalisé oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable"`
-	Account  string `query:"account" pattern:"^(none|[0-9]+)$" doc:"none : fiches sans compte ; identifiant : fiches de ce compte"`
-	Page     int64  `query:"page" minimum:"1" default:"1" doc:"Numéro de page"`
-	PageSize int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25" doc:"Nombre de fiches par page"`
+	Account  string   `query:"account" pattern:"^(none|[0-9]+)$" doc:"none : fiches sans compte ; identifiant : fiches de ce compte"`
+	Origin   string   `query:"origin" enum:"public" doc:"public : fiches créées par un parcours public (016 FR-037)"`
+	Inactive bool     `query:"inactive" doc:"Vrai : fiches publiques inactives seulement (016 FR-041)"`
+	Page     int64    `query:"page" minimum:"1" default:"1" doc:"Numéro de page"`
+	PageSize int64    `query:"pageSize" minimum:"1" maximum:"100" default:"25" doc:"Nombre de fiches par page"`
 }
 
 // AdminMemberPage est une page de la liste des membres.
@@ -135,16 +202,26 @@ func (s *server) listMembers(ctx context.Context, in *ListMembersInput) (*AdminM
 		return nil, s.txError(ctx, "lecture des champs personnalisés impossible", err)
 	}
 	params.FieldFilters = filters
+	if in.Origin != "" {
+		params.Origin = ns(in.Origin)
+	}
 	rows, err := s.Store.Read.ListMembers(ctx, params)
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des membres impossible", err)
 	}
+	inactive, err := s.inactivePublicMembers(ctx, s.Store.Read)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des fiches inactives impossible", err)
+	}
 	byID := make(map[int64]memberRecord, len(rows))
-	order := make([]member.Sortable, len(rows))
-	for i, r := range rows {
+	order := make([]member.Sortable, 0, len(rows))
+	for _, r := range rows {
+		if in.Inactive && !inactive[r.ID] {
+			continue
+		}
 		rec := fromListRow(r)
 		byID[r.ID] = rec
-		order[i] = sortable(rec.Member)
+		order = append(order, sortable(rec.Member))
 	}
 	member.SortAdmin(order)
 
@@ -154,7 +231,9 @@ func (s *server) listMembers(ctx context.Context, in *ListMembersInput) (*AdminM
 	today := s.today()
 	items := make([]AdminMember, 0, end-start)
 	for _, o := range order[start:end] {
-		items = append(items, toAdminMember(byID[o.ID], today))
+		m := toAdminMember(byID[o.ID], today)
+		m.Inactive = inactive[o.ID]
+		items = append(items, m)
 	}
 	return &AdminMemberPageOutput{Body: AdminMemberPage{Items: items, Total: total, Page: in.Page, PageSize: in.PageSize}}, nil
 }
@@ -168,6 +247,13 @@ func (s *server) memberOutput(ctx context.Context, id int64) (*AdminMemberOutput
 		return nil, s.internalError(ctx, "lecture de la fiche impossible", err)
 	}
 	out := toAdminMember(fromGetRow(r), s.today())
+	if out.Origin == "public" {
+		inactive, err := s.inactivePublicMembers(ctx, s.Store.Read)
+		if err != nil {
+			return nil, s.internalError(ctx, "lecture des fiches inactives impossible", err)
+		}
+		out.Inactive = inactive[id]
+	}
 	if out.CustomFields, err = readMemberFields(ctx, s.Store.Read, id, customfield.Admin); err != nil {
 		return nil, s.internalError(ctx, "lecture des champs personnalisés impossible", err)
 	}
@@ -307,6 +393,12 @@ func (s *server) updateMember(ctx context.Context, in *UpdateMemberInput) (*Admi
 		if err != nil {
 			return err
 		}
+		// Une adresse modifiée n'est plus confirmée par la personne (016 R4).
+		if !strings.EqualFold(current.Email.String, f.Email.String) {
+			if err := q.ResetMemberEmailConfirmation(ctx, in.ID); err != nil {
+				return err
+			}
+		}
 		changed, err = writeFields(ctx, q, customfield.ScopeMember, in.ID, in.Body.CustomFields, customfield.Admin)
 		return err
 	})
@@ -346,6 +438,79 @@ func (s *server) deleteMember(ctx context.Context, in *MemberIDInput) (*struct{}
 	}
 	s.logMemberAction(ctx, "member.delete", in.ID, account, "admin", "memberships_deleted", memberships)
 	return nil, nil
+}
+
+// inactivePublicMembers renvoie l'ensemble des fiches publiques inactives à
+// la date du jour (research.md 016 › R14). Aucune n'est supprimée sans
+// décision d'un administrateur (FR-041).
+func (s *server) inactivePublicMembers(ctx context.Context, q *sqlc.Queries) (map[int64]bool, error) {
+	cutoff := public.InactiveCutoff(s.today())
+	ids, err := q.ListInactivePublicMembers(ctx, sqlc.ListInactivePublicMembersParams{
+		CutoffAt: public.CutoffInstant(cutoff).UTC().Format(timeFormat),
+		CutoffOn: cutoff.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
+}
+
+// DeleteInactiveMembersInput liste les fiches à supprimer.
+type DeleteInactiveMembersInput struct {
+	Body struct {
+		IDs []int64 `json:"ids" minItems:"1" maxItems:"500" doc:"Fiches publiques inactives à supprimer"`
+	}
+}
+
+// DeleteInactiveMembersResult compte les fiches supprimées et ignorées.
+type DeleteInactiveMembersResult struct {
+	Deleted int64 `json:"deleted" doc:"Fiches supprimées"`
+	Skipped int64 `json:"skipped" doc:"Fiches ignorées : redevenues actives, déjà supprimées ou inconnues"`
+}
+
+type DeleteInactiveMembersOutput struct{ Body DeleteInactiveMembersResult }
+
+// deleteInactiveMembers supprime, sur décision d'un administrateur, les
+// fiches publiques inactives listées (FR-041). L'inactivité est revérifiée
+// dans la transaction ; la suppression suit les règles de delete-member :
+// adhésions, inscriptions et valeurs de champs partent avec la fiche (006
+// FR-021, 012).
+func (s *server) deleteInactiveMembers(ctx context.Context, in *DeleteInactiveMembersInput) (*DeleteInactiveMembersOutput, error) {
+	var out DeleteInactiveMembersResult
+	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
+		out = DeleteInactiveMembersResult{}
+		inactive, err := s.inactivePublicMembers(ctx, q)
+		if err != nil {
+			return err
+		}
+		seen := make(map[int64]bool, len(in.Body.IDs))
+		for _, id := range in.Body.IDs {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			if !inactive[id] {
+				out.Skipped++
+				continue
+			}
+			n, err := q.DeleteMember(ctx, id)
+			if err != nil {
+				return err
+			}
+			out.Deleted += n
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, s.txError(ctx, "suppression des fiches inactives impossible", err)
+	}
+	s.Logger.InfoContext(ctx, "fiches publiques inactives supprimées", "action", "inactive_members_deleted",
+		"actor_id", CurrentAccount(ctx).ID, "deleted", out.Deleted, "skipped", out.Skipped)
+	return &DeleteInactiveMembersOutput{Body: out}, nil
 }
 
 // memberMemberships liste les adhésions d'une fiche, la saison la plus récente

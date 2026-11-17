@@ -1,9 +1,16 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Upload, UserPlus, X } from "lucide-react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2, Upload, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { customFieldsQuery } from "~/api/custom-fields";
-import { memberListQuery } from "~/api/members";
+import {
+  INACTIVE_DELETE_MAX,
+  inactiveMemberIds,
+  invalidateMembers,
+  memberListQuery,
+  useDeleteInactiveMembers,
+} from "~/api/members";
+import { invalidateMemberships } from "~/api/memberships";
 import { queryClient } from "~/api/query-client";
 import { CustomFieldFilters, filterableFields } from "~/customfields/CustomFieldFilters";
 import { hasSearchableTerm, SEARCH_MIN_LENGTH } from "~/lib/account-filters";
@@ -11,6 +18,7 @@ import { formatAge } from "~/lib/format";
 import {
   hasActiveMemberFilters,
   type MemberFilters,
+  type MemberOrigin,
   parseMemberFilters,
   toMemberSearchParams,
 } from "~/lib/member-filters";
@@ -18,6 +26,7 @@ import { Page } from "~/shell/Page";
 import { Alert } from "~/ui/Alert";
 import { Badge } from "~/ui/Badge";
 import { Button, buttonClasses } from "~/ui/Button";
+import { ConfirmDialog } from "~/ui/ConfirmDialog";
 import { Field } from "~/ui/Field";
 import { Icon } from "~/ui/Icon";
 import { Pagination } from "~/ui/Pagination";
@@ -39,10 +48,18 @@ const accountItems: { value: "all" | "none"; label: string }[] = [
   { value: "none", label: "Sans compte" },
 ];
 
+const originItems: { value: MemberOrigin; label: string }[] = [
+  { value: "", label: "Toutes" },
+  { value: "public", label: "Publique" },
+  { value: "inactive", label: "Inactives à supprimer" },
+];
+
 // Rubrique « Membres » : toutes les fiches de l'association (005, US3).
 export default function Members() {
   const location = useLocation();
-  const [status] = useState(() => (location.state as { flash?: string } | null)?.flash ?? "");
+  const [status, setStatus] = useState(
+    () => (location.state as { flash?: string } | null)?.flash ?? "",
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = parseMemberFilters(searchParams);
   const [draft, setDraft] = useState(filters.q);
@@ -108,7 +125,7 @@ export default function Members() {
           <h2 id="membres-titre" className="font-display text-lg font-bold">
             Membres de l'association
           </h2>
-          <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem] sm:items-start">
+          <search className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_11rem_11rem] sm:items-start">
             <Field
               label="Rechercher un membre"
               type="search"
@@ -122,6 +139,12 @@ export default function Members() {
               }
             />
             <Select
+              label="Origine"
+              value={filters.origin ?? ""}
+              items={originItems}
+              onValueChange={(v) => navigate({ ...filters, q: draft, origin: v, page: 1 })}
+            />
+            <Select
               label="Rattachement"
               value={filters.noAccount ? "none" : "all"}
               items={accountItems}
@@ -130,7 +153,7 @@ export default function Members() {
               }
             />
             {filterable.length ? (
-              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:col-span-3 sm:grid-cols-2 lg:grid-cols-4">
                 <CustomFieldFilters
                   fields={filterable}
                   value={filters.fields ?? []}
@@ -143,6 +166,9 @@ export default function Members() {
             <p role="status" className="text-sm text-muted">
               {summary}
             </p>
+            {filters.origin === "inactive" && total > 0 ? (
+              <DeleteInactive total={total} onDone={setStatus} />
+            ) : null}
             {hasActiveMemberFilters(filters) || draft !== "" ? (
               <Button variant="tertiary" size="sm" onClick={clear}>
                 <Icon icon={X} className="h-4 w-4" />
@@ -176,6 +202,12 @@ export default function Members() {
                   >
                     {m.lastName} {m.firstName}
                   </Link>
+                  {m.origin === "public" ? (
+                    <span className="ml-2 inline-flex flex-wrap gap-1">
+                      <Badge tone="info">Publique</Badge>
+                      {m.inactive ? <Badge tone="warning">Inactive</Badge> : null}
+                    </span>
+                  ) : null}
                 </th>
                 <TableCell className="whitespace-nowrap">{formatAge(m.age)}</TableCell>
                 <TableCell className="[overflow-wrap:anywhere]">
@@ -204,5 +236,75 @@ export default function Members() {
         </div>
       </section>
     </Page>
+  );
+}
+
+// Suppression en lot des fiches publiques inactives listées (016, FR-041) :
+// toujours sur décision d'un administrateur, après confirmation. Chaque fiche
+// est revérifiée par le serveur ; celles redevenues actives sont ignorées.
+function DeleteInactive({ total, onDone }: { total: number; onDone: (message: string) => void }) {
+  const qc = useQueryClient();
+  const remove = useDeleteInactiveMembers();
+  const [error, setError] = useState("");
+  const count = Math.min(total, INACTIVE_DELETE_MAX);
+  const label = count > 1 ? `Supprimer les ${count} fiches` : "Supprimer la fiche";
+
+  const onConfirm = async () => {
+    setError("");
+    try {
+      const ids = await inactiveMemberIds();
+      if (ids.length === 0) return;
+      const res = await remove.mutateAsync({ body: { ids } });
+      await Promise.all([invalidateMembers(qc), invalidateMemberships(qc)]);
+      const parts = [
+        `${res.deleted} fiche${res.deleted > 1 ? "s" : ""} supprimée${res.deleted > 1 ? "s" : ""}.`,
+      ];
+      if (res.skipped > 0) {
+        parts.push(
+          `${res.skipped} fiche${res.skipped > 1 ? "s" : ""} ignorée${res.skipped > 1 ? "s" : ""} : redevenue${res.skipped > 1 ? "s" : ""} active${res.skipped > 1 ? "s" : ""} ou déjà supprimée${res.skipped > 1 ? "s" : ""}.`,
+        );
+      }
+      onDone(parts.join(" "));
+    } catch {
+      setError("La suppression a échoué. Réessayez.");
+    }
+  };
+
+  return (
+    <>
+      <ConfirmDialog
+        title={`${label} ?`}
+        confirmLabel={label}
+        onConfirm={onConfirm}
+        trigger={
+          <Button
+            variant="danger-secondary"
+            size="sm"
+            type="button"
+            aria-disabled={remove.isPending}
+          >
+            <Icon icon={Trash2} className="h-4 w-4" />
+            {label}
+          </Button>
+        }
+      >
+        <p>
+          {count > 1 ? `Les ${count} fiches publiques inactives` : "La fiche publique inactive"} et
+          leurs adhésions et inscriptions seront effacées définitivement. Une fiche redevenue active
+          entre-temps sera conservée.
+        </p>
+        {total > INACTIVE_DELETE_MAX ? (
+          <p className="mt-2">
+            Seules les {INACTIVE_DELETE_MAX} premières fiches seront supprimées ; recommencez pour
+            les suivantes.
+          </p>
+        ) : null}
+      </ConfirmDialog>
+      {error ? (
+        <p role="alert" className="w-full text-sm font-bold text-danger">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

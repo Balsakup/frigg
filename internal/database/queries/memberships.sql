@@ -53,7 +53,7 @@ RETURNING id;
 
 -- name: GetMembership :one
 SELECT sqlc.embed(ms), sqlc.embed(f), m.first_name, m.last_name, m.birth_date,
-       m.account_id AS member_account_id,
+       m.account_id AS member_account_id, m.email AS member_email,
        a.email AS account_email, a.disabled_at AS account_disabled_at,
        rb.email AS requested_by_email, cb.email AS created_by_email,
        db.email AS decided_by_email, xb.email AS cancelled_by_email,
@@ -93,6 +93,8 @@ WHERE (CAST(sqlc.narg(season_id) AS INTEGER) IS NULL OR ms.season_id = CAST(sqlc
        OR (ms.payment_status = 'paid' AND ms.paid_method = CAST(sqlc.narg(paid_method) AS TEXT)))
   AND (CAST(sqlc.narg(open_alerts) AS INTEGER) IS NULL
        OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL))
+  AND (CAST(sqlc.narg(origin) AS TEXT) IS NULL
+       OR (CAST(sqlc.narg(origin) AS TEXT) = 'public' AND ms.via_public = 1))
   AND NOT EXISTS (
       SELECT 1 FROM json_each(coalesce(CAST(sqlc.narg(field_filters) AS TEXT), '[]')) ff
       WHERE CASE json_extract(ff.value, '$.op')
@@ -208,3 +210,60 @@ WHERE member_id = sqlc.arg(member_id) AND status IN ('pending', 'validated');
 
 -- name: ListMembershipsOfMember :many
 SELECT * FROM memberships WHERE member_id = sqlc.arg(member_id);
+
+-- Public journeys (research.md 016 R7, R13).
+
+-- name: CreatePublicMembership :one
+-- Pending request created by a confirmed public submission: no requesting or
+-- creating account (FR-012).
+INSERT INTO memberships (
+    member_id, season_id, fee_id, status, declared_kind, via_public, requested_at, updated_at
+) VALUES (
+    sqlc.arg(member_id), sqlc.arg(season_id), sqlc.arg(fee_id), 'pending',
+    sqlc.arg(declared_kind), 1, sqlc.arg(now), sqlc.arg(now)
+)
+RETURNING id;
+
+-- name: CountActiveMembershipsOfMemberInSeason :one
+SELECT count(*) FROM memberships
+WHERE member_id = sqlc.arg(member_id) AND season_id = sqlc.arg(season_id)
+  AND status IN ('pending', 'validated');
+
+-- name: MoveMembershipToMember :execrows
+-- Only a pending public request can move; memberships_one_active rejects a
+-- second active membership of the target for the season.
+UPDATE memberships SET member_id = sqlc.arg(member_id), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND via_public = 1 AND status = 'pending';
+
+-- Personal link scope (research.md 016 R1): memberships of members without an
+-- account whose email matches the link, compared without case (FR-014). The
+-- scope is evaluated on every query.
+
+-- name: ListMembershipsOfTrackedEmail :many
+SELECT sqlc.embed(ms), sqlc.embed(f), m.first_name, m.last_name, m.birth_date
+FROM memberships ms
+JOIN members m ON m.id = ms.member_id
+JOIN membership_fees f ON f.id = ms.fee_id
+WHERE m.account_id IS NULL AND m.email = sqlc.arg(email) COLLATE NOCASE
+ORDER BY ms.requested_at DESC, ms.id DESC;
+
+-- name: GetMembershipOfTrackedEmail :one
+SELECT sqlc.embed(ms), sqlc.embed(f), m.first_name, m.last_name, m.birth_date
+FROM memberships ms
+JOIN members m ON m.id = ms.member_id
+JOIN membership_fees f ON f.id = ms.fee_id
+WHERE ms.id = sqlc.arg(id) AND m.account_id IS NULL AND m.email = sqlc.arg(email) COLLATE NOCASE;
+
+-- name: CancelMembershipOfTrackedEmail :execrows
+UPDATE memberships
+SET status = 'cancelled', cancelled_by = NULL, cancelled_at = sqlc.arg(now), updated_at = sqlc.arg(now)
+WHERE memberships.id = sqlc.arg(id) AND status = 'pending'
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = sqlc.arg(email) COLLATE NOCASE);
+
+-- name: AnnouncePaymentOfTrackedEmail :execrows
+UPDATE memberships
+SET payment_status = 'announced', announced_method = sqlc.arg(method), updated_at = sqlc.arg(now)
+WHERE memberships.id = sqlc.arg(id) AND status = 'validated' AND payment_status IN ('due', 'announced')
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = sqlc.arg(email) COLLATE NOCASE);

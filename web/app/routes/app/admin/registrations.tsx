@@ -33,6 +33,7 @@ function filtersOf(p: URLSearchParams) {
       ? payment
       : "") as PaymentFilter,
     alerts: p.get("alerts") === "open",
+    publicOnly: p.get("origine") === "publique",
     q: p.get("q") ?? "",
     page: Number.isInteger(page) && page > 0 ? page : 1,
   };
@@ -44,6 +45,7 @@ function apiQuery(f: ReturnType<typeof filtersOf>) {
     state: f.state || undefined,
     payment: f.payment || undefined,
     alerts: f.alerts ? "open" : undefined,
+    origin: f.publicOnly ? "public" : undefined,
     q: hasSearchableTerm(f.q) ? f.q : undefined,
     page: f.page,
     pageSize,
@@ -102,7 +104,7 @@ export default function Registrations() {
           <h2 id="inscriptions-titre" className="font-display text-lg font-bold">
             Inscriptions
           </h2>
-          <search className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_10rem_11rem] lg:items-start">
+          <search className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_10rem_11rem_9rem] lg:items-start">
             <Field
               label="Nom ou référence"
               type="search"
@@ -144,6 +146,15 @@ export default function Registrations() {
                 { value: "announced", label: "Paiement annoncé" },
                 { value: "paid", label: "Payées" },
                 { value: "free", label: "Gratuites" },
+              ]}
+            />
+            <Select
+              label="Origine"
+              value={f.publicOnly ? "publique" : ""}
+              onValueChange={(v) => update({ origine: v })}
+              items={[
+                { value: "", label: "Toutes" },
+                { value: "publique", label: "Publique" },
               ]}
             />
           </search>
@@ -188,6 +199,11 @@ export default function Registrations() {
                     >
                       {r.member.lastName} {r.member.firstName}
                     </Link>
+                    {r.viaPublic ? (
+                      <span className="ml-2">
+                        <Badge tone="info">Publique</Badge>
+                      </span>
+                    ) : null}
                     {r.openAlerts > 0 ? (
                       <span className="mt-1 block">
                         <Badge tone="danger">

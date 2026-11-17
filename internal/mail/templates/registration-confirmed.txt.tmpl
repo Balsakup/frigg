@@ -6,11 +6,14 @@ L'inscription à « {{.Event}} » est confirmée pour :
 {{end}}
 Date : {{.When}}
 Lieu : {{.Location}}
-{{if .Link}}
+{{if .Amount}}
 Montant à régler : {{.Amount}}
 Référence de paiement : {{.Reference}}
 
 Pour payer, ouvrez cette adresse :
+{{.Link}}
+{{else if .Link}}
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
 {{.Link}}
 {{end}}
 Pour annuler, rendez-vous dans « Mes inscriptions » avant la clôture des inscriptions.{{end}}

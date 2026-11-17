@@ -2,3 +2,7 @@
 et <<brand-ink>> sont remplacés par les couleurs de l'association au moment
 de l'envoi (Wrap, specs/010-general-settings › R6). */}}
 {{define "button-style"}}display:inline-block;background:<<brand>>;color:<<on-brand>>;font-weight:700;text-decoration:none;padding:10px 16px;border-radius:6px{{end}}
+{{/* Lien personnel de suivi d'une fiche sans compte (016 FR-035), ajouté aux
+e-mails d'adhésion et d'inscription qui n'ont pas d'autre lien. */}}
+{{define "tracking-block"}}{{if .Link}}<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Voir mon suivi</a></p>
+<p style="margin:0 0 12px;color:#525a67;font-size:14px">Ce lien personnel est valable 30 jours : ne le transmettez pas. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">{{.Link}}</span></p>{{end}}{{end}}

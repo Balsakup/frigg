@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,5 +257,128 @@ func seedVolume(t testing.TB, env *apitest.Env) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Origine, preuves et lien personnel d'une fiche sans compte (016 FR-040,
+// research.md › R4, R9).
+func TestAdminMemberTracking(t *testing.T) {
+	f := newPubFixture(t, true)
+	const email = "claire@exemple.fr"
+	expectOutcome(t, f.confirm(f.env.Client(), f.deposit(t, f.publicBody(email))), "tracking")
+	id := int64(count(t, f.env, `SELECT id FROM members WHERE origin = 'public'`))
+	got := expectMember(t, f.admin.Do("GET", adminMemberPath(id), nil), http.StatusOK)
+	if got.Origin != "public" || got.EmailConfirmedAt == nil || got.ConsentedAt == nil || !got.TrackedByLink {
+		t.Fatalf("fiche publique : %+v", got)
+	}
+
+	// Plafond d'e-mails de l'adresse, dépôt compris : 5 par heure.
+	for i := range 4 {
+		if res := f.admin.Do("POST", adminMemberPath(id)+"/tracking-link", nil); res.Status != http.StatusNoContent {
+			t.Fatalf("envoi %d : %d %s", i, res.Status, res.Body)
+		}
+	}
+	expectProblem(t, f.admin.Do("POST", adminMemberPath(id)+"/tracking-link", nil), http.StatusTooManyRequests, api.MsgTooManyMails)
+	links := 0
+	for _, m := range f.env.Mails(email) {
+		if m.Subject == "Votre lien de suivi" && strings.HasPrefix(m.Link, "http://frigg.test/suivi#jeton=") {
+			links++
+		}
+	}
+	// Un lien à la confirmation, puis quatre envois de l'administrateur.
+	if links != 5 {
+		t.Fatalf("e-mails de lien : %d", links)
+	}
+	if n := publicLogs(t, f.env, "tracking_link_sent"); n != 4 {
+		t.Fatalf("journal tracking_link_sent : %d", n)
+	}
+
+	// Une adresse modifiée n'est plus confirmée.
+	got = expectMember(t, f.admin.Do("PUT", adminMemberPath(id), memberBody("Claire", "Martin", "1985-03-02",
+		"email", "autre@exemple.fr", "accountId", nil, "expectedAccountId", nil)), http.StatusOK)
+	if got.EmailConfirmedAt != nil || got.ConsentedAt == nil {
+		t.Fatalf("adresse modifiée : %+v", got)
+	}
+
+	// Fiche sans adresse ou rattachée à un compte : 409.
+	orphan := insertOrphan(t, f.env, "Jeanne", "Petit", "2010-01-01")
+	expectProblem(t, f.admin.Do("POST", adminMemberPath(orphan)+"/tracking-link", nil), http.StatusConflict, api.MsgNotTrackable)
+	owner := f.env.Seed(auth.RoleMember, true)
+	managed := insertForAccount(t, f.env, accountID(t, f.env, owner), "Paul", "Durand", "2000-02-02")
+	expectProblem(t, f.admin.Do("POST", adminMemberPath(managed)+"/tracking-link", nil), http.StatusConflict, api.MsgNotTrackable)
+	if got := expectMember(t, f.admin.Do("GET", adminMemberPath(managed), nil), http.StatusOK); got.TrackedByLink || got.Origin != "internal" {
+		t.Fatalf("fiche d'un compte : %+v", got)
+	}
+	expectProblem(t, f.admin.Do("POST", adminMemberPath(99999)+"/tracking-link", nil), http.StatusNotFound, api.MsgMemberGone)
+}
+
+// Filtre d'origine (016 FR-037) : combiné à la recherche et aux fiches sans
+// compte.
+func TestAdminMembersOriginFilter(t *testing.T) {
+	env := apitest.New(t)
+	env.SetToday(membersToday)
+	admin := env.LoggedIn(env.Seed(auth.RoleAdmin, true))
+	accountEmail := env.Seed(auth.RoleMember, true)
+	insertPublic := func(first, last string) int64 {
+		res, err := env.Store.WriteDB.Exec(`INSERT INTO members (first_name, last_name, birth_date, email, origin,
+			email_confirmed_at, consented_at, created_at, updated_at)
+			VALUES (?, ?, '1990-01-01', 'public@exemple.fr', 'public', ?, ?, ?, ?)`,
+			first, last, "2026-10-01T10:00:00Z", "2026-10-01T10:00:00Z", "2026-10-01T10:00:00Z", "2026-10-01T10:00:00Z")
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, _ := res.LastInsertId()
+		return id
+	}
+	insertPublic("Claire", "Martin")
+	insertPublic("Paul", "Durand")
+	attached := insertPublic("Léa", "Martin")
+	if _, err := env.Store.WriteDB.Exec(`UPDATE members SET account_id = (SELECT id FROM accounts WHERE email = ?) WHERE id = ?`, accountEmail, attached); err != nil {
+		t.Fatal(err)
+	}
+	insertOrphan(t, env, "Jean", "Martin", "1980-01-01")
+
+	for query, want := range map[string]string{
+		"?origin=public":                       "[Durand Paul Martin Claire Martin Léa]",
+		"?origin=public&q=martin":              "[Martin Claire Martin Léa]",
+		"?origin=public&account=none":          "[Durand Paul Martin Claire]",
+		"?origin=public&q=martin&account=none": "[Martin Claire]",
+		"?q=martin&account=none":               "[Martin Claire Martin Jean]",
+	} {
+		p := adminPage(t, admin, query)
+		if fmt.Sprint(names(p)) != want {
+			t.Errorf("%s : %v, attendu %s", query, names(p), want)
+		}
+		for _, m := range p.Items {
+			if strings.Contains(query, "origin") && m.Origin != "public" {
+				t.Errorf("%s : origine %s", query, m.Origin)
+			}
+		}
+	}
+	if res := admin.Do("GET", "/api/admin/members?origin=internal", nil); res.Status != http.StatusUnprocessableEntity {
+		t.Fatalf("origine inconnue : %d", res.Status)
+	}
+}
+
+// Accueil désactivé (016 US5, scénario 5) : un lien personnel existant
+// permet encore le suivi et le paiement ; seul un nouveau dépôt est refusé.
+func TestTrackingWhenPublicClosed(t *testing.T) {
+	f := newPubFixture(t, true)
+	setPayment(t, f.admin, nil)
+	leo := trackedMember(t, f.msFixture, "Léo", "leo@exemple.fr")
+	ms := validatedFor(t, f.msFixture, leo, f.young.ID)
+	c := f.env.TrackingClient("leo@exemple.fr")
+	f.setPublic(t, false)
+
+	if got := expectJSON[api.Tracking](t, c.Do("GET", "/api/tracking", nil), http.StatusOK); len(got.Items) != 1 {
+		t.Fatalf("suivi : %+v", got)
+	}
+	got := expectTracked(t, c.Do("PUT", trackingPath(ms.ID, "/payment"), map[string]any{"method": "cheque"}), http.StatusOK)
+	if got.Payment == nil || got.Payment.Status != "announced" {
+		t.Fatalf("annonce : %+v", got.Payment)
+	}
+	res := submit(f.env.Client(), f.nextIP(), f.publicBody("claire@exemple.fr"))
+	if res.Status != http.StatusConflict || !strings.Contains(res.Body, "Les demandes d'adhésion ne sont pas ouvertes.") {
+		t.Fatalf("nouveau dépôt : %d %s", res.Status, res.Body)
 	}
 }

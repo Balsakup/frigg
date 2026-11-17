@@ -11,7 +11,7 @@ ou validée par saison.
 
 | État | Signification |
 | --- | --- |
-| **En attente de validation** | Demande déposée par un membre, à traiter par un administrateur |
+| **En attente de validation** | Demande déposée par un membre ou par la page d'adhésion publique, à traiter par un administrateur |
 | **Validée** | L'adhésion est acquise ; son paiement est suivi à part |
 | **Refusée** | Refusée par un administrateur, avec un motif |
 | **Annulée** | Demande retirée par le membre, ou adhésion annulée par un administrateur avec un motif |
@@ -63,6 +63,11 @@ saison courante), les demandes en attente en premier.
 - **Refuser** une demande, avec un motif obligatoire.
 - **Créer** directement une adhésion validée pour n'importe quelle fiche, y
   compris sans compte (bulletin papier), éventuellement déjà payée.
+- **Origine** : le filtre « Publique » (adresse `?origin=public`) isole les
+  demandes reçues par la [page d'adhésion publique](./public-journeys), qui
+  portent le badge « Publique » et l'auteur « Demande publique ». Une telle
+  demande peut être [rattachée à une fiche existante](./public-journeys#rattacher-un-doublon)
+  avant sa validation.
 - **Corriger** le tarif, le type ou le montant à payer d'une adhésion validée
   non payée.
 - **Annuler** une adhésion validée, avec un motif.
@@ -122,4 +127,9 @@ Pour la saison affichée, la rubrique présente :
 
 Le compte qui gère la fiche reçoit un e-mail à chaque validation (avec le
 lien vers la page de paiement), refus, annulation et constatation de
-paiement. Aucun e-mail n'est envoyé pour une fiche sans compte.
+paiement.
+
+Une fiche **sans compte qui a une adresse** reçoit ces mêmes e-mails à son
+adresse, avec un [lien personnel de suivi](./public-journeys#le-lien-de-suivi)
+qui mène à la page de paiement. Une fiche sans compte ni adresse ne reçoit
+rien, pas plus qu'une fiche dont le compte est désactivé.

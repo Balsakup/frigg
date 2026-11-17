@@ -1,0 +1,16 @@
+{{define "subject"}}Confirmez votre demande{{end}}
+{{define "body"}}Bonjour,
+
+{{template "request" .}}
+
+Pour confirmer votre adresse électronique et enregistrer la demande, ouvrez ce lien :
+{{.Link}}
+{{if .AccountExists}}
+Un compte Frigg existe déjà pour cette adresse : après confirmation, votre demande apparaîtra dans votre espace membre.
+{{else if .AccountFull}}
+Votre compte gère déjà 20 fiches : cette demande ne pourra pas y être ajoutée et sera suivie par un lien personnel.
+{{end}}
+Ce lien est valable 48 heures et ne peut servir qu'une fois. Sans confirmation, la demande n'est pas enregistrée.
+
+Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.{{end}}
+{{define "request"}}{{if .Event}}Une demande d'inscription{{if .Member}} de {{.Member}}{{end}} à « {{.Event}} »{{else}}Une demande d'adhésion{{if .Member}} de {{.Member}}{{end}}{{if .Season}} pour la saison {{.Season}}{{end}}{{end}} a été déposée auprès de {{.Association}} avec cette adresse.{{end}}

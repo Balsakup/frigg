@@ -344,9 +344,11 @@
             "type": "string"
           },
           "openness": {
+            "description": "public : ouvert au public par lien (016) ; pour un compte, comme all_members",
             "enum": [
               "season_members",
-              "all_members"
+              "all_members",
+              "public"
             ],
             "type": "string"
           },
@@ -372,6 +374,13 @@
             "description": "0 : gratuit",
             "format": "int64",
             "type": "integer"
+          },
+          "publicUrl": {
+            "description": "Lien public ; null si l'événement n'est pas ouvert au public (016 FR-024)",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "publishedAt": {
             "format": "date-time",
@@ -446,6 +455,7 @@
           "createdBy",
           "updatedBy",
           "registrationCount",
+          "publicUrl",
           "totals",
           "actions",
           "id",
@@ -521,6 +531,14 @@
             "format": "date",
             "type": "string"
           },
+          "consentedAt": {
+            "description": "Consentement au traitement des données donné par un parcours public",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -541,12 +559,24 @@
               "null"
             ]
           },
+          "emailConfirmedAt": {
+            "description": "Adresse confirmée par la personne ; null après une modification de l'adresse",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "firstName": {
             "type": "string"
           },
           "id": {
             "format": "int64",
             "type": "integer"
+          },
+          "inactive": {
+            "description": "Fiche publique inactive, proposée à la suppression (016 FR-041)",
+            "type": "boolean"
           },
           "isSelf": {
             "description": "Fiche du titulaire du compte (« Vous »)",
@@ -565,6 +595,14 @@
               "null"
             ]
           },
+          "origin": {
+            "description": "public : créée par un parcours public",
+            "enum": [
+              "internal",
+              "public"
+            ],
+            "type": "string"
+          },
           "paidUpcomingRegistrations": {
             "description": "Inscriptions payées à des événements à venir",
             "format": "int64",
@@ -577,6 +615,10 @@
               "null"
             ]
           },
+          "trackedByLink": {
+            "description": "Sans compte et avec une adresse : notifications et suivi par lien personnel (016 FR-040)",
+            "type": "boolean"
+          },
           "updatedAt": {
             "format": "date-time",
             "type": "string"
@@ -584,6 +626,11 @@
         },
         "required": [
           "account",
+          "origin",
+          "emailConfirmedAt",
+          "consentedAt",
+          "trackedByLink",
+          "inactive",
           "id",
           "firstName",
           "lastName",
@@ -880,6 +927,16 @@
               "null"
             ]
           },
+          "duplicateCandidates": {
+            "description": "Demande publique en attente : autres fiches de mêmes prénom, nom et date de naissance",
+            "items": {
+              "$ref": "#/components/schemas/MemberRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "fee": {
             "$ref": "#/components/schemas/MembershipFeeRef",
             "description": "Tarif actuel"
@@ -969,6 +1026,10 @@
               "cancelled"
             ],
             "type": "string"
+          },
+          "viaPublic": {
+            "description": "Demande publique : auteur « Demande publique », sans compte demandeur",
+            "type": "boolean"
           }
         },
         "required": [
@@ -989,6 +1050,8 @@
           "alerts",
           "cardPaymentPending",
           "customFields",
+          "viaPublic",
+          "duplicateCandidates",
           "id",
           "member",
           "season",
@@ -1179,6 +1242,10 @@
               "cancelled"
             ],
             "type": "string"
+          },
+          "viaPublic": {
+            "description": "Demande publique (016)",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1194,7 +1261,8 @@
           "adjustmentCents",
           "payment",
           "requestedAt",
-          "openAlerts"
+          "openAlerts",
+          "viaPublic"
         ],
         "type": "object"
       },
@@ -1312,6 +1380,10 @@
               "cancelled"
             ],
             "type": "string"
+          },
+          "viaPublic": {
+            "description": "Inscription publique (016) : auteur « Inscription publique », sans compte",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1324,6 +1396,7 @@
           "state",
           "registeredAt",
           "registeredBy",
+          "viaPublic",
           "cancelledAt",
           "cancelledBy",
           "amountCents",
@@ -1464,6 +1537,10 @@
               "cancelled"
             ],
             "type": "string"
+          },
+          "viaPublic": {
+            "description": "Inscription publique (016)",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1476,7 +1553,8 @@
           "baseAmountCents",
           "adjustmentCents",
           "payment",
-          "openAlerts"
+          "openAlerts",
+          "viaPublic"
         ],
         "type": "object"
       },
@@ -1592,6 +1670,20 @@
           "phone",
           "website",
           "social"
+        ],
+        "type": "object"
+      },
+      "AttachBody": {
+        "additionalProperties": false,
+        "properties": {
+          "memberId": {
+            "description": "Fiche existante qui reçoit la demande",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "memberId"
         ],
         "type": "object"
       },
@@ -2178,11 +2270,99 @@
         ],
         "type": "object"
       },
+      "ConfirmOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "createAccount": {
+            "description": "tracking : la personne a demandé à créer un compte",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "membership",
+              "registration"
+            ],
+            "type": "string"
+          },
+          "outcome": {
+            "description": "tracking : suivi par lien ; account : rattachée au compte de l'adresse ; duplicate : demande déjà enregistrée ; closed : demande impossible",
+            "enum": [
+              "tracking",
+              "account",
+              "duplicate",
+              "closed"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "description": "closed : raison à afficher",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "outcome",
+          "kind",
+          "reason",
+          "createAccount"
+        ],
+        "type": "object"
+      },
       "ConfirmRegistrationCard": {
         "additionalProperties": false,
         "properties": {
           "registration": {
             "$ref": "#/components/schemas/MyRegistration"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "registration"
+        ],
+        "type": "object"
+      },
+      "ConfirmTrackedCardPayment": {
+        "additionalProperties": false,
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/TrackedMembership"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "abandoned",
+              "expired",
+              "refunded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "membership"
+        ],
+        "type": "object"
+      },
+      "ConfirmTrackedRegistrationCard": {
+        "additionalProperties": false,
+        "properties": {
+          "registration": {
+            "$ref": "#/components/schemas/TrackedRegistration"
           },
           "status": {
             "enum": [
@@ -2286,6 +2466,28 @@
         ],
         "type": "object"
       },
+      "CreateTrackingAccountInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "description": "Au moins 8 caractères, dont une majuscule et un chiffre",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "selfMemberId": {
+            "description": "Fiche « Vous » parmi les fiches suivies ; null : aucune. Ignoré avec une seule fiche, marquée d'office",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
       "CustomFieldList": {
         "additionalProperties": false,
         "properties": {
@@ -2361,6 +2563,48 @@
         "required": [
           "feeId",
           "kind"
+        ],
+        "type": "object"
+      },
+      "DeleteInactiveMembersInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "description": "Fiches publiques inactives à supprimer",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "DeleteInactiveMembersResult": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted": {
+            "description": "Fiches supprimées",
+            "format": "int64",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Fiches ignorées : redevenues actives, déjà supprimées ou inconnues",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted",
+          "skipped"
         ],
         "type": "object"
       },
@@ -2564,9 +2808,11 @@
             "type": "string"
           },
           "openness": {
+            "description": "public : ouvert au public par un lien (016 FR-023)",
             "enum": [
               "season_members",
-              "all_members"
+              "all_members",
+              "public"
             ],
             "type": "string"
           },
@@ -2717,9 +2963,11 @@
             "type": "string"
           },
           "openness": {
+            "description": "public : ouvert au public par lien (016) ; pour un compte, comme all_members",
             "enum": [
               "season_members",
-              "all_members"
+              "all_members",
+              "public"
             ],
             "type": "string"
           },
@@ -3189,6 +3437,14 @@
               "null"
             ]
           },
+          "publicMembershipEnabled": {
+            "description": "Accepter les demandes d'adhésion publiques",
+            "type": "boolean"
+          },
+          "publicMembershipUrl": {
+            "description": "Adresse de la page d'adhésion publique",
+            "type": "string"
+          },
           "purpose": {
             "type": [
               "string",
@@ -3241,7 +3497,9 @@
           "contactEmail",
           "phone",
           "website",
-          "social"
+          "social",
+          "publicMembershipEnabled",
+          "publicMembershipUrl"
         ],
         "type": "object"
       },
@@ -3276,6 +3534,10 @@
               "string",
               "null"
             ]
+          },
+          "publicMembershipEnabled": {
+            "description": "Accepter les demandes d'adhésion publiques ; absent : inchangé",
+            "type": "boolean"
           },
           "purpose": {
             "maxLength": 2000,
@@ -4143,6 +4405,11 @@
             "description": "Carte activée et connexion à HelloAsso en échec",
             "type": "boolean"
           },
+          "inactivePublicCount": {
+            "description": "Fiches publiques inactives à supprimer (016 FR-041)",
+            "format": "int64",
+            "type": "integer"
+          },
           "paymentAlerts": {
             "description": "Signalements de paiement des adhésions à traiter",
             "format": "int64",
@@ -4167,6 +4434,7 @@
           "pendingCount",
           "paymentSetupNeeded",
           "paymentAlerts",
+          "inactivePublicCount",
           "registrationPaymentAlerts",
           "helloassoFailing"
         ],
@@ -4610,9 +4878,11 @@
             ]
           },
           "openness": {
+            "description": "public : ouvert au public par lien (016) ; pour un compte, comme all_members",
             "enum": [
               "season_members",
-              "all_members"
+              "all_members",
+              "public"
             ],
             "type": "string"
           },
@@ -5862,6 +6132,327 @@
         ],
         "type": "object"
       },
+      "PublicEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "closedReason": {
+            "description": "Raison de l'absence de formulaire ; null si l'inscription est possible",
+            "enum": [
+              "cancelled",
+              "finished",
+              "full",
+              "not_yet_open",
+              "closed"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "placesLeft": {
+            "description": "null : capacité illimitée",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "priceCents": {
+            "description": "0 : gratuit",
+            "format": "int64",
+            "type": "integer"
+          },
+          "registrationClosesAt": {
+            "description": "Clôture des inscriptions : date saisie, sinon début",
+            "format": "date-time",
+            "type": "string"
+          },
+          "registrationOpen": {
+            "description": "Le formulaire d'inscription est proposé",
+            "type": "boolean"
+          },
+          "registrationOpensAt": {
+            "description": "Ouverture des inscriptions : date saisie, sinon publication",
+            "format": "date-time",
+            "type": "string"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "location",
+          "description",
+          "startsAt",
+          "endsAt",
+          "priceCents",
+          "registrationOpensAt",
+          "registrationClosesAt",
+          "placesLeft",
+          "registrationOpen",
+          "closedReason"
+        ],
+        "type": "object"
+      },
+      "PublicMembershipBody": {
+        "additionalProperties": false,
+        "properties": {
+          "addressLine1": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "addressLine2": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "consent": {
+            "description": "Consentement au traitement des données (obligatoire)",
+            "type": "boolean"
+          },
+          "createAccount": {
+            "description": "Proposer la création d'un compte après confirmation",
+            "type": "boolean"
+          },
+          "customFields": {
+            "description": "Champs personnalisés de membre et d'adhésion",
+            "items": {
+              "$ref": "#/components/schemas/FieldInput"
+            },
+            "maxItems": 60,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "declaredKind": {
+            "description": "first ou renewal",
+            "maxLength": 10,
+            "type": "string"
+          },
+          "email": {
+            "description": "Obligatoire",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "feeId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "phone": {
+            "description": "Absent ou vide : aucun",
+            "maxLength": 30,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": "string"
+          },
+          "seasonId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "website": {
+            "description": "Piège à robots : doit rester vide",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "seasonId",
+          "feeId",
+          "declaredKind",
+          "firstName",
+          "lastName",
+          "birthDate",
+          "email",
+          "consent"
+        ],
+        "type": "object"
+      },
+      "PublicMembershipPage": {
+        "additionalProperties": false,
+        "properties": {
+          "memberFields": {
+            "description": "Champs de membre « Rempli par le membre » actifs",
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "membershipFields": {
+            "description": "Champs d'adhésion « Rempli par le membre » actifs",
+            "items": {
+              "$ref": "#/components/schemas/FormField"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "open": {
+            "description": "Accueil activé et au moins une saison ouverte avec un tarif",
+            "type": "boolean"
+          },
+          "seasons": {
+            "description": "Vide si l'accueil est fermé ; la plus récente d'abord",
+            "items": {
+              "$ref": "#/components/schemas/PublicSeason"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "open",
+          "seasons",
+          "memberFields",
+          "membershipFields"
+        ],
+        "type": "object"
+      },
+      "PublicMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "PublicSeason": {
+        "additionalProperties": false,
+        "properties": {
+          "fees": {
+            "description": "Du montant le plus élevé au plus faible",
+            "items": {
+              "$ref": "#/components/schemas/MembershipFeeRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "fees"
+        ],
+        "type": "object"
+      },
+      "PublicSubmissionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "addressLine1": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "addressLine2": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "birthDate": {
+            "format": "date",
+            "type": "string"
+          },
+          "city": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "consent": {
+            "description": "Consentement au traitement des données (obligatoire)",
+            "type": "boolean"
+          },
+          "createAccount": {
+            "description": "Proposer la création d'un compte après confirmation",
+            "type": "boolean"
+          },
+          "email": {
+            "description": "Obligatoire",
+            "maxLength": 254,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "phone": {
+            "description": "Absent ou vide : aucun",
+            "maxLength": 30,
+            "type": "string"
+          },
+          "postalCode": {
+            "maxLength": 10,
+            "type": "string"
+          },
+          "website": {
+            "description": "Piège à robots : doit rester vide",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "birthDate",
+          "email",
+          "consent"
+        ],
+        "type": "object"
+      },
       "ReasonBody": {
         "additionalProperties": false,
         "properties": {
@@ -6519,6 +7110,343 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "TrackedActions": {
+        "additionalProperties": false,
+        "properties": {
+          "cancel": {
+            "description": "Annuler la demande ou l'inscription",
+            "type": "boolean"
+          },
+          "pay": {
+            "description": "Un moyen de paiement est proposé",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancel",
+          "pay"
+        ],
+        "type": "object"
+      },
+      "TrackedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/TrackedActions"
+          },
+          "amountCents": {
+            "description": "Montant à payer ; null si rien n'est à payer",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "membership",
+              "registration"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "description": "« Adhésion 2026-2027 — Adulte » ou titre de l'événement",
+            "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "paymentStatus": {
+            "enum": [
+              "due",
+              "announced",
+              "paid"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "Motif d'un refus ou d'une annulation",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "États de 006 (adhésion) ou de 012 (inscription)",
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled",
+              "confirmed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "member",
+          "label",
+          "status",
+          "amountCents",
+          "paymentStatus",
+          "reference",
+          "reason",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "TrackedMembership": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyMembershipActions"
+          },
+          "amountCents": {
+            "description": "Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré",
+            "format": "int64",
+            "type": "integer"
+          },
+          "amountFixed": {
+            "description": "Le montant a été figé à la validation",
+            "type": "boolean"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cardPayment": {
+            "$ref": "#/components/schemas/CardPaymentState",
+            "description": "Dernière tentative de paiement par carte"
+          },
+          "decidedAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declaredKind": {
+            "description": "Type déclaré par le compte ; null si créée par un administrateur",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fee": {
+            "$ref": "#/components/schemas/MembershipFeeRef",
+            "description": "Tarif actuel"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "Type retenu à la validation",
+            "enum": [
+              "first",
+              "renewal"
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : adhésion non validée ou gratuite"
+          },
+          "paymentMethods": {
+            "description": "Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodInfo"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "Motif d'un refus ou d'une annulation",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requestedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "season": {
+            "$ref": "#/components/schemas/SeasonRef"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "validated",
+              "refused",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "actions",
+          "paymentMethods",
+          "cardPayment",
+          "id",
+          "member",
+          "season",
+          "fee",
+          "status",
+          "declaredKind",
+          "kind",
+          "amountCents",
+          "amountFixed",
+          "payment",
+          "reason",
+          "requestedAt",
+          "decidedAt",
+          "cancelledAt"
+        ],
+        "type": "object"
+      },
+      "TrackedRegistration": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "$ref": "#/components/schemas/MyRegistrationActions"
+          },
+          "amountCents": {
+            "description": "Prix figé à l'inscription ; 0 : gratuite",
+            "format": "int64",
+            "type": "integer"
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cardPayment": {
+            "$ref": "#/components/schemas/CardPaymentState",
+            "description": "Dernière tentative de paiement par carte"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventSummary"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "member": {
+            "$ref": "#/components/schemas/MemberRef"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment",
+            "description": "null : inscription gratuite"
+          },
+          "paymentMethods": {
+            "description": "Moyens activés ; vide s'il n'y a rien à payer ou dans la liste",
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodInfo"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "registeredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "confirmed",
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event",
+          "member",
+          "state",
+          "registeredAt",
+          "cancelledAt",
+          "amountCents",
+          "payment",
+          "paymentMethods",
+          "cardPayment",
+          "actions"
+        ],
+        "type": "object"
+      },
+      "Tracking": {
+        "additionalProperties": false,
+        "properties": {
+          "canCreateAccount": {
+            "description": "Aucun compte pour l'adresse et au plus 20 fiches suivies",
+            "type": "boolean"
+          },
+          "email": {
+            "type": "string"
+          },
+          "items": {
+            "description": "Par fiche, adhésions puis inscriptions",
+            "items": {
+              "$ref": "#/components/schemas/TrackedItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "members": {
+            "description": "Fiches suivies, par nom puis prénom",
+            "items": {
+              "$ref": "#/components/schemas/MemberRef"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "email",
+          "members",
+          "items",
+          "canCreateAccount"
         ],
         "type": "object"
       },
@@ -8242,6 +9170,55 @@
         ]
       }
     },
+    "/admin/events/{id}/public-link": {
+      "post": {
+        "operationId": "regenerate-event-public-link",
+        "parameters": [
+          {
+            "description": "Identifiant de l'événement",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'événement",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Régénérer le lien public d'un événement",
+        "tags": [
+          "Événements"
+        ]
+      }
+    },
     "/admin/events/{id}/publish": {
       "post": {
         "operationId": "publish-event",
@@ -8725,6 +9702,29 @@
             }
           },
           {
+            "description": "public : fiches créées par un parcours public (016 FR-037)",
+            "explode": false,
+            "in": "query",
+            "name": "origin",
+            "schema": {
+              "description": "public : fiches créées par un parcours public (016 FR-037)",
+              "enum": [
+                "public"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Vrai : fiches publiques inactives seulement (016 FR-041)",
+            "explode": false,
+            "in": "query",
+            "name": "inactive",
+            "schema": {
+              "description": "Vrai : fiches publiques inactives seulement (016 FR-041)",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Numéro de page",
             "explode": false,
             "in": "query",
@@ -9159,6 +10159,53 @@
         ]
       }
     },
+    "/admin/members/inactive/delete": {
+      "post": {
+        "description": "Chaque fiche est revérifiée : une fiche redevenue active ou disparue est ignorée et comptée dans skipped (016 FR-041).",
+        "operationId": "delete-inactive-members",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteInactiveMembersInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteInactiveMembersResult"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Supprimer des fiches publiques inactives",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
     "/admin/members/{id}": {
       "delete": {
         "operationId": "delete-member",
@@ -9305,6 +10352,49 @@
         ]
       }
     },
+    "/admin/members/{id}/tracking-link": {
+      "post": {
+        "description": "Fiche sans compte avec une adresse seulement (016 FR-040).",
+        "operationId": "send-tracking-link",
+        "parameters": [
+          {
+            "description": "Identifiant de la fiche",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de la fiche",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Envoyer un lien personnel de suivi",
+        "tags": [
+          "Membres"
+        ]
+      }
+    },
     "/admin/memberships": {
       "get": {
         "operationId": "list-memberships",
@@ -9394,6 +10484,19 @@
               "description": "open : adhésions portant un signalement de paiement à traiter",
               "enum": [
                 "open"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "public : demandes publiques (016)",
+            "explode": false,
+            "in": "query",
+            "name": "origin",
+            "schema": {
+              "description": "public : demandes publiques (016)",
+              "enum": [
+                "public"
               ],
               "type": "string"
             }
@@ -9702,6 +10805,65 @@
           }
         ],
         "summary": "Corriger une adhésion validée",
+        "tags": [
+          "Adhésions"
+        ]
+      }
+    },
+    "/admin/memberships/{id}/attach": {
+      "post": {
+        "operationId": "attach-membership-to-member",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rattacher une demande publique à une fiche existante",
         "tags": [
           "Adhésions"
         ]
@@ -10247,6 +11409,19 @@
               "description": "open : inscriptions portant un signalement de paiement à traiter",
               "enum": [
                 "open"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "public : inscriptions publiques (016)",
+            "explode": false,
+            "in": "query",
+            "name": "origin",
+            "schema": {
+              "description": "public : inscriptions publiques (016)",
+              "enum": [
+                "public"
               ],
               "type": "string"
             }
@@ -13299,6 +14474,295 @@
         ]
       }
     },
+    "/public/events/{slug}": {
+      "get": {
+        "description": "Informations propres à l'événement, sans inscrit. La réponse 404 est identique pour un lien inconnu, régénéré, un brouillon ou un événement non public.",
+        "operationId": "get-public-event",
+        "parameters": [
+          {
+            "description": "Lien public de l'événement",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "Lien public de l'événement",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicEvent"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Page publique d'un événement",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/events/{slug}/registrations": {
+      "post": {
+        "description": "La réponse est identique quelle que soit l'adresse. Aucune place n'est réservée avant la confirmation de l'adresse.",
+        "operationId": "submit-public-registration",
+        "parameters": [
+          {
+            "description": "Lien public de l'événement",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "description": "Lien public de l'événement",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicSubmissionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMessage"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Déposer une inscription publique à un événement",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/membership": {
+      "get": {
+        "description": "Saisons ouvertes et leurs tarifs, champs personnalisés remplis par le membre, ou fermeture.",
+        "operationId": "get-public-membership-page",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMembershipPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Page d'adhésion publique",
+        "tags": [
+          "public"
+        ]
+      },
+      "post": {
+        "description": "La réponse est identique quelle que soit l'adresse. Un e-mail de confirmation est envoyé à l'adresse saisie.",
+        "operationId": "submit-public-membership",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicMembershipBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMessage"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Déposer une demande d'adhésion publique",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/submissions/confirm": {
+      "post": {
+        "description": "Le jeton passe dans le corps, jamais dans l'URL. Ouvre l'accès par lien si la fiche reste sans compte.",
+        "operationId": "confirm-public-submission",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmOutcome"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Confirmer l'adresse d'un dépôt public",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/tracking/link-request": {
+      "post": {
+        "description": "La réponse est identique quelle que soit l'adresse. Un e-mail n'est envoyé qu'à une adresse de fiche suivie par lien.",
+        "operationId": "request-tracking-link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMessage"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Recevoir un lien personnel de suivi",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/public/tracking/open": {
+      "post": {
+        "description": "Le jeton passe dans le corps, jamais dans l'URL. Ouvre l'accès par lien dans la session.",
+        "operationId": "open-tracking-link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Ouvrir un lien personnel de suivi",
+        "tags": [
+          "public"
+        ]
+      }
+    },
     "/session": {
       "get": {
         "description": "Compte connecté et association de l'instance.",
@@ -13333,6 +14797,649 @@
         "summary": "Session courante",
         "tags": [
           "Mon compte"
+        ]
+      }
+    },
+    "/tracking": {
+      "get": {
+        "operationId": "get-tracking",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tracking"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Espace de suivi par lien personnel",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/account": {
+      "post": {
+        "description": "Rattache les fiches suivies, révoque les liens de l'adresse et ouvre une session de compte (016 FR-031, FR-032).",
+        "operationId": "create-tracking-account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTrackingAccountInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Créer un compte depuis le suivi par lien",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/close": {
+      "post": {
+        "description": "Retire seulement l'accès par lien : une session de compte reste ouverte.",
+        "operationId": "close-tracking",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Fermer l'accès par lien personnel",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/memberships/{id}": {
+      "get": {
+        "operationId": "get-tracking-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une adhésion suivie par lien personnel",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/memberships/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-tracking-membership",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler une demande d'adhésion en attente",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/memberships/{id}/card-payment": {
+      "post": {
+        "operationId": "start-tracking-membership-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lancer le paiement par carte d'une adhésion suivie (HelloAsso)",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/memberships/{id}/card-payment/confirm": {
+      "post": {
+        "operationId": "confirm-tracking-membership-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCardPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmTrackedCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier un paiement par carte au retour de HelloAsso",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/memberships/{id}/payment": {
+      "put": {
+        "operationId": "announce-tracking-membership-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'adhésion",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'adhésion",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedMembership"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choisir le moyen de paiement d'une adhésion suivie",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/registrations/{id}": {
+      "get": {
+        "operationId": "get-tracking-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Une inscription suivie par lien personnel",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/registrations/{id}/cancel": {
+      "post": {
+        "operationId": "cancel-tracking-registration",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Annuler une inscription suivie (012 FR-013)",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/registrations/{id}/card-payment": {
+      "post": {
+        "operationId": "start-tracking-registration-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartCardPayment"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lancer le paiement par carte d'une inscription suivie (HelloAsso)",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/registrations/{id}/card-payment/confirm": {
+      "post": {
+        "operationId": "confirm-tracking-registration-card-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCardPaymentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmTrackedRegistrationCard"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Vérifier le paiement par carte d'une inscription au retour de HelloAsso",
+        "tags": [
+          "tracking"
+        ]
+      }
+    },
+    "/tracking/registrations/{id}/payment": {
+      "put": {
+        "operationId": "announce-tracking-registration-payment",
+        "parameters": [
+          {
+            "description": "Identifiant de l'inscription",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Identifiant de l'inscription",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnounceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedRegistration"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Choisir le moyen de paiement d'une inscription suivie",
+        "tags": [
+          "tracking"
         ]
       }
     },

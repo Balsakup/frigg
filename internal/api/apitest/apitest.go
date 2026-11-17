@@ -15,6 +15,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/balsakup/frigg/internal/helloasso/hatest"
 	"github.com/balsakup/frigg/internal/mail"
 	"github.com/balsakup/frigg/internal/mail/mailtest"
+	"github.com/balsakup/frigg/internal/public"
 	"github.com/balsakup/frigg/internal/season"
 	"github.com/balsakup/frigg/internal/server"
 )
@@ -58,8 +60,10 @@ type Env struct {
 	LogoFiles *communication.FileStore
 	// AttachmentSweeper purge les pièces jointes abandonnées.
 	AttachmentSweeper *api.CommunicationAttachmentSweeper
-	seq               atomic.Int64
-	clock             atomic.Pointer[time.Time]
+	// PublicSweeper purge les dépôts publics et les liens personnels périmés.
+	PublicSweeper *api.PublicSweeper
+	seq           atomic.Int64
+	clock         atomic.Pointer[time.Time]
 }
 
 // LogBuffer capture les journaux pour vérifier qu'aucune donnée sensible n'y figure.
@@ -125,6 +129,7 @@ func New(t testing.TB, options ...func(*config.Config)) *Env {
 	}
 	env.worker.Identity = api.MailIdentity(deps)
 	env.AttachmentSweeper = api.NewCommunicationAttachmentSweeper(deps)
+	env.PublicSweeper = api.NewPublicSweeper(deps)
 	if deps.HelloAsso != nil {
 		env.Sweeper = api.NewOnlinePaymentSweeper(deps)
 	}
@@ -300,4 +305,66 @@ func (c *Client) Do(method, path string, body any, headers ...string) Response {
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
 	return Response{Status: res.StatusCode, Header: res.Header, Body: string(b)}
+}
+
+// TrackingClient émet en base un lien personnel pour l'adresse, l'ouvre par
+// POST /api/public/tracking/open et renvoie le client muni de l'accès par
+// lien (research.md 016 › R1).
+func (e *Env) TrackingClient(email string) *Client {
+	e.t.Helper()
+	raw, hash := auth.NewToken()
+	now := e.now().UTC()
+	if _, err := e.Store.Write.CreateTrackingLink(context.Background(), sqlc.CreateTrackingLinkParams{
+		Email:     auth.NormalizeEmail(email),
+		TokenHash: hash,
+		ExpiresAt: now.Add(public.LinkTTL).Format(mail.TimeFormat),
+		CreatedAt: now.Format(mail.TimeFormat),
+	}); err != nil {
+		e.t.Fatal(err)
+	}
+	c := e.Client()
+	if res := c.Do("POST", "/api/public/tracking/open", map[string]string{"token": raw}); res.Status != http.StatusNoContent {
+		e.t.Fatalf("ouverture du lien personnel : statut %d, %s", res.Status, res.Body)
+	}
+	return c
+}
+
+// Mail est un e-mail mis en file (table outbound_emails), avec le lien à
+// jeton qu'il contient.
+type Mail struct {
+	Subject string
+	Text    string
+	HTML    string
+	// Link est le premier lien à jeton du texte (…#jeton=…), vide sinon.
+	Link string
+	// Token est le jeton de ce lien.
+	Token string
+}
+
+var fragmentLinkRe = regexp.MustCompile(`https?://\S+#jeton=([A-Za-z0-9_-]+)`)
+
+// Mails renvoie les e-mails mis en file pour to, du plus ancien au plus
+// récent, qu'ils soient envoyés ou non.
+func (e *Env) Mails(to string) []Mail {
+	e.t.Helper()
+	rows, err := e.Store.ReadDB.Query(`SELECT subject, body_text, body_html FROM outbound_emails WHERE recipient = ? ORDER BY id`, to)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []Mail
+	for rows.Next() {
+		var m Mail
+		if err := rows.Scan(&m.Subject, &m.Text, &m.HTML); err != nil {
+			e.t.Fatal(err)
+		}
+		if match := fragmentLinkRe.FindStringSubmatch(m.Text); match != nil {
+			m.Link, m.Token = match[0], match[1]
+		}
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		e.t.Fatal(err)
+	}
+	return out
 }

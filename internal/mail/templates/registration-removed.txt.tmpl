@@ -8,4 +8,7 @@ Motif : {{.Reason}}
 {{end}}{{if .Paid}}
 Cette inscription était réglée : le remboursement se fait directement avec l'association.
 {{end}}
-Pour toute question, contactez le bureau de l'association.{{end}}
+Pour toute question, contactez le bureau de l'association.{{if .Link}}
+
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}{{end}}{{end}}

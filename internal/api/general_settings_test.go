@@ -144,3 +144,48 @@ func TestGeneralSettingsLegalAndContact(t *testing.T) {
 		}
 	}
 }
+
+// Accueil des demandes d'adhésion publiques (016, FR-004) : désactivé par
+// défaut, inchangé quand le corps ne le mentionne pas, journalisé, et adresse
+// de la page calculée depuis FRIGG_BASE_URL.
+func TestGeneralSettingsPublicMembership(t *testing.T) {
+	env := apitest.New(t)
+	admin := env.LoggedIn(env.Seed(auth.RoleAdmin, true))
+
+	g := getGeneral(t, admin)
+	if g.PublicMembershipEnabled || g.PublicMembershipURL != "http://frigg.test/adherer" {
+		t.Fatalf("valeurs initiales : %v %q", g.PublicMembershipEnabled, g.PublicMembershipURL)
+	}
+	if res := putGeneral(admin, map[string]any{"name": "Club", "publicMembershipEnabled": true}); res.Status != http.StatusOK {
+		t.Fatalf("activation : %d %s", res.Status, res.Body)
+	}
+	if !getGeneral(t, admin).PublicMembershipEnabled {
+		t.Fatal("accueil non activé")
+	}
+	if res := putGeneral(admin, map[string]any{"name": "Club"}); res.Status != http.StatusOK {
+		t.Fatalf("enregistrement : %d %s", res.Status, res.Body)
+	}
+	if !getGeneral(t, admin).PublicMembershipEnabled {
+		t.Fatal("accueil désactivé par un corps qui ne le mentionne pas")
+	}
+	if res := putGeneral(admin, map[string]any{"name": "Club", "publicMembershipEnabled": false}); res.Status != http.StatusOK {
+		t.Fatalf("désactivation : %d %s", res.Status, res.Body)
+	}
+	if getGeneral(t, admin).PublicMembershipEnabled {
+		t.Fatal("accueil non désactivé")
+	}
+	n := 0
+	for _, line := range strings.Split(env.Logs.String(), "\n") {
+		if strings.Contains(line, `"action":"settings.general_update"`) && strings.Contains(line, "publicMembershipEnabled") {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Errorf("modifications journalisées : %d, attendu 2", n)
+	}
+
+	member := env.LoggedIn(env.Seed(auth.RoleMember, true))
+	if res := putGeneral(member, map[string]any{"name": "Club", "publicMembershipEnabled": true}); res.Status != http.StatusForbidden {
+		t.Errorf("membre : %d", res.Status)
+	}
+}

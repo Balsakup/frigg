@@ -1,0 +1,8 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">{{if .Event}}Une demande d'inscription{{if .Member}} de {{.Member}}{{end}} à « {{.Event}} »{{else}}Une demande d'adhésion{{if .Member}} de {{.Member}}{{end}}{{if .Season}} pour la saison {{.Season}}{{end}}{{end}} a été déposée auprès de {{.Association}} avec cette adresse.</p>
+<p style="margin:0 0 20px">Pour confirmer votre adresse électronique et enregistrer la demande, cliquez sur le bouton ci-dessous.</p>
+<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Confirmer ma demande</a></p>
+{{if .AccountExists}}<p style="margin:0 0 20px">Un compte Frigg existe déjà pour cette adresse : après confirmation, votre demande apparaîtra dans votre espace membre.</p>
+{{else if .AccountFull}}<p style="margin:0 0 20px">Votre compte gère déjà 20 fiches : cette demande ne pourra pas y être ajoutée et sera suivie par un lien personnel.</p>
+{{end}}<p style="margin:0 0 12px;color:#525a67;font-size:14px">Ce lien est valable 48 heures et ne peut servir qu'une fois. Sans confirmation, la demande n'est pas enregistrée. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">{{.Link}}</span></p>
+<p style="margin:0;color:#525a67;font-size:14px">Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>{{end}}

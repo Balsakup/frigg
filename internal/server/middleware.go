@@ -24,12 +24,7 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r.WithContext(api.WithRequestInfo(r.Context(), info)))
 
-		path := r.URL.Path
-		// La clé de l'adresse de notification HelloAsso ne doit pas figurer
-		// dans les journaux (research.md 008 › R14).
-		if strings.HasPrefix(path, api.NotificationPathPrefix) {
-			path = api.NotificationPathPrefix + "…"
-		}
+		path := redactPath(r.URL.Path)
 		attrs := []any{
 			"method", r.Method,
 			"path", path,
@@ -49,6 +44,27 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 		}
 		logger.Log(r.Context(), level, "requête traitée", attrs...)
 	})
+}
+
+// secretPathPrefixes sont les adresses dont le segment suivant est un secret
+// à ne jamais journaliser : clé de l'adresse de notification HelloAsso
+// (research.md 008 › R14) et lien public d'un événement, côté API et côté
+// SPA (research.md 016 › R16).
+var secretPathPrefixes = []string{api.NotificationPathPrefix, api.PublicEventPathPrefix, "/e/"}
+
+// redactPath remplace par « … » le segment secret d'une adresse.
+func redactPath(path string) string {
+	for _, prefix := range secretPathPrefixes {
+		rest, ok := strings.CutPrefix(path, prefix)
+		if !ok {
+			continue
+		}
+		if _, tail, found := strings.Cut(rest, "/"); found {
+			return prefix + "…/" + tail
+		}
+		return prefix + "…"
+	}
+	return path
 }
 
 type statusRecorder struct {

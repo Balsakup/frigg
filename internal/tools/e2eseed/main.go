@@ -1,7 +1,7 @@
 // Commande e2eseed : prépare une base jetable pour les tests de bout en bout.
 // Elle ne fait pas partie du binaire frigg.
 //
-// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|communication|parametres|champs|evenements]
+// Utilisation : go run ./internal/tools/e2eseed <chemin de la base> [adhesions|carte|publics|communication|parametres|champs|evenements]
 //
 // Le mode « adhesions » prépare la base du second serveur e2e : une saison
 // ouverte contenant la date du jour, des tarifs, des fiches, des adhésions et
@@ -10,6 +10,11 @@
 //
 // Le mode « carte » ajoute au jeu des adhésions la carte bancaire activée et
 // testée en sandbox, et des adhésions à payer par carte (research.md 008 › R15).
+//
+// Le mode « publics » ajoute au jeu « carte » les données des parcours
+// publics (specs/016-public-journeys, tâche T074) : une fiche importée sans
+// compte avec une adhésion à payer, un événement ouvert au public et une
+// fiche publique inactive créée il y a 13 mois.
 //
 // Le mode « communication » prépare le jeu de quickstart.md 009 › validation
 // manuelle : une saison ouverte et des adhérents dans chaque situation de
@@ -100,8 +105,8 @@ func main() {
 	if len(os.Args) == 3 {
 		mode = os.Args[2]
 	}
-	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "communication" && mode != "parametres" && mode != "champs" && mode != "evenements") {
-		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|communication|parametres]")
+	if len(os.Args) < 2 || len(os.Args) > 3 || (mode != "" && mode != "adhesions" && mode != "carte" && mode != "publics" && mode != "communication" && mode != "parametres" && mode != "champs" && mode != "evenements") {
+		fmt.Fprintln(os.Stderr, "utilisation : e2eseed <chemin de la base> [adhesions|carte|publics|communication|parametres|champs|evenements]")
 		os.Exit(2)
 	}
 	if err := run(os.Args[1], mode); err != nil {
@@ -190,6 +195,11 @@ func run(path, mode string) error {
 		switch mode {
 		case "carte":
 			return seedCard(ctx, q, hash, now)
+		case "publics":
+			if err := seedCard(ctx, q, hash, now); err != nil {
+				return err
+			}
+			return seedPublic(ctx, q, now)
 		case "champs":
 			return seedCustomFields(ctx, q, hash, now)
 		case "evenements":
@@ -766,6 +776,80 @@ func seedEvents(ctx context.Context, q *sqlc.Queries, hash, now string) error {
 	_, err = q.RecordRegistrationPayment(ctx, sqlc.RecordRegistrationPaymentParams{
 		Method: str("cheque"), PaidOn: str(season.Today(time.Now()).String()), ActorID: admin, Now: str(now), ID: r.ID,
 		PaidAmountCents: sql.NullInt64{Int64: 3500, Valid: true},
+	})
+	return err
+}
+
+// PublicEventSlug est le lien public de l'événement du mode « publics ».
+const PublicEventSlug = "SortieDecouverteE2E000"
+
+// seedPublic prépare les parcours publics (016, T074).
+func seedPublic(ctx context.Context, q *sqlc.Queries, now string) error {
+	str := func(v string) sql.NullString { return sql.NullString{String: v, Valid: true} }
+	seasons, err := q.ListSeasons(ctx)
+	if err != nil || len(seasons) == 0 {
+		return fmt.Errorf("saison des adhésions absente : %w", err)
+	}
+	s := seasons[0]
+	fees, err := q.ListMembershipFees(ctx, s.ID)
+	if err != nil {
+		return err
+	}
+	var young int64
+	for _, f := range fees {
+		if f.Label == "Jeune" {
+			young = f.ID
+		}
+	}
+
+	// Fiche importée sans compte, suivie par lien, adhésion « À payer ».
+	paul, err := q.CreateMember(ctx, sqlc.CreateMemberParams{
+		FirstName: "Paul", LastName: "Lefèvre", BirthDate: "2011-02-08",
+		Email: str("paul@example.org"), Now: now,
+	})
+	if err != nil {
+		return err
+	}
+	start, end := season.MustDate(s.StartsOn), season.MustDate(s.EndsOn)
+	refs, err := q.ListPaymentReferences(ctx, membership.ReferencePrefix(start, end))
+	if err != nil {
+		return err
+	}
+	existing := make([]string, 0, len(refs))
+	for _, r := range refs {
+		existing = append(existing, r.String)
+	}
+	if _, err := q.CreateMembership(ctx, sqlc.CreateMembershipParams{
+		MemberID: paul, SeasonID: s.ID, FeeID: young, Status: "validated",
+		Kind: str("first"), AmountCents: sql.NullInt64{Int64: 3000, Valid: true}, Now: now, DecidedAt: str(now),
+		PaymentReference: str(membership.NextReference(membership.ReferencePrefix(start, end), existing)),
+		PaymentStatus:    str("due"),
+	}); err != nil {
+		return err
+	}
+
+	// Événement gratuit ouvert au public, dans 30 jours.
+	at := func(days, hour int) string {
+		d := time.Now().In(season.Paris).AddDate(0, 0, days)
+		return time.Date(d.Year(), d.Month(), d.Day(), hour, 0, 0, 0, season.Paris).UTC().Format("2006-01-02T15:04:05Z")
+	}
+	ev, err := q.CreateEvent(ctx, sqlc.CreateEventParams{
+		SeasonID: s.ID, Title: "Sortie découverte", Location: "Parking du Val",
+		StartsAt: at(30, 9), EndsAt: at(30, 12), Openness: "all_members", PriceCents: 0,
+		Now: now, PublicSlug: str(PublicEventSlug),
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := q.PublishEvent(ctx, sqlc.PublishEventParams{Now: now, ID: ev.ID}); err != nil {
+		return err
+	}
+
+	// Fiche publique inactive : sans compte, créée il y a 13 mois, sans activité.
+	created := time.Now().UTC().AddDate(0, -13, 0).Format("2006-01-02T15:04:05Z")
+	_, err = q.CreatePublicMember(ctx, sqlc.CreatePublicMemberParams{
+		FirstName: "Odile", LastName: "Ancienne", BirthDate: "1970-07-07",
+		Email: str("odile.ancienne@example.org"), Now: str(created), ConsentedAt: str(created),
 	})
 	return err
 }

@@ -57,6 +57,40 @@ func CanRegister(s State, now time.Time) bool {
 	return s.Status == Published && !Finished(s, now) && WindowOpen(s, now)
 }
 
+// ClosedReason dit pourquoi la page publique d'un événement ne propose pas de
+// formulaire (016 FR-025, US3 scénario 4) ; NotClosed : inscription possible.
+type ClosedReason string
+
+const (
+	NotClosed       ClosedReason = ""
+	ReasonCancelled ClosedReason = "cancelled"
+	ReasonFinished  ClosedReason = "finished"
+	ReasonClosed    ClosedReason = "closed"
+	ReasonNotYet    ClosedReason = "not_yet_open"
+	ReasonFull      ClosedReason = "full"
+)
+
+// PublicClosedReason renvoie la raison pour laquelle une inscription publique
+// est impossible à l'instant now, confirmed étant le nombre d'inscriptions
+// confirmées : annulé, terminé, inscriptions closes ou pas encore ouvertes,
+// puis complet. Un brouillon n'a pas de page publique (PublicVisible).
+func PublicClosedReason(s State, confirmed int, now time.Time) ClosedReason {
+	opens, closes := Window(s)
+	switch {
+	case s.Status == Cancelled:
+		return ReasonCancelled
+	case Finished(s, now):
+		return ReasonFinished
+	case s.Status != Published, !now.Before(closes):
+		return ReasonClosed
+	case now.Before(opens):
+		return ReasonNotYet
+	case CheckPlaces(s.Capacity, confirmed, 1) != nil:
+		return ReasonFull
+	}
+	return NotClosed
+}
+
 // CanAdminRegister : inscription par un administrateur, hors période, avant
 // la fin (FR-016).
 func CanAdminRegister(s State, now time.Time) bool {

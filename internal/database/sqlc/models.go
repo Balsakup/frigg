@@ -25,30 +25,31 @@ type AccountsFt struct {
 }
 
 type Association struct {
-	ID           int64
-	Name         sql.NullString
-	UpdatedAt    string
-	Tagline      sql.NullString
-	ShortName    sql.NullString
-	Purpose      sql.NullString
-	Rna          sql.NullString
-	Siret        sql.NullString
-	FoundedOn    sql.NullString
-	AddressLine1 sql.NullString
-	AddressLine2 sql.NullString
-	PostalCode   sql.NullString
-	City         sql.NullString
-	ContactEmail sql.NullString
-	Phone        sql.NullString
-	Website      sql.NullString
-	FacebookUrl  sql.NullString
-	InstagramUrl sql.NullString
-	LinkedinUrl  sql.NullString
-	YoutubeUrl   sql.NullString
-	MastodonUrl  sql.NullString
-	BlueskyUrl   sql.NullString
-	PrimaryColor sql.NullString
-	AccentColor  sql.NullString
+	ID                      int64
+	Name                    sql.NullString
+	UpdatedAt               string
+	Tagline                 sql.NullString
+	ShortName               sql.NullString
+	Purpose                 sql.NullString
+	Rna                     sql.NullString
+	Siret                   sql.NullString
+	FoundedOn               sql.NullString
+	AddressLine1            sql.NullString
+	AddressLine2            sql.NullString
+	PostalCode              sql.NullString
+	City                    sql.NullString
+	ContactEmail            sql.NullString
+	Phone                   sql.NullString
+	Website                 sql.NullString
+	FacebookUrl             sql.NullString
+	InstagramUrl            sql.NullString
+	LinkedinUrl             sql.NullString
+	YoutubeUrl              sql.NullString
+	MastodonUrl             sql.NullString
+	BlueskyUrl              sql.NullString
+	PrimaryColor            sql.NullString
+	AccentColor             sql.NullString
+	PublicMembershipEnabled int64
 }
 
 type AssociationLogo struct {
@@ -154,6 +155,7 @@ type Event struct {
 	UpdatedBy            sql.NullInt64
 	CreatedAt            string
 	UpdatedAt            string
+	PublicSlug           sql.NullString
 }
 
 type EventRegistration struct {
@@ -179,6 +181,7 @@ type EventRegistration struct {
 	UpdatedAt           string
 	BaseAmountCents     sql.NullInt64
 	AdjustmentReason    sql.NullString
+	ViaPublic           int64
 }
 
 type EventRegistrationsFt struct {
@@ -198,20 +201,23 @@ type Invitation struct {
 }
 
 type Member struct {
-	ID           int64
-	AccountID    sql.NullInt64
-	IsSelf       int64
-	FirstName    string
-	LastName     string
-	BirthDate    string
-	Email        sql.NullString
-	Phone        sql.NullString
-	AddressLine1 sql.NullString
-	AddressLine2 sql.NullString
-	PostalCode   sql.NullString
-	City         sql.NullString
-	CreatedAt    string
-	UpdatedAt    string
+	ID               int64
+	AccountID        sql.NullInt64
+	IsSelf           int64
+	FirstName        string
+	LastName         string
+	BirthDate        string
+	Email            sql.NullString
+	Phone            sql.NullString
+	AddressLine1     sql.NullString
+	AddressLine2     sql.NullString
+	PostalCode       sql.NullString
+	City             sql.NullString
+	CreatedAt        string
+	UpdatedAt        string
+	Origin           string
+	EmailConfirmedAt sql.NullString
+	ConsentedAt      sql.NullString
 }
 
 type MemberFieldValue struct {
@@ -268,6 +274,7 @@ type Membership struct {
 	PaidAmountCents     sql.NullInt64
 	BaseAmountCents     sql.NullInt64
 	AdjustmentReason    sql.NullString
+	ViaPublic           int64
 }
 
 type MembershipFee struct {
@@ -328,6 +335,7 @@ type OnlinePayment struct {
 	LastVerifiedAt      sql.NullString
 	RefundedAt          sql.NullString
 	UpdatedAt           string
+	ViaLink             int64
 }
 
 type OutboundEmail struct {
@@ -383,6 +391,30 @@ type PaymentSetting struct {
 	HelloassoErrorCode        sql.NullString
 }
 
+type PublicSubmission struct {
+	ID            int64
+	Kind          string
+	SeasonID      sql.NullInt64
+	FeeID         sql.NullInt64
+	DeclaredKind  sql.NullString
+	EventID       sql.NullInt64
+	FirstName     string
+	LastName      string
+	BirthDate     string
+	Email         string
+	Phone         sql.NullString
+	AddressLine1  sql.NullString
+	AddressLine2  sql.NullString
+	PostalCode    sql.NullString
+	City          sql.NullString
+	CustomValues  string
+	CreateAccount int64
+	ConsentedAt   string
+	TokenHash     []byte
+	ExpiresAt     string
+	CreatedAt     string
+}
+
 type Season struct {
 	ID        int64
 	StartsOn  string
@@ -395,4 +427,14 @@ type Session struct {
 	Token  string
 	Data   []byte
 	Expiry float64
+}
+
+type TrackingLink struct {
+	ID         int64
+	Email      string
+	TokenHash  []byte
+	ExpiresAt  string
+	RevokedAt  sql.NullString
+	LastUsedAt sql.NullString
+	CreatedAt  string
 }

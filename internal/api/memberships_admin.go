@@ -17,6 +17,7 @@ import (
 	"github.com/balsakup/frigg/internal/customfield"
 	"github.com/balsakup/frigg/internal/database"
 	"github.com/balsakup/frigg/internal/database/sqlc"
+	"github.com/balsakup/frigg/internal/member"
 	"github.com/balsakup/frigg/internal/membership"
 	"github.com/balsakup/frigg/internal/season"
 	"github.com/balsakup/frigg/internal/textfold"
@@ -41,6 +42,7 @@ func (s *server) registerAdminMemberships(api huma.API) {
 	register(api, auth.Admin, op("record-membership-payment", http.MethodPost, "/admin/memberships/{id}/payment", "Constater le paiement d'une adhésion", 0), s.recordMembershipPayment)
 	register(api, auth.Admin, op("cancel-membership-payment", http.MethodDelete, "/admin/memberships/{id}/payment", "Annuler la constatation du paiement", 0), s.cancelMembershipPayment)
 	register(api, auth.Admin, op("update-membership-fields", http.MethodPut, "/admin/memberships/{id}/fields", "Modifier les champs personnalisés d'une adhésion", 0), s.updateMembershipFields)
+	register(api, auth.Admin, op("attach-membership-to-member", http.MethodPost, "/admin/memberships/{id}/attach", "Rattacher une demande publique à une fiche existante", 0), s.attachMembershipToMember)
 }
 
 // AdminMembershipActions sont les actions proposées à un administrateur.
@@ -80,6 +82,9 @@ type AdminMembership struct {
 	// CustomFields : champs d'adhésion actifs ; non modifiables si l'adhésion
 	// est refusée ou annulée (011, FR-016).
 	CustomFields []FieldValue `json:"customFields" doc:"Champs personnalisés d'adhésion, dans l'ordre d'affichage"`
+	// Parcours publics (016, FR-012, FR-038).
+	ViaPublic           bool        `json:"viaPublic" doc:"Demande publique : auteur « Demande publique », sans compte demandeur"`
+	DuplicateCandidates []MemberRef `json:"duplicateCandidates" doc:"Demande publique en attente : autres fiches de mêmes prénom, nom et date de naissance"`
 }
 
 // AdminMembershipFee est le tarif d'une ligne de la liste.
@@ -104,6 +109,7 @@ type AdminMembershipRow struct {
 	Payment         *Payment `json:"payment"`
 	RequestedAt     string   `json:"requestedAt" format:"date-time"`
 	OpenAlerts      int64    `json:"openAlerts" doc:"Signalements de paiement à traiter"`
+	ViaPublic       bool     `json:"viaPublic" doc:"Demande publique (016)"`
 }
 
 // AdminMembershipPage est une page de la liste des adhésions.
@@ -165,9 +171,10 @@ type MembershipCollectedByMethod struct {
 
 // MembershipDashboard sont les indicateurs du tableau de bord.
 type MembershipDashboard struct {
-	PendingCount       int64 `json:"pendingCount" doc:"Demandes en attente, toutes saisons"`
-	PaymentSetupNeeded bool  `json:"paymentSetupNeeded" doc:"Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion"`
-	PaymentAlerts      int64 `json:"paymentAlerts" doc:"Signalements de paiement des adhésions à traiter"`
+	PendingCount        int64 `json:"pendingCount" doc:"Demandes en attente, toutes saisons"`
+	PaymentSetupNeeded  bool  `json:"paymentSetupNeeded" doc:"Aucun moyen de paiement activé alors qu'une saison est ouverte à l'adhésion"`
+	PaymentAlerts       int64 `json:"paymentAlerts" doc:"Signalements de paiement des adhésions à traiter"`
+	InactivePublicCount int64 `json:"inactivePublicCount" doc:"Fiches publiques inactives à supprimer (016 FR-041)"`
 	// RegistrationPaymentAlerts : signalements des inscriptions (012).
 	RegistrationPaymentAlerts int64 `json:"registrationPaymentAlerts" doc:"Signalements de paiement des inscriptions à traiter"`
 	HelloAssoFailing          bool  `json:"helloassoFailing" doc:"Carte activée et connexion à HelloAsso en échec"`
@@ -240,6 +247,7 @@ type ListMembershipsInput struct {
 	// PaidMethod filtre les adhésions payées par un moyen.
 	PaidMethod string   `query:"paidMethod" enum:"card,cash,cheque,transfer"`
 	Alerts     string   `query:"alerts" enum:"open" doc:"open : adhésions portant un signalement de paiement à traiter"`
+	Origin     string   `query:"origin" enum:"public" doc:"public : demandes publiques (016)"`
 	Field      []string `query:"field,explode" maxItems:"10" doc:"Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable"`
 	Page       int64    `query:"page" minimum:"1" default:"1"`
 	PageSize   int64    `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
@@ -300,7 +308,7 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
 	}
-	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment), PaidMethod: ns(in.PaidMethod)}
+	params := sqlc.ListMembershipsParams{Status: ns(in.Status), Payment: ns(in.Payment), PaidMethod: ns(in.PaidMethod), Origin: ns(in.Origin)}
 	if params.FieldFilters, err = fieldFilters(ctx, q, customfield.ScopeMembership, in.Field); err != nil {
 		return nil, s.txError(ctx, "lecture des champs personnalisés impossible", err)
 	}
@@ -381,6 +389,7 @@ func (s *server) listMemberships(ctx context.Context, in *ListMembershipsInput) 
 			Payment:      paymentOf(m),
 			RequestedAt:  m.RequestedAt,
 			OpenAlerts:   openAlerts[m.ID],
+			ViaPublic:    m.ViaPublic == 1,
 		}
 		if m.AmountCents.Valid {
 			row.AmountCents = &m.AmountCents.Int64
@@ -470,7 +479,14 @@ func (s *server) getMembershipDashboard(ctx context.Context, _ *struct{}) (*Memb
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des signalements impossible", err)
 	}
-	out := MembershipDashboard{PendingCount: pending, PaymentAlerts: alerts, RegistrationPaymentAlerts: regAlerts, HelloAssoFailing: s.helloAssoFailing(row)}
+	inactive, err := s.inactivePublicMembers(ctx, q)
+	if err != nil {
+		return nil, s.internalError(ctx, "lecture des fiches inactives impossible", err)
+	}
+	out := MembershipDashboard{
+		PendingCount: pending, PaymentAlerts: alerts, RegistrationPaymentAlerts: regAlerts,
+		HelloAssoFailing: s.helloAssoFailing(row), InactivePublicCount: int64(len(inactive)),
+	}
 	if len(settings.EnabledMethods()) == 0 && !settings.CardAvailable {
 		seasons, _, err := seasonIndex(ctx, q, s.today())
 		if err != nil {
@@ -539,6 +555,13 @@ func (s *server) adminMembership(ctx context.Context, q *sqlc.Queries, id int64)
 			Validate: a.Validate, Refuse: a.Refuse, Update: a.Update, Cancel: a.Cancel,
 			RecordPayment: a.RecordPayment, CancelPayment: a.CancelPayment,
 		},
+		ViaPublic:           m.ViaPublic == 1,
+		DuplicateCandidates: []MemberRef{},
+	}
+	if out.ViaPublic && m.Status == string(membership.Pending) {
+		if out.DuplicateCandidates, err = duplicateCandidates(ctx, q, m.MemberID, r.FirstName, r.LastName, r.BirthDate, today); err != nil {
+			return nil, s.internalError(ctx, "lecture des doublons impossible", err)
+		}
 	}
 	out.BaseAmountCents = membership.Theoretical(out.AmountCents, basePtr(m.BaseAmountCents))
 	out.AdjustmentCents = membership.AdjustmentOf(out.AmountCents, basePtr(m.BaseAmountCents))
@@ -944,5 +967,91 @@ func (s *server) updateMembershipFields(ctx context.Context, in *MembershipField
 		return nil, err
 	}
 	s.logMembershipAction(ctx, "membership.fields", m, "admin", "custom_fields", fields)
+	return s.adminMembership(ctx, s.Store.Read, in.ID)
+}
+
+// Rattachement d'une demande publique à une fiche existante (016, FR-038,
+// research.md › R13).
+
+const (
+	MsgAttachNotPublic       = "Seule une demande publique en attente peut être rattachée à une autre fiche."
+	MsgAttachSameMember      = "Choisissez une autre fiche que celle de la demande."
+	MsgAttachTargetGone      = "Cette fiche n'existe plus."
+	actionMembershipAttached = "membership_attached"
+)
+
+// AttachBody désigne la fiche qui reçoit la demande.
+type AttachBody struct {
+	MemberID int64 `json:"memberId" doc:"Fiche existante qui reçoit la demande"`
+}
+
+type AttachInput struct {
+	ID   int64 `path:"id" doc:"Identifiant de l'adhésion"`
+	Body AttachBody
+}
+
+// duplicateCandidates renvoie les autres fiches de mêmes prénom, nom et date
+// de naissance qu'une fiche (005 FR-005), par identifiant.
+func duplicateCandidates(ctx context.Context, q *sqlc.Queries, memberID int64, first, last, birth string, today season.Date) ([]MemberRef, error) {
+	rows, err := q.ListMembersByBirthDate(ctx, birth)
+	if err != nil {
+		return nil, err
+	}
+	key := member.IdentityKey(first, last)
+	out := []MemberRef{}
+	for _, r := range rows {
+		if r.ID != memberID && member.IdentityKey(r.FirstName, r.LastName) == key {
+			out = append(out, memberRef(r.ID, r.FirstName, r.LastName, birth, today))
+		}
+	}
+	slices.SortFunc(out, func(a, b MemberRef) int { return cmp.Compare(a.ID, b.ID) })
+	return out, nil
+}
+
+// attachMembershipToMember déplace une demande publique en attente vers une
+// fiche existante, y reporte l'adresse et les valeurs des champs de membre
+// qui lui manquent, puis supprime la fiche d'origine si elle ne porte plus
+// rien, dans la même transaction (FR-038).
+func (s *server) attachMembershipToMember(ctx context.Context, in *AttachInput) (*AdminMembershipOutput, error) {
+	target := in.Body.MemberID
+	deleted := false
+	m, err := s.membershipWrite(ctx, in.ID, func(w adminWriteContext) error {
+		if w.m.ViaPublic != 1 || w.m.Status != string(membership.Pending) {
+			return huma.Error409Conflict(MsgAttachNotPublic)
+		}
+		if target == w.m.MemberID {
+			return FieldErrors("body.memberId", MsgAttachSameMember)
+		}
+		if _, err := w.q.GetMember(ctx, target); errors.Is(err, sql.ErrNoRows) {
+			return FieldErrors("body.memberId", MsgAttachTargetGone)
+		} else if err != nil {
+			return err
+		}
+		now := s.timestamp()
+		if err := changed(w.q.MoveMembershipToMember(ctx, sqlc.MoveMembershipToMemberParams{
+			MemberID: target, Now: now, ID: w.m.ID,
+		})); err != nil {
+			return activeConflict(err)
+		}
+		if err := w.q.CopyMemberEmailIfEmpty(ctx, sqlc.CopyMemberEmailIfEmptyParams{
+			SourceID: w.m.MemberID, TargetID: target, Now: now,
+		}); err != nil {
+			return err
+		}
+		if _, err := w.q.CopyMissingMemberFieldValues(ctx, sqlc.CopyMissingMemberFieldValuesParams{
+			TargetID: target, SourceID: w.m.MemberID, Now: now,
+		}); err != nil {
+			return err
+		}
+		n, err := w.q.DeleteMemberIfEmpty(ctx, w.m.MemberID)
+		deleted = n > 0
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	from := m.MemberID
+	m.MemberID = target
+	s.logMembershipAction(ctx, actionMembershipAttached, m, "admin", "from_member_id", from, "source_deleted", deleted)
 	return s.adminMembership(ctx, s.Store.Read, in.ID)
 }

@@ -20,7 +20,7 @@ func (q *Queries) DeleteAssociationLogo(ctx context.Context) error {
 }
 
 const getAssociation = `-- name: GetAssociation :one
-SELECT id, name, updated_at, tagline, short_name, purpose, rna, siret, founded_on, address_line1, address_line2, postal_code, city, contact_email, phone, website, facebook_url, instagram_url, linkedin_url, youtube_url, mastodon_url, bluesky_url, primary_color, accent_color FROM association WHERE id = 1
+SELECT id, name, updated_at, tagline, short_name, purpose, rna, siret, founded_on, address_line1, address_line2, postal_code, city, contact_email, phone, website, facebook_url, instagram_url, linkedin_url, youtube_url, mastodon_url, bluesky_url, primary_color, accent_color, public_membership_enabled FROM association WHERE id = 1
 `
 
 func (q *Queries) GetAssociation(ctx context.Context) (Association, error) {
@@ -51,6 +51,7 @@ func (q *Queries) GetAssociation(ctx context.Context) (Association, error) {
 		&i.BlueskyUrl,
 		&i.PrimaryColor,
 		&i.AccentColor,
+		&i.PublicMembershipEnabled,
 	)
 	return i, err
 }
@@ -140,32 +141,34 @@ UPDATE association SET
     youtube_url = ?18,
     mastodon_url = ?19,
     bluesky_url = ?20,
-    updated_at = ?21
+    public_membership_enabled = ?21,
+    updated_at = ?22
 WHERE id = 1
 `
 
 type UpdateGeneralSettingsParams struct {
-	Name         sql.NullString
-	Tagline      sql.NullString
-	ShortName    sql.NullString
-	Purpose      sql.NullString
-	Rna          sql.NullString
-	Siret        sql.NullString
-	FoundedOn    sql.NullString
-	AddressLine1 sql.NullString
-	AddressLine2 sql.NullString
-	PostalCode   sql.NullString
-	City         sql.NullString
-	ContactEmail sql.NullString
-	Phone        sql.NullString
-	Website      sql.NullString
-	FacebookUrl  sql.NullString
-	InstagramUrl sql.NullString
-	LinkedinUrl  sql.NullString
-	YoutubeUrl   sql.NullString
-	MastodonUrl  sql.NullString
-	BlueskyUrl   sql.NullString
-	UpdatedAt    string
+	Name                    sql.NullString
+	Tagline                 sql.NullString
+	ShortName               sql.NullString
+	Purpose                 sql.NullString
+	Rna                     sql.NullString
+	Siret                   sql.NullString
+	FoundedOn               sql.NullString
+	AddressLine1            sql.NullString
+	AddressLine2            sql.NullString
+	PostalCode              sql.NullString
+	City                    sql.NullString
+	ContactEmail            sql.NullString
+	Phone                   sql.NullString
+	Website                 sql.NullString
+	FacebookUrl             sql.NullString
+	InstagramUrl            sql.NullString
+	LinkedinUrl             sql.NullString
+	YoutubeUrl              sql.NullString
+	MastodonUrl             sql.NullString
+	BlueskyUrl              sql.NullString
+	PublicMembershipEnabled int64
+	UpdatedAt               string
 }
 
 func (q *Queries) UpdateGeneralSettings(ctx context.Context, arg UpdateGeneralSettingsParams) error {
@@ -190,6 +193,7 @@ func (q *Queries) UpdateGeneralSettings(ctx context.Context, arg UpdateGeneralSe
 		arg.YoutubeUrl,
 		arg.MastodonUrl,
 		arg.BlueskyUrl,
+		arg.PublicMembershipEnabled,
 		arg.UpdatedAt,
 	)
 	return err

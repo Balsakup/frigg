@@ -652,3 +652,156 @@ func TestPaymentAdjustmentsMigration(t *testing.T) {
 		t.Fatalf("réapplication : %v", err)
 	}
 }
+
+// Parcours publics (016) : colonnes ajoutées sur une base 00013 peuplée,
+// défauts, sonde des CHECK multi-colonnes en ADD COLUMN et retour arrière de
+// 00014 (research.md 016 › R4, R5).
+func TestPublicJourneysMigration(t *testing.T) {
+	ctx := context.Background()
+	store, err := Open(filepath.Join(t.TempDir(), "frigg.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	fsys, err := fs.Sub(migrations, "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider, err := goose.NewProvider(goose.DialectSQLite3, store.WriteDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 13); err != nil {
+		t.Fatal(err)
+	}
+	db := store.WriteDB
+	const ts = "2026-09-01T10:00:00Z"
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err != nil {
+			t.Fatalf("%v\n%s", err, q)
+		}
+	}
+	refused := func(what, q string, args ...any) {
+		t.Helper()
+		if _, err := db.ExecContext(ctx, q, args...); err == nil {
+			t.Errorf("%s accepté", what)
+		}
+	}
+	integer := func(q string) int64 {
+		t.Helper()
+		var v int64
+		if err := db.QueryRow(q).Scan(&v); err != nil {
+			t.Fatalf("%v\n%s", err, q)
+		}
+		return v
+	}
+	foreignKeysClean := func() {
+		t.Helper()
+		rows, err := db.Query(`PRAGMA foreign_key_check`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		if rows.Next() {
+			t.Fatal("violation de clé étrangère après migration")
+		}
+	}
+
+	// Base 00013 : une fiche de compte, une adhésion demandée et payée par
+	// carte, un événement ouvert à tous les membres et une inscription.
+	exec(`INSERT INTO accounts (id, email, password_hash, role, created_at) VALUES (1, 'a@exemple.fr', 'h', 'member', ?)`, ts)
+	exec(`INSERT INTO seasons (id, starts_on, ends_on, created_at) VALUES (1, '2026-09-01', '2027-08-31', ?)`, ts)
+	exec(`INSERT INTO membership_fees (id, season_id, label, amount_cents, created_at, updated_at) VALUES (1, 1, 'Adulte', 4000, ?, ?)`, ts, ts)
+	exec(`INSERT INTO members (id, account_id, is_self, first_name, last_name, birth_date, email, created_at, updated_at)
+		VALUES (1, 1, 1, 'Claire', 'Martin', '1985-01-01', 'a@exemple.fr', ?, ?)`, ts, ts)
+	exec(`INSERT INTO memberships (id, member_id, season_id, fee_id, status, declared_kind, kind, amount_cents, requested_by, requested_at, updated_at,
+		payment_reference, payment_status) VALUES (1, 1, 1, 1, 'validated', 'first', 'first', 4000, 1, ?, ?, 'ADH-2627-0001', 'due')`, ts, ts)
+	exec(`INSERT INTO online_payments (id, membership_id, account_id, environment, amount_cents, status, checkout_intent_id, order_id, helloasso_payment_id,
+		received_amount_cents, paid_at, created_at, finished_at, updated_at)
+		VALUES (7, 1, 1, 'sandbox', 4000, 'succeeded', 70, 71, 72, 4000, ?, ?, ?, ?)`, ts, ts, ts, ts)
+	exec(`UPDATE memberships SET payment_status = 'paid', paid_method = 'card', paid_on = '2026-09-01', paid_online_payment_id = 7, paid_amount_cents = 4000 WHERE id = 1`)
+	exec(`INSERT INTO events (id, season_id, title, location, starts_at, ends_at, openness, price_cents, status, published_at, created_at, updated_at)
+		VALUES (1, 1, 'Stage', 'Gymnase', '2026-12-12T13:00:00Z', '2026-12-12T16:00:00Z', 'all_members', 0, 'published', ?, ?, ?)`, ts, ts, ts)
+	exec(`INSERT INTO events (id, season_id, title, location, starts_at, ends_at, created_at, updated_at)
+		VALUES (2, 1, 'AG', 'Salle', '2026-12-13T13:00:00Z', '2026-12-13T16:00:00Z', ?, ?)`, ts, ts)
+	exec(`INSERT INTO event_registrations (id, event_id, member_id, status, registered_by, registered_at, amount_cents, updated_at)
+		VALUES (1, 1, 1, 'confirmed', 1, ?, 0, ?)`, ts, ts)
+
+	if _, err := provider.UpTo(ctx, 14); err != nil {
+		t.Fatalf("migration 00014 : %v", err)
+	}
+	foreignKeysClean()
+
+	var origin string
+	if err := db.QueryRow(`SELECT origin FROM members WHERE id = 1`).Scan(&origin); err != nil || origin != "internal" {
+		t.Errorf("origin = %q (%v), attendu internal", origin, err)
+	}
+	for q, want := range map[string]int64{
+		`SELECT via_public FROM memberships WHERE id = 1`:                                        0,
+		`SELECT via_public FROM event_registrations WHERE id = 1`:                                0,
+		`SELECT via_link FROM online_payments WHERE id = 7`:                                      0,
+		`SELECT public_membership_enabled FROM association WHERE id = 1`:                         0,
+		`SELECT paid_online_payment_id FROM memberships WHERE id = 1`:                            7,
+		`SELECT count(*) FROM event_registrations WHERE status = 'confirmed'`:                    1,
+		`SELECT count(*) FROM members WHERE email_confirmed_at IS NULL AND consented_at IS NULL`: 1,
+		`SELECT count(*) FROM events WHERE public_slug IS NULL`:                                  2,
+	} {
+		if got := integer(q); got != want {
+			t.Errorf("%s = %d, attendu %d", q, got, want)
+		}
+	}
+
+	// Sonde de R4 : les CHECK multi-colonnes ajoutés par ADD COLUMN sont
+	// éprouvés à chaque écriture.
+	slug := strings.Repeat("a", 22)
+	refused("via_public avec un demandeur", `UPDATE memberships SET via_public = 1 WHERE id = 1`)
+	refused("via_public avec un auteur d'inscription", `UPDATE event_registrations SET via_public = 1 WHERE id = 1`)
+	refused("via_link avec un compte", `UPDATE online_payments SET via_link = 1 WHERE id = 7`)
+	refused("slug public sur un événement season_members", `UPDATE events SET public_slug = ? WHERE id = 2`, slug)
+	refused("slug public trop court", `UPDATE events SET public_slug = 'court' WHERE id = 1`)
+	refused("origin inconnue", `UPDATE members SET origin = 'autre' WHERE id = 1`)
+	exec(`UPDATE events SET public_slug = ? WHERE id = 1`, slug)
+	refused("événement public repassé en season_members", `UPDATE events SET openness = 'season_members' WHERE id = 1`)
+	refused("slug public en double", `UPDATE events SET openness = 'all_members', public_slug = ? WHERE id = 2`, slug)
+	exec(`UPDATE memberships SET requested_by = NULL WHERE id = 1`)
+	exec(`UPDATE memberships SET via_public = 1 WHERE id = 1`)
+	exec(`UPDATE event_registrations SET registered_by = NULL, via_public = 1 WHERE id = 1`)
+	exec(`UPDATE online_payments SET account_id = NULL, via_link = 1 WHERE id = 7`)
+
+	// Dépôts : cohérence entre la nature et la cible, adresse tout ou rien.
+	exec(`INSERT INTO public_submissions (kind, season_id, fee_id, declared_kind, first_name, last_name, birth_date, email,
+		consented_at, token_hash, expires_at, created_at) VALUES ('membership', 1, 1, 'first', 'Léa', 'Roux', '2010-01-01', 'l@exemple.fr', ?, X'01', ?, ?)`, ts, ts, ts)
+	exec(`INSERT INTO public_submissions (kind, event_id, first_name, last_name, birth_date, email,
+		consented_at, token_hash, expires_at, created_at) VALUES ('registration', 1, 'Léa', 'Roux', '2010-01-01', 'l@exemple.fr', ?, X'02', ?, ?)`, ts, ts, ts)
+	refused("dépôt d'adhésion sans tarif", `INSERT INTO public_submissions (kind, season_id, declared_kind, first_name, last_name, birth_date, email,
+		consented_at, token_hash, expires_at, created_at) VALUES ('membership', 1, 'first', 'L', 'R', '2010-01-01', 'l@exemple.fr', ?, X'03', ?, ?)`, ts, ts, ts)
+	refused("dépôt d'inscription avec une saison", `INSERT INTO public_submissions (kind, event_id, season_id, first_name, last_name, birth_date, email,
+		consented_at, token_hash, expires_at, created_at) VALUES ('registration', 1, 1, 'L', 'R', '2010-01-01', 'l@exemple.fr', ?, X'04', ?, ?)`, ts, ts, ts)
+	refused("dépôt avec une adresse partielle", `INSERT INTO public_submissions (kind, event_id, first_name, last_name, birth_date, email, city,
+		consented_at, token_hash, expires_at, created_at) VALUES ('registration', 1, 'L', 'R', '2010-01-01', 'l@exemple.fr', 'Lyon', ?, X'05', ?, ?)`, ts, ts, ts)
+	refused("empreinte de dépôt en double", `INSERT INTO public_submissions (kind, event_id, first_name, last_name, birth_date, email,
+		consented_at, token_hash, expires_at, created_at) VALUES ('registration', 1, 'L', 'R', '2010-01-01', 'l@exemple.fr', ?, X'02', ?, ?)`, ts, ts, ts)
+	exec(`INSERT INTO tracking_links (email, token_hash, expires_at, created_at) VALUES ('l@exemple.fr', X'01', ?, ?)`, ts, ts)
+	refused("empreinte de lien en double", `INSERT INTO tracking_links (email, token_hash, expires_at, created_at) VALUES ('m@exemple.fr', X'01', ?, ?)`, ts, ts)
+
+	if _, err := provider.DownTo(ctx, 13); err != nil {
+		t.Fatalf("retour arrière : %v", err)
+	}
+	foreignKeysClean()
+	for _, q := range []string{
+		`SELECT origin FROM members`,
+		`SELECT via_public FROM memberships`,
+		`SELECT public_slug FROM events`,
+		`SELECT count(*) FROM tracking_links`,
+		`SELECT count(*) FROM public_submissions`,
+	} {
+		if _, err := db.ExecContext(ctx, q); err == nil {
+			t.Errorf("présent après retour arrière : %s", q)
+		}
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("réapplication : %v", err)
+	}
+	foreignKeysClean()
+}

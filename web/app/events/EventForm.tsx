@@ -17,7 +17,7 @@ export interface EventFormValues {
   description: string;
   startsAt: string;
   endsAt: string;
-  openness: "season_members" | "all_members" | "";
+  openness: "season_members" | "all_members" | "public" | "";
   capacity: string;
   price: string;
   registrationOpensAt: string;
@@ -172,6 +172,12 @@ export function EventForm({ event, submitLabel, onSubmit, cancel }: EventFormPro
                 value: "all_members",
                 label: "Toutes les fiches",
                 description: "Tout membre, adhérent ou non (portes ouvertes, découverte…).",
+              },
+              {
+                value: "public",
+                label: "Ouvert au public",
+                description:
+                  "Toute personne qui reçoit le lien peut s'inscrire, sans compte. Les membres connectés s'inscrivent comme pour « Toutes les fiches ».",
               },
             ]}
           />

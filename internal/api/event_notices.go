@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +16,8 @@ import (
 // E-mails des événements et des inscriptions (research.md 012 › R10).
 // L'adresse de contact est celle de 009 : compte gestionnaire actif, sinon
 // adresse de la fiche ; une même adresse reçoit un seul e-mail par action,
-// qui nomme chaque inscrit concerné.
+// qui nomme chaque inscrit concerné. Une fiche sans compte reçoit en plus un
+// lien personnel, un seul par adresse (016 FR-035, research.md › R8).
 
 var frenchWeekdays = [...]string{"dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"}
 
@@ -55,7 +57,8 @@ type noticeRow struct {
 	MemberID       int64
 	FirstName      string
 	LastName       string
-	AccountEmail   string
+	AccountID      sql.NullInt64
+	AccountEmail   string // vide si le compte est désactivé
 	MemberEmail    string
 	Reference      string
 	AmountCents    int64
@@ -67,22 +70,29 @@ func eventTimes(ev sqlc.Event) (time.Time, time.Time) {
 }
 
 // sendEventNotices met en file un e-mail par adresse de contact. extra
-// complète les données communes ; perRecipient peut les ajuster (montant,
-// lien) à partir des inscriptions du destinataire. Renvoie le nombre
-// d'e-mails.
+// complète les données communes ; perRecipient peut les ajuster (montant)
+// à partir des inscriptions du destinataire et renvoie le chemin du lien pour
+// un compte et pour un lien personnel. Renvoie le nombre d'e-mails.
 func (s *server) sendEventNotices(ctx context.Context, q *sqlc.Queries, template string, ev sqlc.Event, rows []noticeRow,
-	extra mail.Data, perRecipient func(d *mail.Data, rows []noticeRow) string) (int, error) {
+	extra mail.Data, perRecipient func(d *mail.Data, rows []noticeRow) (memberPath, trackingPath string)) (int, error) {
 	if len(rows) == 0 {
 		return 0, nil
 	}
-	cands := make([]communication.Candidate, len(rows))
+	cands := make([]communication.Candidate, 0, len(rows))
 	byMember := make(map[int64][]noticeRow, len(rows))
-	for i, r := range rows {
-		cands[i] = communication.Candidate{
-			MemberID: r.MemberID, FirstName: r.FirstName, LastName: r.LastName,
-			AccountEmail: r.AccountEmail, MemberEmail: r.MemberEmail,
+	tracked := map[int64]bool{}
+	for _, r := range rows {
+		to, viaLink := recipientOf(noticeContact{
+			AccountID: r.AccountID, AccountEmail: r.AccountEmail,
+			AccountDisabled: r.AccountID.Valid && r.AccountEmail == "", MemberEmail: r.MemberEmail,
+		}, true)
+		if _, seen := byMember[r.MemberID]; !seen {
+			cands = append(cands, communication.Candidate{
+				MemberID: r.MemberID, FirstName: r.FirstName, LastName: r.LastName, MemberEmail: to,
+			})
 		}
 		byMember[r.MemberID] = append(byMember[r.MemberID], r)
+		tracked[r.MemberID] = viaLink
 	}
 	start, end := eventTimes(ev)
 	sent := 0
@@ -91,7 +101,9 @@ func (s *server) sendEventNotices(ctx context.Context, q *sqlc.Queries, template
 		data.Event, data.Location, data.When = ev.Title, ev.Location, frenchDateTimeRange(start, end)
 		var mine []noticeRow
 		data.Members = nil
+		viaLink := false
 		for _, id := range rcp.MemberIDs {
+			viaLink = viaLink || tracked[id]
 			for _, r := range byMember[id] {
 				mine = append(mine, r)
 				data.Members = append(data.Members, strings.TrimSpace(r.FirstName+" "+r.LastName))
@@ -100,9 +112,13 @@ func (s *server) sendEventNotices(ctx context.Context, q *sqlc.Queries, template
 				}
 			}
 		}
-		path := ""
+		memberPath, trackingPath := "", "/suivi"
 		if perRecipient != nil {
-			path = perRecipient(&data, mine)
+			memberPath, trackingPath = perRecipient(&data, mine)
+		}
+		path, err := s.noticePath(ctx, q, rcp.Email, viaLink, memberPath, trackingPath)
+		if err != nil {
+			return sent, err
 		}
 		if err := s.enqueueNotice(ctx, q, template, rcp.Email, data, path); err != nil {
 			return sent, err
@@ -123,7 +139,8 @@ func (s *server) notifyEventRegistrants(ctx context.Context, q *sqlc.Queries, te
 	for i, r := range list {
 		rows[i] = noticeRow{
 			RegistrationID: r.ID, MemberID: r.MemberID, FirstName: r.FirstName, LastName: r.LastName,
-			AccountEmail: r.AccountEmail, MemberEmail: r.MemberEmail, Reference: r.PaymentReference.String,
+			AccountID: r.MemberAccountID, AccountEmail: r.AccountEmail, MemberEmail: r.MemberEmail,
+			Reference:   r.PaymentReference.String,
 			AmountCents: r.AmountCents, PaymentStatus: r.PaymentStatus.String,
 		}
 	}
@@ -142,21 +159,22 @@ func (s *server) notifyRegistrations(ctx context.Context, q *sqlc.Queries, templ
 		}
 		rows = append(rows, noticeRow{
 			RegistrationID: r.ID, MemberID: r.MemberID, FirstName: r.FirstName, LastName: r.LastName,
-			AccountEmail: r.AccountEmail, MemberEmail: r.MemberEmail, Reference: r.PaymentReference.String,
+			AccountID: r.MemberAccountID, AccountEmail: r.AccountEmail, MemberEmail: r.MemberEmail,
+			Reference:   r.PaymentReference.String,
 			AmountCents: r.AmountCents, PaymentStatus: r.PaymentStatus.String,
 		})
 	}
-	_, err := s.sendEventNotices(ctx, q, template, ev, rows, extra, func(d *mail.Data, mine []noticeRow) string {
+	_, err := s.sendEventNotices(ctx, q, template, ev, rows, extra, func(d *mail.Data, mine []noticeRow) (string, string) {
 		var due int64
 		var refs []string
-		dueCount := 0
+		var dueIDs []int64
 		for _, r := range mine {
 			if r.Reference != "" {
 				refs = append(refs, r.Reference)
 			}
 			if r.PaymentStatus == "due" || r.PaymentStatus == "announced" {
 				due += r.AmountCents
-				dueCount++
+				dueIDs = append(dueIDs, r.RegistrationID)
 			}
 		}
 		if d.Amount == "" && due > 0 {
@@ -166,18 +184,13 @@ func (s *server) notifyRegistrations(ctx context.Context, q *sqlc.Queries, templ
 			d.Reference = strings.Join(refs, ", ")
 		}
 		switch {
-		case template != "registration-confirmed" || dueCount == 0:
-			return ""
-		case dueCount > 1:
-			return "/a-regler"
+		case template != "registration-confirmed" || len(dueIDs) == 0:
+			return "", "/suivi"
+		case len(dueIDs) > 1:
+			return "/a-regler", "/suivi"
 		default:
-			for _, r := range mine {
-				if r.PaymentStatus == "due" || r.PaymentStatus == "announced" {
-					return fmt.Sprintf("/mes-inscriptions/%d", r.RegistrationID)
-				}
-			}
+			return fmt.Sprintf("/mes-inscriptions/%d", dueIDs[0]), fmt.Sprintf("/suivi/inscriptions/%d", dueIDs[0])
 		}
-		return ""
 	})
 	return err
 }

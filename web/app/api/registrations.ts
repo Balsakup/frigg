@@ -33,6 +33,7 @@ export function registrationPageQuery(query: {
   state?: "confirmed" | "cancelled";
   payment?: "due" | "announced" | "paid" | "free";
   alerts?: "open";
+  origin?: "public";
   q?: string;
   page?: number;
   pageSize?: number;

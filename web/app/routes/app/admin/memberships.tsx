@@ -67,6 +67,11 @@ const alertItems = [
   { value: "open", label: "Avec signalement" },
 ];
 
+const originItems = [
+  { value: "", label: "Toutes" },
+  { value: "public", label: "Publique" },
+];
+
 const paymentItems = [
   { value: "", label: "Tous" },
   { value: "due", label: "À payer" },
@@ -112,6 +117,7 @@ export default function AdminMemberships() {
       payment: "",
       paidMethod: "",
       alerts: "",
+      origin: "",
       fields: [],
       q: "",
       page: 1,
@@ -224,6 +230,12 @@ export default function AdminMemberships() {
               items={alertItems}
               onValueChange={(v) => navigate({ ...filters, q: draft, alerts: v, page: 1 })}
             />
+            <Select
+              label="Origine"
+              value={filters.origin ?? ""}
+              items={originItems}
+              onValueChange={(v) => navigate({ ...filters, q: draft, origin: v, page: 1 })}
+            />
             <CustomFieldFilters
               fields={filterable}
               value={filters.fields ?? []}
@@ -271,6 +283,11 @@ export default function AdminMemberships() {
                   >
                     {m.member.lastName} {m.member.firstName}
                   </Link>
+                  {m.viaPublic ? (
+                    <span className="ml-2">
+                      <Badge tone="info">Publique</Badge>
+                    </span>
+                  ) : null}
                 </th>
                 {showSeason ? (
                   <TableCell className="whitespace-nowrap">{m.season.label}</TableCell>

@@ -46,6 +46,13 @@ const eventsSpecs = /(events|admin-events)\.spec\.ts/;
 const importPort = 8098;
 const importDb = "../data/e2e/frigg-import.db";
 const importSpec = /member-import\.spec\.ts/;
+// Neuvième serveur pour les parcours publics (016) : jeu de la carte (adhésions,
+// carte activée en sandbox) relié à son propre faux HelloAsso, pour le paiement
+// par lien personnel ; l'accueil des demandes publiques est un paramètre global.
+const publicPort = 8099;
+const publicHelloAssoPort = 8100;
+const publicDb = "../data/e2e/frigg-publics.db";
+const publicSpec = /public-journeys\.spec\.ts/;
 
 const serverEnv = (dbPath: string, listen: number, files: string) => ({
   FRIGG_DATABASE_PATH: dbPath,
@@ -91,6 +98,7 @@ export default defineConfig({
         customFieldsSpec,
         eventsSpecs,
         importSpec,
+        publicSpec,
       ],
     },
     {
@@ -150,6 +158,11 @@ export default defineConfig({
       name: "import",
       use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${importPort}` },
       testMatch: importSpec,
+    },
+    {
+      name: "parcours-publics",
+      use: { ...devices["Desktop Chrome"], baseURL: `http://localhost:${publicPort}` },
+      testMatch: publicSpec,
     },
   ],
   webServer: [
@@ -212,6 +225,24 @@ export default defineConfig({
       url: `http://localhost:${importPort}`,
       reuseExistingServer: false,
       env: serverEnv(importDb, importPort, "../data/e2e/files-import"),
+    },
+    {
+      command: `bun e2e/fake-helloasso.ts ${publicHelloAssoPort} http://localhost:${publicPort} ${fakeHelloAssoSecret}`,
+      url: `http://localhost:${publicHelloAssoPort}/v5/organizations/sentiers-du-val`,
+      reuseExistingServer: false,
+    },
+    {
+      command: `go run ../internal/tools/e2eseed ${publicDb} publics && ../bin/frigg serve`,
+      url: `http://localhost:${publicPort}`,
+      reuseExistingServer: false,
+      env: {
+        ...serverEnv(publicDb, publicPort, "../data/e2e/files-publics"),
+        FRIGG_HELLOASSO_CLIENT_ID: "client-e2e",
+        FRIGG_HELLOASSO_CLIENT_SECRET: fakeHelloAssoSecret,
+        FRIGG_HELLOASSO_ORGANIZATION: "sentiers-du-val",
+        FRIGG_HELLOASSO_ENVIRONMENT: "sandbox",
+        FRIGG_HELLOASSO_API_URL: `http://localhost:${publicHelloAssoPort}`,
+      },
     },
   ],
 });

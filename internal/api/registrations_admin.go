@@ -46,6 +46,7 @@ type AdminRegistration struct {
 	State          string      `json:"state" enum:"confirmed,cancelled"`
 	RegisteredAt   time.Time   `json:"registeredAt"`
 	RegisteredBy   *AccountRef `json:"registeredBy"`
+	ViaPublic      bool        `json:"viaPublic" doc:"Inscription publique (016) : auteur « Inscription publique », sans compte"`
 	CancelledAt    *time.Time  `json:"cancelledAt"`
 	CancelledBy    *AccountRef `json:"cancelledBy"`
 	AmountCents    int64       `json:"amountCents" doc:"Montant à payer"`
@@ -83,6 +84,7 @@ type AdminRegistrationRow struct {
 	AdjustmentCents int64    `json:"adjustmentCents"`
 	Payment         *Payment `json:"payment"`
 	OpenAlerts      int64    `json:"openAlerts"`
+	ViaPublic       bool     `json:"viaPublic" doc:"Inscription publique (016)"`
 }
 
 // AdminRegistrationPage est une page de la rubrique « Inscriptions ».
@@ -105,6 +107,7 @@ type ListRegistrationsInput struct {
 	State    string `query:"state" enum:"confirmed,cancelled"`
 	Payment  string `query:"payment" enum:"due,announced,paid,free"`
 	Alerts   string `query:"alerts" enum:"open" doc:"open : inscriptions portant un signalement de paiement à traiter"`
+	Origin   string `query:"origin" enum:"public" doc:"public : inscriptions publiques (016)"`
 	Q        string `query:"q" maxLength:"100" doc:"Fragments d'au moins 3 caractères cherchés dans le nom, le prénom ou la référence"`
 	Page     int64  `query:"page" minimum:"1" default:"1"`
 	PageSize int64  `query:"pageSize" minimum:"1" maximum:"100" default:"25"`
@@ -182,9 +185,10 @@ func (s *server) toAdminRegistration(src adminRegSource, openAlerts int64, today
 	out := AdminRegistration{
 		ID: r.ID, Event: eventRef(src.e), Member: memberRef(r.MemberID, src.first, src.last, src.birth, today),
 		IsSeasonMember: src.isSeasonMember,
-		Eligible:       event.Eligibility(event.Openness(src.e.Openness), src.isSeasonMember, false) == event.Eligible,
+		Eligible:       event.Eligibility(event.OpennessOf(src.e.Openness, src.e.PublicSlug), src.isSeasonMember, false) == event.Eligible,
 		ContactEmail:   contactEmail(src.account, src.disabled, src.mail),
 		State:          r.Status, RegisteredAt: parseTime(r.RegisteredAt), RegisteredBy: accountRef(r.RegisteredBy, src.registeredBy),
+		ViaPublic:   r.ViaPublic == 1,
 		CancelledAt: optionalTimeValue(r.CancelledAt), CancelledBy: accountRef(r.CancelledBy, src.cancelledBy),
 		AmountCents: r.AmountCents, PaymentNote: optionalValue(r.PaymentNote), OpenAlerts: openAlerts,
 		BaseAmountCents:  membership.Theoretical(r.AmountCents, basePtr(r.BaseAmountCents)),
@@ -303,6 +307,9 @@ func (s *server) listRegistrations(ctx context.Context, in *ListRegistrationsInp
 	if in.Alerts == "open" {
 		params.OpenAlerts = nid(1)
 	}
+	if in.Origin == "public" {
+		params.ViaPublic = nid(1)
+	}
 	if strings.TrimSpace(in.Q) != "" {
 		fts, ok := database.FTSTrigramQuery(in.Q)
 		if !ok {
@@ -335,7 +342,7 @@ func (s *server) listRegistrations(ctx context.Context, in *ListRegistrationsInp
 			State:  reg.Status, RegisteredAt: parseTime(reg.RegisteredAt), AmountCents: reg.AmountCents,
 			BaseAmountCents: membership.Theoretical(reg.AmountCents, basePtr(reg.BaseAmountCents)),
 			AdjustmentCents: membership.AdjustmentOf(reg.AmountCents, basePtr(reg.BaseAmountCents)),
-			Payment:         p, OpenAlerts: alerts[reg.ID],
+			Payment:         p, OpenAlerts: alerts[reg.ID], ViaPublic: reg.ViaPublic == 1,
 		})
 	}
 	return &AdminRegistrationPageOutput{Body: out}, nil

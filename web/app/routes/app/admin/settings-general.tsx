@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { type Path, useForm } from "react-hook-form";
+import { Controller, type Path, useForm } from "react-hook-form";
 import { useBlocker } from "react-router";
 import { applyProblemToForm, isProblem } from "~/api/problem";
 import { $api } from "~/api/queries";
@@ -14,7 +14,9 @@ import { formatPhone } from "~/lib/format";
 import { Alert } from "~/ui/Alert";
 import { Button } from "~/ui/Button";
 import { ConfirmDialog } from "~/ui/ConfirmDialog";
+import { CopyButton } from "~/ui/CopyButton";
 import { Field, TextAreaField } from "~/ui/Field";
+import { Switch } from "~/ui/Switch";
 import { SettingsPage } from "./SettingsPage";
 
 export const handle = { crumb: "Général" };
@@ -44,6 +46,7 @@ interface GeneralForm {
     mastodon: string;
     bluesky: string;
   };
+  publicMembershipEnabled: boolean;
 }
 
 // Ordre d'affichage : le focus va au premier champ en erreur.
@@ -106,6 +109,7 @@ function toForm(s: GeneralSettings): GeneralForm {
       mastodon: v(s.social.mastodon),
       bluesky: v(s.social.bluesky),
     },
+    publicMembershipEnabled: s.publicMembershipEnabled,
   };
 }
 
@@ -138,10 +142,11 @@ function GeneralView({ settings }: { settings: GeneralSettings }) {
   const update = $api.useMutation("put", "/admin/settings/general");
   const [status, setStatus] = useState("");
   const [invalid, setInvalid] = useState(false);
-  const { register, handleSubmit, setError, setFocus, reset, watch, formState } =
+  const { register, control, handleSubmit, setError, setFocus, reset, watch, formState } =
     useForm<GeneralForm>({ defaultValues: toForm(settings) });
   const { errors, isDirty } = formState;
   const tagline = watch("tagline");
+  const publicEnabled = watch("publicMembershipEnabled");
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -342,6 +347,42 @@ function GeneralView({ settings }: { settings: GeneralSettings }) {
               {...register(`social.${n.key}`)}
             />
           ))}
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5">
+          <legend className="px-1 font-display text-lg font-bold">Adhésions publiques</legend>
+          <p id="adhesions-publiques-aide" className="text-sm text-muted">
+            Une personne sans compte peut demander son adhésion depuis une page publique. Les tarifs
+            de la saison ouverte deviennent visibles de tous.
+          </p>
+          <Controller
+            control={control}
+            name="publicMembershipEnabled"
+            render={({ field }) => (
+              <Switch
+                label="Accepter les demandes d'adhésion publiques"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                describedBy="adhesions-publiques-aide"
+              />
+            )}
+          />
+          {publicEnabled ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <Field
+                label="Adresse de la page d'adhésion"
+                readOnly
+                value={settings.publicMembershipUrl}
+                className="min-w-0 flex-1"
+              />
+              <div className="shrink-0">
+                <CopyButton
+                  value={settings.publicMembershipUrl}
+                  what="l'adresse de la page d'adhésion"
+                />
+              </div>
+            </div>
+          ) : null}
         </fieldset>
 
         <div>

@@ -30,7 +30,7 @@ type EventBody struct {
 	Description          *string `json:"description,omitempty" required:"false" nullable:"true" maxLength:"5000"`
 	StartsAt             string  `json:"startsAt" doc:"Date et heure locales, par exemple « 2026-12-12T14:00 »" maxLength:"16"`
 	EndsAt               string  `json:"endsAt" doc:"Date et heure locales" maxLength:"16"`
-	Openness             string  `json:"openness" enum:"season_members,all_members"`
+	Openness             string  `json:"openness" enum:"season_members,all_members,public" doc:"public : ouvert au public par un lien (016 FR-023)"`
 	Capacity             *int    `json:"capacity,omitempty" required:"false" nullable:"true" doc:"Absente ou null : illimitée"`
 	Price                string  `json:"price,omitempty" required:"false" maxLength:"12" doc:"Prix en euros, par exemple « 15,50 » ; vide : gratuit"`
 	RegistrationOpensAt  *string `json:"registrationOpensAt,omitempty" required:"false" nullable:"true" maxLength:"16" doc:"Absente : dès la publication"`
@@ -83,6 +83,7 @@ type AdminEvent struct {
 	CreatedBy            *AccountRef       `json:"createdBy"`
 	UpdatedBy            *AccountRef       `json:"updatedBy"`
 	RegistrationCount    int64             `json:"registrationCount" doc:"Inscriptions, annulées comprises"`
+	PublicURL            *string           `json:"publicUrl" doc:"Lien public ; null si l'événement n'est pas ouvert au public (016 FR-024)"`
 	Totals               EventTotals       `json:"totals"`
 	Actions              AdminEventActions `json:"actions"`
 }
@@ -133,6 +134,47 @@ func (s *server) registerAdminEvents(api huma.API) {
 	register(api, auth.Admin, op("cancel-event", http.MethodPost, "/admin/events/{id}/cancel", "Annuler un événement", 0), s.cancelEvent)
 	register(api, auth.Admin, op("restore-event", http.MethodPost, "/admin/events/{id}/restore", "Rétablir un événement annulé", 0), s.restoreEvent)
 	register(api, auth.Admin, op("delete-event", http.MethodDelete, "/admin/events/{id}", "Supprimer un événement sans inscription", http.StatusNoContent), s.deleteEvent)
+	register(api, auth.Admin, op("regenerate-event-public-link", http.MethodPost, "/admin/events/{id}/public-link", "Régénérer le lien public d'un événement", 0), s.regenerateEventPublicLink)
+}
+
+// publicEventURL renvoie l'adresse de la page publique d'un événement ouvert
+// au public, ou nil.
+func (s *server) publicEventURL(e sqlc.Event) *string {
+	if !e.PublicSlug.Valid {
+		return nil
+	}
+	u := s.Config.BaseURL + "/e/" + e.PublicSlug.String
+	return &u
+}
+
+// publicSlugFor renvoie le slug à enregistrer pour une ouverture : le slug
+// actuel s'il existe, sinon un nouveau, pour « Ouvert au public » ; NULL
+// sinon (research.md 016 › R5).
+func publicSlugFor(o event.Openness, current sql.NullString) sql.NullString {
+	if _, public := event.StorageOf(o); !public {
+		return sql.NullString{}
+	}
+	if current.Valid {
+		return current
+	}
+	return ns(event.NewPublicSlug())
+}
+
+func (s *server) regenerateEventPublicLink(ctx context.Context, in *EventIDInput) (*AdminEventOutput, error) {
+	err := s.eventWrite(ctx, in.ID, func(q *sqlc.Queries, e sqlc.Event, _ event.State, _ time.Time) error {
+		if !e.PublicSlug.Valid {
+			return huma.Error409Conflict(MsgEventNotPublic)
+		}
+		return changedEvent(q.SetEventPublicSlug(ctx, sqlc.SetEventPublicSlugParams{
+			PublicSlug: ns(event.NewPublicSlug()), ActorID: nid(CurrentAccount(ctx).ID), Now: s.timestamp(), ID: e.ID,
+		}))
+	})
+	if err != nil {
+		return nil, err
+	}
+	// Jamais le slug dans le journal (research.md 016 › R16).
+	s.logEventAction(ctx, "event_public_link_regenerated", in.ID)
+	return s.adminEvent(ctx, s.Store.Read, in.ID)
 }
 
 func (s *server) listEvents(ctx context.Context, in *ListEventsInput) (*EventListOutput, error) {
@@ -205,6 +247,7 @@ func (s *server) adminEvent(ctx context.Context, q *sqlc.Queries, id int64) (*Ad
 		CreatedBy:         accountRef(e.CreatedBy, r.CreatedByEmail),
 		UpdatedBy:         accountRef(e.UpdatedBy, r.UpdatedByEmail),
 		RegistrationCount: r.RegistrationCount,
+		PublicURL:         s.publicEventURL(e),
 		Actions: AdminEventActions{
 			Update:      event.CanUpdate(st),
 			UpdateDates: event.CanUpdateDates(st, now),
@@ -323,10 +366,12 @@ func (s *server) createEvent(ctx context.Context, in *EventBodyInput) (*AdminEve
 		if err != nil {
 			return err
 		}
+		openness, _ := event.StorageOf(ev.Openness)
 		created, err = q.CreateEvent(ctx, sqlc.CreateEventParams{
 			SeasonID: ev.SeasonID, Title: ev.Title, Location: ev.Location, Description: ns(ev.Description),
-			StartsAt: ev.StartsAt.Format(timeFormat), EndsAt: ev.EndsAt.Format(timeFormat), Openness: string(ev.Openness),
-			Capacity: nullCapacity(ev.Capacity), PriceCents: ev.PriceCents,
+			StartsAt: ev.StartsAt.Format(timeFormat), EndsAt: ev.EndsAt.Format(timeFormat), Openness: openness,
+			PublicSlug: publicSlugFor(ev.Openness, sql.NullString{}),
+			Capacity:   nullCapacity(ev.Capacity), PriceCents: ev.PriceCents,
 			RegistrationOpensAt: nullTime(ev.RegistrationOpensAt), RegistrationClosesAt: nullTime(ev.RegistrationClosesAt),
 			ActorID: nid(CurrentAccount(ctx).ID), Now: s.timestamp(),
 		})
@@ -335,7 +380,7 @@ func (s *server) createEvent(ctx context.Context, in *EventBodyInput) (*AdminEve
 	if err != nil {
 		return nil, s.txError(ctx, "création de l'événement impossible", err)
 	}
-	s.logEventAction(ctx, "event.create", created.ID, "season_id", created.SeasonID)
+	s.logEventAction(ctx, "event.create", created.ID, "season_id", created.SeasonID, "openness", string(event.OpennessOf(created.Openness, created.PublicSlug)))
 	return s.adminEvent(ctx, s.Store.Read, created.ID)
 }
 
@@ -364,10 +409,12 @@ func (s *server) updateEvent(ctx context.Context, in *UpdateEventInput) (*AdminE
 		if err := event.CheckCapacityChange(ev.Capacity, int(r.ConfirmedCount)); err != nil {
 			return FieldErrors("body.capacity", capacityBelowMessage(r.ConfirmedCount))
 		}
+		openness, _ := event.StorageOf(ev.Openness)
 		if err := changedEvent(q.UpdateEvent(ctx, sqlc.UpdateEventParams{
 			SeasonID: ev.SeasonID, Title: ev.Title, Location: ev.Location, Description: ns(ev.Description),
-			StartsAt: ev.StartsAt.Format(timeFormat), EndsAt: ev.EndsAt.Format(timeFormat), Openness: string(ev.Openness),
-			Capacity: nullCapacity(ev.Capacity), PriceCents: ev.PriceCents,
+			StartsAt: ev.StartsAt.Format(timeFormat), EndsAt: ev.EndsAt.Format(timeFormat), Openness: openness,
+			PublicSlug: publicSlugFor(ev.Openness, old.PublicSlug),
+			Capacity:   nullCapacity(ev.Capacity), PriceCents: ev.PriceCents,
 			RegistrationOpensAt: nullTime(ev.RegistrationOpensAt), RegistrationClosesAt: nullTime(ev.RegistrationClosesAt),
 			ActorID: nid(CurrentAccount(ctx).ID), Now: s.timestamp(), ID: old.ID,
 		})); err != nil {

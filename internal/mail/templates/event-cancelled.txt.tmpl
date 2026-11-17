@@ -10,4 +10,7 @@ Inscription concernée :
 {{range .Members}}- {{.}}
 {{end}}{{if .Paid}}
 L'inscription était réglée : l'association reviendra vers vous pour le remboursement.
-{{end}}{{end}}
+{{end}}{{if .Link}}
+
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}{{end}}{{end}}

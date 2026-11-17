@@ -115,6 +115,11 @@ func New(mux *http.ServeMux, deps Deps) huma.API {
 	s.registerAppearance(api)
 	s.registerCustomFields(api)
 	s.registerEvents(api)
+	s.registerTracking(api)
+	s.registerTrackingSpace(api)
+	s.registerTrackingPayments(api)
+	s.registerPublic(api)
+	s.registerPublicEvents(api)
 	s.mountDocs(mux, api)
 	return api
 }
@@ -145,6 +150,7 @@ type ctxKey int
 const (
 	accountKey ctxKey = iota
 	clientIPKey
+	trackedEmailKey
 )
 
 // accessMiddleware applique le refus par défaut (principe II) et la fonction
@@ -167,6 +173,12 @@ func (s *server) accessMiddleware(api huma.API) func(huma.Context, func(huma.Con
 		ctx = huma.WithValue(ctx, clientIPKey, auth.ClientIP(r, s.Config.TrustedProxies))
 		if access == auth.Public {
 			next(ctx)
+			return
+		}
+		if access == auth.Link {
+			// Accès par lien personnel : la session de compte n'est jamais
+			// consultée (research.md 016 › R1).
+			s.linkAccess(api, ctx, next)
 			return
 		}
 
@@ -202,6 +214,14 @@ func (s *server) accessMiddleware(api huma.API) func(huma.Context, func(huma.Con
 func CurrentAccount(ctx context.Context) sqlc.Account {
 	a, _ := ctx.Value(accountKey).(sqlc.Account)
 	return a
+}
+
+// trackedEmail renvoie l'adresse du lien personnel ouvert en session
+// (opérations auth.Link). Le périmètre d'un lien se déduit d'elle seule
+// (FR-014).
+func trackedEmail(ctx context.Context) string {
+	email, _ := ctx.Value(trackedEmailKey).(string)
+	return email
 }
 
 func clientIP(ctx context.Context) string {

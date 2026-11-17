@@ -10,6 +10,77 @@ import (
 	"database/sql"
 )
 
+const attachTrackedMembers = `-- name: AttachTrackedMembers :execrows
+
+UPDATE members SET account_id = ?1, is_self = 0, updated_at = ?2
+WHERE account_id IS NULL AND email = ?3 COLLATE NOCASE
+`
+
+type AttachTrackedMembersParams struct {
+	AccountID sql.NullInt64
+	Now       string
+	Email     sql.NullString
+}
+
+// Account created from a personal link (research.md 016 R12): the tracked
+// members of the email are attached to the new account.
+func (q *Queries) AttachTrackedMembers(ctx context.Context, arg AttachTrackedMembersParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, attachTrackedMembers, arg.AccountID, arg.Now, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const copyMemberEmailIfEmpty = `-- name: CopyMemberEmailIfEmpty :exec
+UPDATE members
+SET email = (SELECT s.email FROM members s WHERE s.id = ?1),
+    email_confirmed_at = (SELECT s.email_confirmed_at FROM members s WHERE s.id = ?1),
+    updated_at = ?2
+WHERE members.id = ?3 AND members.email IS NULL
+  AND (SELECT s.email FROM members s WHERE s.id = ?1) IS NOT NULL
+`
+
+type CopyMemberEmailIfEmptyParams struct {
+	SourceID int64
+	Now      string
+	TargetID int64
+}
+
+// Attaching a public request (research.md 016 R13): the confirmed email of
+// the source member is copied to a target member without one.
+func (q *Queries) CopyMemberEmailIfEmpty(ctx context.Context, arg CopyMemberEmailIfEmptyParams) error {
+	_, err := q.db.ExecContext(ctx, copyMemberEmailIfEmpty, arg.SourceID, arg.Now, arg.TargetID)
+	return err
+}
+
+const copyMissingMemberFieldValues = `-- name: CopyMissingMemberFieldValues :execrows
+INSERT INTO member_field_values (
+    member_id, field_id, value_text, value_long, value_number, value_date,
+    value_bool, value_choice_id, updated_at
+)
+SELECT ?1, v.field_id, v.value_text, v.value_long, v.value_number, v.value_date,
+       v.value_bool, v.value_choice_id, ?2
+FROM member_field_values v
+WHERE v.member_id = ?3
+  AND v.field_id NOT IN (SELECT t.field_id FROM member_field_values t WHERE t.member_id = ?1)
+`
+
+type CopyMissingMemberFieldValuesParams struct {
+	TargetID int64
+	Now      string
+	SourceID int64
+}
+
+// Copies the custom field values of the source member that the target lacks.
+func (q *Queries) CopyMissingMemberFieldValues(ctx context.Context, arg CopyMissingMemberFieldValuesParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, copyMissingMemberFieldValues, arg.TargetID, arg.Now, arg.SourceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countMembersOfAccount = `-- name: CountMembersOfAccount :one
 
 SELECT count(*) FROM members WHERE account_id = ?1
@@ -18,6 +89,18 @@ SELECT count(*) FROM members WHERE account_id = ?1
 // Shared queries.
 func (q *Queries) CountMembersOfAccount(ctx context.Context, accountID sql.NullInt64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countMembersOfAccount, accountID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTrackedMembers = `-- name: CountTrackedMembers :one
+SELECT count(*) FROM members
+WHERE account_id IS NULL AND email = ?1 COLLATE NOCASE
+`
+
+func (q *Queries) CountTrackedMembers(ctx context.Context, email sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTrackedMembers, email)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -77,7 +160,7 @@ INSERT INTO members (
     ?5, ?6, ?7, ?8,
     ?9, ?10, ?11, ?12, ?12
 )
-RETURNING id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at
+RETURNING id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at, origin, email_confirmed_at, consented_at
 `
 
 type CreateMemberForAccountParams struct {
@@ -126,8 +209,60 @@ func (q *Queries) CreateMemberForAccount(ctx context.Context, arg CreateMemberFo
 		&i.City,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Origin,
+		&i.EmailConfirmedAt,
+		&i.ConsentedAt,
 	)
 	return i, err
+}
+
+const createPublicMember = `-- name: CreatePublicMember :one
+INSERT INTO members (
+    account_id, is_self, first_name, last_name, birth_date, email, phone,
+    address_line1, address_line2, postal_code, city, origin,
+    email_confirmed_at, consented_at, created_at, updated_at
+) VALUES (
+    ?1, 0, ?2, ?3,
+    ?4, ?5, ?6, ?7,
+    ?8, ?9, ?10, 'public',
+    ?11, ?12, ?11, ?11
+)
+RETURNING id
+`
+
+type CreatePublicMemberParams struct {
+	AccountID    sql.NullInt64
+	FirstName    string
+	LastName     string
+	BirthDate    string
+	Email        sql.NullString
+	Phone        sql.NullString
+	AddressLine1 sql.NullString
+	AddressLine2 sql.NullString
+	PostalCode   sql.NullString
+	City         sql.NullString
+	Now          sql.NullString
+	ConsentedAt  sql.NullString
+}
+
+func (q *Queries) CreatePublicMember(ctx context.Context, arg CreatePublicMemberParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createPublicMember,
+		arg.AccountID,
+		arg.FirstName,
+		arg.LastName,
+		arg.BirthDate,
+		arg.Email,
+		arg.Phone,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.PostalCode,
+		arg.City,
+		arg.Now,
+		arg.ConsentedAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const deleteMember = `-- name: DeleteMember :execrows
@@ -136,6 +271,22 @@ DELETE FROM members WHERE id = ?1
 
 func (q *Queries) DeleteMember(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteMember, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteMemberIfEmpty = `-- name: DeleteMemberIfEmpty :execrows
+DELETE FROM members
+WHERE members.id = ?1
+  AND NOT EXISTS (SELECT 1 FROM memberships ms WHERE ms.member_id = ?1)
+  AND NOT EXISTS (SELECT 1 FROM event_registrations er WHERE er.member_id = ?1)
+`
+
+// Deletes a member left without any membership or event registration.
+func (q *Queries) DeleteMemberIfEmpty(ctx context.Context, memberID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteMemberIfEmpty, memberID)
 	if err != nil {
 		return 0, err
 	}
@@ -189,10 +340,93 @@ func (q *Queries) DetachMembersOfAccount(ctx context.Context, arg DetachMembersO
 	return result.RowsAffected()
 }
 
+const findAccountMemberByIdentity = `-- name: FindAccountMemberByIdentity :many
+SELECT id, first_name, last_name FROM members
+WHERE account_id = ?1 AND birth_date = ?2
+ORDER BY id
+`
+
+type FindAccountMemberByIdentityParams struct {
+	AccountID sql.NullInt64
+	BirthDate string
+}
+
+type FindAccountMemberByIdentityRow struct {
+	ID        int64
+	FirstName string
+	LastName  string
+}
+
+// Candidates for deduplication; names are compared in Go (member.IdentityKey).
+func (q *Queries) FindAccountMemberByIdentity(ctx context.Context, arg FindAccountMemberByIdentityParams) ([]FindAccountMemberByIdentityRow, error) {
+	rows, err := q.db.QueryContext(ctx, findAccountMemberByIdentity, arg.AccountID, arg.BirthDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindAccountMemberByIdentityRow{}
+	for rows.Next() {
+		var i FindAccountMemberByIdentityRow
+		if err := rows.Scan(&i.ID, &i.FirstName, &i.LastName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findTrackedMemberByIdentity = `-- name: FindTrackedMemberByIdentity :many
+SELECT id, first_name, last_name FROM members
+WHERE account_id IS NULL AND email = ?1 COLLATE NOCASE
+  AND birth_date = ?2
+ORDER BY id
+`
+
+type FindTrackedMemberByIdentityParams struct {
+	Email     sql.NullString
+	BirthDate string
+}
+
+type FindTrackedMemberByIdentityRow struct {
+	ID        int64
+	FirstName string
+	LastName  string
+}
+
+// Candidates for deduplication; names are compared in Go (member.IdentityKey).
+func (q *Queries) FindTrackedMemberByIdentity(ctx context.Context, arg FindTrackedMemberByIdentityParams) ([]FindTrackedMemberByIdentityRow, error) {
+	rows, err := q.db.QueryContext(ctx, findTrackedMemberByIdentity, arg.Email, arg.BirthDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindTrackedMemberByIdentityRow{}
+	for rows.Next() {
+		var i FindTrackedMemberByIdentityRow
+		if err := rows.Scan(&i.ID, &i.FirstName, &i.LastName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMember = `-- name: GetMember :one
 SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,
        m.email, m.phone, m.address_line1, m.address_line2, m.postal_code, m.city,
-       m.created_at, m.updated_at,
+       m.created_at, m.updated_at, m.origin, m.email_confirmed_at, m.consented_at,
        a.email AS account_email, a.disabled_at AS account_disabled_at
 FROM members m
 LEFT JOIN accounts a ON a.id = m.account_id
@@ -214,6 +448,9 @@ type GetMemberRow struct {
 	City              sql.NullString
 	CreatedAt         string
 	UpdatedAt         string
+	Origin            string
+	EmailConfirmedAt  sql.NullString
+	ConsentedAt       sql.NullString
 	AccountEmail      sql.NullString
 	AccountDisabledAt sql.NullString
 }
@@ -236,6 +473,9 @@ func (q *Queries) GetMember(ctx context.Context, id int64) (GetMemberRow, error)
 		&i.City,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Origin,
+		&i.EmailConfirmedAt,
+		&i.ConsentedAt,
 		&i.AccountEmail,
 		&i.AccountDisabledAt,
 	)
@@ -243,7 +483,7 @@ func (q *Queries) GetMember(ctx context.Context, id int64) (GetMemberRow, error)
 }
 
 const getMemberOfAccount = `-- name: GetMemberOfAccount :one
-SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at FROM members WHERE id = ?1 AND account_id = ?2
+SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at, origin, email_confirmed_at, consented_at FROM members WHERE id = ?1 AND account_id = ?2
 `
 
 type GetMemberOfAccountParams struct {
@@ -269,8 +509,96 @@ func (q *Queries) GetMemberOfAccount(ctx context.Context, arg GetMemberOfAccount
 		&i.City,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Origin,
+		&i.EmailConfirmedAt,
+		&i.ConsentedAt,
 	)
 	return i, err
+}
+
+const getTrackedMember = `-- name: GetTrackedMember :one
+SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at, origin, email_confirmed_at, consented_at FROM members
+WHERE id = ?1 AND account_id IS NULL AND email = ?2 COLLATE NOCASE
+`
+
+type GetTrackedMemberParams struct {
+	ID    int64
+	Email sql.NullString
+}
+
+func (q *Queries) GetTrackedMember(ctx context.Context, arg GetTrackedMemberParams) (Member, error) {
+	row := q.db.QueryRowContext(ctx, getTrackedMember, arg.ID, arg.Email)
+	var i Member
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.IsSelf,
+		&i.FirstName,
+		&i.LastName,
+		&i.BirthDate,
+		&i.Email,
+		&i.Phone,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.PostalCode,
+		&i.City,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Origin,
+		&i.EmailConfirmedAt,
+		&i.ConsentedAt,
+	)
+	return i, err
+}
+
+const listInactivePublicMembers = `-- name: ListInactivePublicMembers :many
+
+SELECT m.id FROM members m
+WHERE m.origin = 'public' AND m.account_id IS NULL
+  AND m.created_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM memberships ms
+                  WHERE ms.member_id = m.id AND ms.status = 'pending')
+  AND NOT EXISTS (SELECT 1 FROM memberships ms JOIN seasons s ON s.id = ms.season_id
+                  WHERE ms.member_id = m.id AND ms.status = 'validated'
+                    AND s.ends_on >= ?2)
+  AND NOT EXISTS (SELECT 1 FROM event_registrations r JOIN events e ON e.id = r.event_id
+                  WHERE r.member_id = m.id AND r.status = 'confirmed'
+                    AND e.ends_at >= ?1)
+ORDER BY m.id
+`
+
+type ListInactivePublicMembersParams struct {
+	CutoffAt string
+	CutoffOn string
+}
+
+// Inactive public members (research.md 016 R14, FR-041): origin public,
+// no account, created before the cutoff, no pending membership, no validated
+// membership of a season ending on or after the cutoff day, no confirmed
+// registration to an event ending at or after the cutoff instant. cutoff_on
+// is the cutoff day (YYYY-MM-DD), cutoff_at the same day at midnight in
+// Paris, in UTC. Mirrored by public.Inactive.
+func (q *Queries) ListInactivePublicMembers(ctx context.Context, arg ListInactivePublicMembersParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listInactivePublicMembers, arg.CutoffAt, arg.CutoffOn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMemberIDsOfAccount = `-- name: ListMemberIDsOfAccount :many
@@ -344,7 +672,7 @@ const listMembers = `-- name: ListMembers :many
 
 SELECT m.id, m.account_id, m.is_self, m.first_name, m.last_name, m.birth_date,
        m.email, m.phone, m.address_line1, m.address_line2, m.postal_code, m.city,
-       m.created_at, m.updated_at,
+       m.created_at, m.updated_at, m.origin, m.email_confirmed_at, m.consented_at,
        a.email AS account_email, a.disabled_at AS account_disabled_at
 FROM members m
 LEFT JOIN accounts a ON a.id = m.account_id
@@ -356,8 +684,9 @@ WHERE (CAST(?1 AS TEXT) IS NULL
                                   WHERE member_field_values_fts MATCH CAST(?1 AS TEXT))))
   AND (CAST(?2 AS INTEGER) IS NULL OR m.account_id IS NULL)
   AND (CAST(?3 AS INTEGER) IS NULL OR m.account_id = CAST(?3 AS INTEGER))
+  AND (CAST(?4 AS TEXT) IS NULL OR m.origin = CAST(?4 AS TEXT))
   AND NOT EXISTS (
-      SELECT 1 FROM json_each(coalesce(CAST(?4 AS TEXT), '[]')) ff
+      SELECT 1 FROM json_each(coalesce(CAST(?5 AS TEXT), '[]')) ff
       WHERE CASE json_extract(ff.value, '$.op')
           WHEN 'true' THEN NOT EXISTS (SELECT 1 FROM member_field_values fv
               WHERE fv.member_id = m.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
@@ -375,6 +704,7 @@ type ListMembersParams struct {
 	Query        sql.NullString
 	NoAccount    sql.NullInt64
 	AccountID    sql.NullInt64
+	Origin       sql.NullString
 	FieldFilters sql.NullString
 }
 
@@ -393,6 +723,9 @@ type ListMembersRow struct {
 	City              sql.NullString
 	CreatedAt         string
 	UpdatedAt         string
+	Origin            string
+	EmailConfirmedAt  sql.NullString
+	ConsentedAt       sql.NullString
 	AccountEmail      sql.NullString
 	AccountDisabledAt sql.NullString
 }
@@ -406,6 +739,7 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Lis
 		arg.Query,
 		arg.NoAccount,
 		arg.AccountID,
+		arg.Origin,
 		arg.FieldFilters,
 	)
 	if err != nil {
@@ -430,6 +764,9 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]Lis
 			&i.City,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Origin,
+			&i.EmailConfirmedAt,
+			&i.ConsentedAt,
 			&i.AccountEmail,
 			&i.AccountDisabledAt,
 		); err != nil {
@@ -481,7 +818,7 @@ func (q *Queries) ListMembersByBirthDate(ctx context.Context, birthDate string) 
 
 const listMembersOfAccount = `-- name: ListMembersOfAccount :many
 
-SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at FROM members WHERE account_id = ?1
+SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at, origin, email_confirmed_at, consented_at FROM members WHERE account_id = ?1
 `
 
 // Member records (research.md 005). Member-space queries are always scoped by
@@ -510,6 +847,9 @@ func (q *Queries) ListMembersOfAccount(ctx context.Context, accountID sql.NullIn
 			&i.City,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Origin,
+			&i.EmailConfirmedAt,
+			&i.ConsentedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -522,6 +862,84 @@ func (q *Queries) ListMembersOfAccount(ctx context.Context, accountID sql.NullIn
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTrackedMembers = `-- name: ListTrackedMembers :many
+
+SELECT id, account_id, is_self, first_name, last_name, birth_date, email, phone, address_line1, address_line2, postal_code, city, created_at, updated_at, origin, email_confirmed_at, consented_at FROM members
+WHERE account_id IS NULL AND email = ?1 COLLATE NOCASE
+ORDER BY last_name, first_name, id
+`
+
+// Members tracked by a personal link (research.md 016 R1): members without an
+// account whose email matches the link, compared without case (FR-014).
+func (q *Queries) ListTrackedMembers(ctx context.Context, email sql.NullString) ([]Member, error) {
+	rows, err := q.db.QueryContext(ctx, listTrackedMembers, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Member{}
+	for rows.Next() {
+		var i Member
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.IsSelf,
+			&i.FirstName,
+			&i.LastName,
+			&i.BirthDate,
+			&i.Email,
+			&i.Phone,
+			&i.AddressLine1,
+			&i.AddressLine2,
+			&i.PostalCode,
+			&i.City,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Origin,
+			&i.EmailConfirmedAt,
+			&i.ConsentedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resetMemberEmailConfirmation = `-- name: ResetMemberEmailConfirmation :exec
+UPDATE members SET email_confirmed_at = NULL WHERE id = ?1
+`
+
+func (q *Queries) ResetMemberEmailConfirmation(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, resetMemberEmailConfirmation, id)
+	return err
+}
+
+const setSelfMemberOfAccount = `-- name: SetSelfMemberOfAccount :execrows
+UPDATE members SET is_self = 1, updated_at = ?1
+WHERE id = ?2 AND account_id = ?3
+`
+
+type SetSelfMemberOfAccountParams struct {
+	Now       string
+	ID        int64
+	AccountID sql.NullInt64
+}
+
+func (q *Queries) SetSelfMemberOfAccount(ctx context.Context, arg SetSelfMemberOfAccountParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setSelfMemberOfAccount, arg.Now, arg.ID, arg.AccountID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateMember = `-- name: UpdateMember :execrows

@@ -70,6 +70,7 @@ export default defineConfig({
             { text: "Paiement par carte", link: "/usage/card-payment" },
             { text: "Remises et dons", link: "/usage/adjustments" },
             { text: "Événements et inscriptions", link: "/usage/events" },
+            { text: "Parcours publics", link: "/usage/public-journeys" },
             { text: "E-mails groupés", link: "/usage/bulk-email" },
           ],
         },

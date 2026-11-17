@@ -1,0 +1,7 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 12px">Votre adresse est confirmée : l'inscription de {{.Member}} à <strong>{{.Event}}</strong> est enregistrée et sa place est réservée.</p>
+<p style="margin:0 0 12px">Date : {{.When}}<br>Lieu : {{.Location}}</p>
+{{if .Amount}}<p style="margin:0 0 12px">Montant à régler : <strong>{{.Amount}}</strong><br>Référence de paiement : <strong>{{.Reference}}</strong></p>
+<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Payer l'inscription</a></p>{{else}}<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Voir mon inscription</a></p>{{end}}
+<p style="margin:0 0 12px;color:#525a67;font-size:14px">Ce lien personnel est valable 30 jours : ne le transmettez pas. Il permet aussi d'annuler l'inscription. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">{{.Link}}</span></p>
+<p style="margin:0;color:#525a67;font-size:14px">Si ce lien a expiré, vous pourrez en demander un nouveau depuis la page « Recevoir mon lien de suivi ».</p>{{end}}

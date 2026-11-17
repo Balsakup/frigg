@@ -73,6 +73,12 @@ type Data struct {
 	Message          string
 	// Paid : au moins une des inscriptions concernées est payée.
 	Paid bool
+	// Confirmation d'un dépôt public (016, research.md › R7) : état du compte
+	// de l'adresse au moment du dépôt. AccountExists : compte actif qui gère
+	// moins de 20 fiches ; AccountFull : compte actif qui en gère déjà 20.
+	// Compte désactivé ou absent : aucun des deux.
+	AccountExists bool
+	AccountFull   bool
 }
 
 var htmlFuncs = htmltemplate.FuncMap{"paragraphs": Paragraphs}

@@ -32,6 +32,7 @@ export function membershipPageQuery(query: {
   payment?: "due" | "announced" | "paid" | "free";
   paidMethod?: "card" | "cash" | "cheque" | "transfer";
   alerts?: "open";
+  origin?: "public";
   field?: string[];
   member?: number;
   q?: string;

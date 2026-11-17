@@ -1,0 +1,5 @@
+{{define "body"}}<p style="margin:0 0 12px">Bonjour,</p>
+<p style="margin:0 0 20px">Voici votre lien personnel pour suivre vos demandes auprès de {{.Association}}.</p>
+<p style="margin:0 0 20px"><a href="{{.Link}}" style="{{template "button-style"}}">Ouvrir mon suivi</a></p>
+<p style="margin:0 0 12px;color:#525a67;font-size:14px">Ce lien est valable 30 jours. Il donne accès à vos demandes : ne le transmettez pas. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur :<br><span style="word-break:break-all">{{.Link}}</span></p>
+<p style="margin:0;color:#525a67;font-size:14px">Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.</p>{{end}}

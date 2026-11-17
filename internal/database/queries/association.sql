@@ -26,6 +26,7 @@ UPDATE association SET
     youtube_url = sqlc.narg(youtube_url),
     mastodon_url = sqlc.narg(mastodon_url),
     bluesky_url = sqlc.narg(bluesky_url),
+    public_membership_enabled = sqlc.arg(public_membership_enabled),
     updated_at = sqlc.arg(updated_at)
 WHERE id = 1;
 

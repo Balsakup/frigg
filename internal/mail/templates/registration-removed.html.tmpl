@@ -3,4 +3,5 @@
 <ul style="margin:0 0 12px">{{range .Members}}<li>{{.}}</li>{{end}}</ul>
 {{if .Reason}}<p style="margin:0 0 12px">Motif : {{.Reason}}</p>{{end}}
 {{if .Paid}}<p style="margin:0 0 12px">Cette inscription était réglée : le remboursement se fait directement avec l'association.</p>{{end}}
-<p style="margin:0 0 12px">Pour toute question, contactez le bureau de l'association.</p>{{end}}
+<p style="margin:0 0 12px">Pour toute question, contactez le bureau de l'association.</p>
+{{template "tracking-block" .}}{{end}}

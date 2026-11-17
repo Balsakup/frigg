@@ -185,7 +185,7 @@ func (s *server) getAssociationContact(ctx context.Context, _ *struct{}) (*Assoc
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de l'association impossible", err)
 	}
-	g := toGeneralSettings(a)
+	g := s.toGeneralSettings(a)
 	return &AssociationContactOutput{Body: AssociationContact{
 		Address: g.Address, ContactEmail: g.ContactEmail, Phone: g.Phone, Website: g.Website, Social: g.Social,
 	}}, nil

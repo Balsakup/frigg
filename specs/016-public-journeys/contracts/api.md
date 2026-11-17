@@ -24,10 +24,11 @@ Nouveaux tags OpenAPI : `public`, `tracking`.
 ```text
 PublicIdentity = Identity                     // get-identity existant (nom, couleurs, logo)
 
-PublicFee { id: int, label: string, description: string|null,
-            firstAmountCents: int, renewalAmountCents: int|null }   // 004
-PublicSeason { id: int, label: string, fees: PublicFee[] }
-PublicCustomField = CustomFieldDefinition     // champs « Rempli par le membre » actifs,
+PublicSeason { id: int, label: string,
+               fees: MembershipFeeRef[] }     // 006 : id, label, description,
+                                              // amountCents, renewalAmountCents,
+                                              // amounts { first, renewal }, en centimes
+PublicCustomField = FormField                 // champs « Rempli par le membre » actifs (011),
                                               // sans visibilité ni ordre d'administration
 
 PublicMembershipPage {
@@ -45,18 +46,19 @@ PublicEvent {                                 // FR-025, principe II : liste fer
   closedReason: "cancelled" | "finished" | "full" | "not_yet_open" | "closed" | null
 }                                             // ni message d'annulation ni champ personnalisé
 
-IdentityInput {                               // 005 FR-001, FR-002
+SubmissionCommon {                            // PublicSubmissionBody, à plat (005 FR-001, FR-002)
   firstName, lastName, birthDate: "AAAA-MM-JJ",
   email: string,                              // obligatoire
-  phone: string|null, address: { line1, line2|null, postalCode, city }|null
+  phone?, addressLine1?, addressLine2?, postalCode?, city?,   // absents ou vides : aucun
+  consent: true,                              // obligatoire
+  createAccount?: bool,
+  website?: string                            // piège : doit rester vide (R10)
 }
 
-SubmissionCommon = IdentityInput + {
-  customFields: { [fieldKey]: value },        // même forme que 011
-  consent: true,                              // obligatoire
-  createAccount: bool,
-  website: string                             // piège : doit être vide (R10)
-}
+PublicMembershipBody = SubmissionCommon + {
+  seasonId, feeId, declaredKind: "first" | "renewal",
+  customFields?: FieldInput[]                 // une seule liste : champs de membre
+}                                             // et d'adhésion (011), 60 au plus
 
 ConfirmOutcome {
   outcome: "tracking" | "account" | "duplicate" | "closed",
@@ -75,7 +77,8 @@ TrackedItem {                                 // FR-015
   actions: { cancel: bool, pay: bool }
 }
 
-Tracking { email: string, items: TrackedItem[], canCreateAccount: bool }
+Tracking { email: string, members: MemberRef[],   // fiches suivies, par nom puis prénom
+           items: TrackedItem[], canCreateAccount: bool }
 ```
 
 `TrackedMembership` et `TrackedRegistration` reprennent `MyMembership` et
@@ -91,9 +94,9 @@ limiteurs de [R9](../research.md).
 | OperationID | Méthode et chemin | Corps | Réponses |
 | --- | --- | --- | --- |
 | `get-public-membership-page` | `GET /public/membership` | — | `200 PublicMembershipPage` |
-| `submit-public-membership` | `POST /public/membership` | `SubmissionCommon + { seasonId, feeId, declaredKind: "first"\|"renewal" }` | `202` corps neutre ; `409` accueil fermé ; `422` saisie ; `429` |
+| `submit-public-membership` | `POST /public/membership` | `PublicMembershipBody` | `202` corps neutre ; `409` accueil fermé ; `422` saisie ; `429` |
 | `get-public-event` | `GET /public/events/{slug}` | — | `200 PublicEvent` ; `404` uniforme (brouillon, non public, slug inconnu) |
-| `submit-public-registration` | `POST /public/events/{slug}/registrations` | `SubmissionCommon` sans `customFields` (FR-026) | `202` neutre ; `404` ; `409` inscription impossible (raison) ; `422` ; `429` |
+| `submit-public-registration` | `POST /public/events/{slug}/registrations` | `SubmissionCommon`, sans champ personnalisé (FR-026) | `202` neutre ; `404` ; `409` inscription impossible (raison) ; `422` ; `429` |
 | `confirm-public-submission` | `POST /public/submissions/confirm` | `{ token }` | `200 ConfirmOutcome` (ouvre l'accès par lien si `tracking`) ; `410` lien invalide ou expiré ; `429` |
 | `request-tracking-link` | `POST /public/tracking/link-request` | `{ email }` | `202` neutre, toujours ; `422` adresse mal formée ; `429` |
 | `open-tracking-link` | `POST /public/tracking/open` | `{ token }` | `204` (accès en session) ; `410` lien expiré, révoqué ou inconnu ; `429` |
@@ -141,10 +144,10 @@ champ (FR-016).
 | `get-general-settings`, `update-general-settings` | + `publicMembershipEnabled: bool` ; en lecture, + `publicMembershipUrl: string` (FR-004) |
 | `create-event`, `update-event`, `get-event`, `list-events` | `openness` accepte `"public"` ; `AdminEvent` + `publicUrl: string\|null` (FR-023, FR-024) |
 | `get-my-event`, `list-my-events`, `register-my-members` | `openness: "public"` traité comme `"all_members"` (FR-023) |
-| `list-members` | filtres `origin=public` et `inactive=true` ; `AdminMemberSummary` + `origin`, `inactive: bool` |
+| `list-members` | filtres `origin=public` et `inactive=true` ; `AdminMemberSummary` + `origin`, `inactive: bool`. L'écran n'expose qu'un sélecteur « Origine » (`/admin/membres?origine=publique\|inactives`), traduit en `origin=public` ou `origin=public&inactive=true` |
 | `get-member`, `update-member` | `AdminMember` + `origin`, `emailConfirmedAt`, `consentedAt`, `trackedByLink: bool` ; modifier l'adresse remet `emailConfirmedAt` à `null` |
-| `list-memberships`, `get-membership` | filtre `origin=public` ; `AdminMembership` + `viaPublic`, `duplicateCandidates: MemberRef[]` pour une demande publique en attente (FR-037, FR-038) |
-| `list-registrations`, `get-registration` | filtre `origin=public` ; + `viaPublic` |
+| `list-memberships`, `get-membership` | filtre `origin=public` (repris tel quel dans l'adresse de `/admin/adhesions?origin=public`) ; `AdminMembership` + `viaPublic`, `duplicateCandidates: MemberRef[]` pour une demande publique en attente (FR-037, FR-038) |
+| `list-registrations`, `get-registration` | filtre `origin=public` (`/admin/inscriptions?origine=publique` à l'écran) ; + `viaPublic` |
 | `get-membership-dashboard` | + `inactivePublicCount: int` (FR-041) |
 | `start-my-card-payment`, `start-my-registration-card-payment` | inchangées en contrat ; `openCheckout` reçoit le payeur explicitement ([R11](../research.md)) |
 

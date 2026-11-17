@@ -20,4 +20,20 @@ describe("critères des membres", () => {
     expect(hasActiveMemberFilters(f)).toBe(false);
     expect(toApiQuery(f)).toEqual({ page: 1 });
   });
+
+  it("lit et transmet l'origine publique et les fiches inactives (016)", () => {
+    const pub = parseMemberFilters(
+      new URLSearchParams("origine=publique&rattachement=sans-compte"),
+    );
+    expect(pub.origin).toBe("public");
+    expect(hasActiveMemberFilters(pub)).toBe(true);
+    expect(toApiQuery(pub)).toEqual({ account: "none", origin: "public", page: 1 });
+    expect(toMemberSearchParams(pub).toString()).toBe("rattachement=sans-compte&origine=publique");
+
+    const inactive = parseMemberFilters(new URLSearchParams("origine=inactives"));
+    expect(toApiQuery(inactive)).toEqual({ origin: "public", inactive: true, page: 1 });
+    expect(toMemberSearchParams(inactive).toString()).toBe("origine=inactives");
+
+    expect(parseMemberFilters(new URLSearchParams("origine=autre")).origin).toBe("");
+  });
 });

@@ -142,7 +142,10 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
             <h2 id="adhesion" className="font-display text-lg font-bold">
               Adhésion
             </h2>
-            <MembershipBadges status={m.status} amountCents={m.amountCents} payment={m.payment} />
+            <span className="flex flex-wrap items-center gap-2">
+              {m.viaPublic ? <Badge tone="info">Publique</Badge> : null}
+              <MembershipBadges status={m.status} amountCents={m.amountCents} payment={m.payment} />
+            </span>
           </div>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <Info label="Membre">
@@ -189,7 +192,8 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
             <Info label={m.createdBy ? "Créée" : "Demandée"}>
               <span className="font-normal">
                 le {formatDate(m.requestedAt)}
-                {by(m.createdBy ?? m.requestedBy)}
+                {/* Demande publique (016, FR-012) : aucun compte à l'origine. */}
+                {m.viaPublic ? " — Demande publique" : by(m.createdBy ?? m.requestedBy)}
               </span>
             </Info>
             {m.decidedAt && !m.createdBy ? (
@@ -259,6 +263,10 @@ function MembershipView({ membership: m }: { membership: AdminMembership }) {
             </div>
           ) : null}
         </section>
+
+        {m.viaPublic && m.status === "pending" && (m.duplicateCandidates ?? []).length > 0 ? (
+          <DuplicateCandidates membership={m} onDone={done} onError={failed} />
+        ) : null}
 
         <MembershipCustomFields membership={m} onDone={done} onError={failed} />
 
@@ -680,6 +688,79 @@ function MembershipCustomFields({ membership: m, onDone, onError }: ActionProps)
           <CustomFieldValues fields={fields} />
         </div>
       )}
+    </section>
+  );
+}
+
+// Doublon probable d'une demande publique en attente (016, FR-038, FR-039) :
+// les fiches existantes de même identité, et le rattachement de la demande à
+// l'une d'elles, confirmé par un dialogue qui nomme les deux fiches.
+function DuplicateCandidates({ membership: m, onDone, onError }: ActionProps) {
+  const attach = $api.useMutation("post", "/admin/memberships/{id}/attach");
+  const source = `${m.member.firstName} ${m.member.lastName} (${m.member.age} ans)`;
+  return (
+    <section aria-labelledby="doublon" className="rounded-lg border border-warn/40 bg-surface p-5">
+      <h2 id="doublon" className="font-display text-lg font-bold">
+        Doublon probable
+      </h2>
+      <p className="mt-2">
+        {(m.duplicateCandidates ?? []).length > 1
+          ? "Des fiches existantes portent les mêmes prénom, nom et date de naissance."
+          : "Une fiche existante porte les mêmes prénom, nom et date de naissance."}{" "}
+        Rattachez la demande à la bonne fiche avant de la valider.
+      </p>
+      <ul className="mt-3 flex flex-col gap-3">
+        {(m.duplicateCandidates ?? []).map((c) => {
+          const target = `${c.firstName} ${c.lastName} (${c.age} ans, fiche n° ${c.id})`;
+          return (
+            <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+              <Link
+                to={`/admin/membres/${c.id}`}
+                className="font-bold text-brand-ink underline underline-offset-2"
+              >
+                {c.firstName} {c.lastName}
+                <span className="font-normal text-muted">
+                  {" "}
+                  ({c.age} ans, fiche n° {c.id})
+                </span>
+              </Link>
+              <ConfirmDialog
+                title="Rattacher la demande à cette fiche ?"
+                confirmLabel="Rattacher"
+                tone="primary"
+                onConfirm={async () => {
+                  try {
+                    await attach.mutateAsync({
+                      params: { path: { id: m.id } },
+                      body: { memberId: c.id },
+                    });
+                  } catch (e) {
+                    await onError(e);
+                    return;
+                  }
+                  await onDone("Demande rattachée à la fiche existante.");
+                }}
+                trigger={
+                  <Button variant="secondary" size="sm">
+                    Rattacher à cette fiche
+                    <span className="sr-only">
+                      {" "}
+                      {c.firstName} {c.lastName}, fiche n° {c.id}
+                    </span>
+                  </Button>
+                }
+              >
+                <p>
+                  La demande de la fiche publique {source} sera portée par la fiche existante{" "}
+                  {target}. L'adresse confirmée et les informations complémentaires manquantes y
+                  seront reportées, puis la fiche publique sera supprimée si elle ne porte plus
+                  rien.
+                </p>
+              </ConfirmDialog>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

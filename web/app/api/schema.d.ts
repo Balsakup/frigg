@@ -368,6 +368,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/events/{id}/public-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Régénérer le lien public d'un événement */
+        post: operations["regenerate-event-public-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/events/{id}/publish": {
         parameters: {
             query?: never;
@@ -592,6 +609,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/members/inactive/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Supprimer des fiches publiques inactives
+         * @description Chaque fiche est revérifiée : une fiche redevenue active ou disparue est ignorée et comptée dans skipped (016 FR-041).
+         */
+        post: operations["delete-inactive-members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/members/{id}": {
         parameters: {
             query?: never;
@@ -606,6 +643,26 @@ export interface paths {
         post?: never;
         /** Supprimer un membre */
         delete: operations["delete-member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/members/{id}/tracking-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envoyer un lien personnel de suivi
+         * @description Fiche sans compte avec une adresse seulement (016 FR-040).
+         */
+        post: operations["send-tracking-link"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -675,6 +732,23 @@ export interface paths {
         /** Corriger une adhésion validée */
         put: operations["update-membership"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/memberships/{id}/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rattacher une demande publique à une fiche existante */
+        post: operations["attach-membership-to-member"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1731,6 +1805,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/events/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page publique d'un événement
+         * @description Informations propres à l'événement, sans inscrit. La réponse 404 est identique pour un lien inconnu, régénéré, un brouillon ou un événement non public.
+         */
+        get: operations["get-public-event"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/events/{slug}/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Déposer une inscription publique à un événement
+         * @description La réponse est identique quelle que soit l'adresse. Aucune place n'est réservée avant la confirmation de l'adresse.
+         */
+        post: operations["submit-public-registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page d'adhésion publique
+         * @description Saisons ouvertes et leurs tarifs, champs personnalisés remplis par le membre, ou fermeture.
+         */
+        get: operations["get-public-membership-page"];
+        put?: never;
+        /**
+         * Déposer une demande d'adhésion publique
+         * @description La réponse est identique quelle que soit l'adresse. Un e-mail de confirmation est envoyé à l'adresse saisie.
+         */
+        post: operations["submit-public-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/submissions/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirmer l'adresse d'un dépôt public
+         * @description Le jeton passe dans le corps, jamais dans l'URL. Ouvre l'accès par lien si la fiche reste sans compte.
+         */
+        post: operations["confirm-public-submission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/tracking/link-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recevoir un lien personnel de suivi
+         * @description La réponse est identique quelle que soit l'adresse. Un e-mail n'est envoyé qu'à une adresse de fiche suivie par lien.
+         */
+        post: operations["request-tracking-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/tracking/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvrir un lien personnel de suivi
+         * @description Le jeton passe dans le corps, jamais dans l'URL. Ouvre l'accès par lien dans la session.
+         */
+        post: operations["open-tracking-link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session": {
         parameters: {
             query?: never;
@@ -1744,6 +1942,233 @@ export interface paths {
          */
         get: operations["get-session"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Espace de suivi par lien personnel */
+        get: operations["get-tracking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Créer un compte depuis le suivi par lien
+         * @description Rattache les fiches suivies, révoque les liens de l'adresse et ouvre une session de compte (016 FR-031, FR-032).
+         */
+        post: operations["create-tracking-account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fermer l'accès par lien personnel
+         * @description Retire seulement l'accès par lien : une session de compte reste ouverte.
+         */
+        post: operations["close-tracking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/memberships/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une adhésion suivie par lien personnel */
+        get: operations["get-tracking-membership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/memberships/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler une demande d'adhésion en attente */
+        post: operations["cancel-tracking-membership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/memberships/{id}/card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lancer le paiement par carte d'une adhésion suivie (HelloAsso) */
+        post: operations["start-tracking-membership-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/memberships/{id}/card-payment/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier un paiement par carte au retour de HelloAsso */
+        post: operations["confirm-tracking-membership-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/memberships/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choisir le moyen de paiement d'une adhésion suivie */
+        put: operations["announce-tracking-membership-payment"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/registrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Une inscription suivie par lien personnel */
+        get: operations["get-tracking-registration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/registrations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Annuler une inscription suivie (012 FR-013) */
+        post: operations["cancel-tracking-registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/registrations/{id}/card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lancer le paiement par carte d'une inscription suivie (HelloAsso) */
+        post: operations["start-tracking-registration-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/registrations/{id}/card-payment/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier le paiement par carte d'une inscription au retour de HelloAsso */
+        post: operations["confirm-tracking-registration-card-payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tracking/registrations/{id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choisir le moyen de paiement d'une inscription suivie */
+        put: operations["announce-tracking-registration-payment"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1873,8 +2298,11 @@ export interface components {
             /** @description Valeurs locales pour le formulaire */
             local: components["schemas"]["EventLocal"];
             location: string;
-            /** @enum {string} */
-            openness: "season_members" | "all_members";
+            /**
+             * @description public : ouvert au public par lien (016) ; pour un compte, comme all_members
+             * @enum {string}
+             */
+            openness: "season_members" | "all_members" | "public";
             /**
              * @description « Terminé » est calculé
              * @enum {string}
@@ -1890,6 +2318,8 @@ export interface components {
              * @description 0 : gratuit
              */
             priceCents: number;
+            /** @description Lien public ; null si l'événement n'est pas ouvert au public (016 FR-024) */
+            publicUrl: string | null;
             /** Format: date-time */
             publishedAt: string | null;
             /**
@@ -1940,19 +2370,36 @@ export interface components {
             age: number;
             /** Format: date */
             birthDate: string;
+            /**
+             * Format: date-time
+             * @description Consentement au traitement des données donné par un parcours public
+             */
+            consentedAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** @description Champs personnalisés de membre lisibles dans cet espace, dans l'ordre d'affichage */
             customFields?: components["schemas"]["FieldValue"][] | null;
             email: string | null;
+            /**
+             * Format: date-time
+             * @description Adresse confirmée par la personne ; null après une modification de l'adresse
+             */
+            emailConfirmedAt: string | null;
             firstName: string;
             /** Format: int64 */
             id: number;
+            /** @description Fiche publique inactive, proposée à la suppression (016 FR-041) */
+            inactive: boolean;
             /** @description Fiche du titulaire du compte (« Vous ») */
             isSelf: boolean;
             lastName: string;
             /** @description Adhésions de la fiche, la saison la plus récente d'abord */
             memberships?: components["schemas"]["MemberMembership"][] | null;
+            /**
+             * @description public : créée par un parcours public
+             * @enum {string}
+             */
+            origin: "internal" | "public";
             /**
              * Format: int64
              * @description Inscriptions payées à des événements à venir
@@ -1960,6 +2407,8 @@ export interface components {
             paidUpcomingRegistrations?: number;
             /** @description Normalisé : 0612345678 ou +32470123456 */
             phone: string | null;
+            /** @description Sans compte et avec une adresse : notifications et suivi par lien personnel (016 FR-040) */
+            trackedByLink: boolean;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -2064,6 +2513,8 @@ export interface components {
              * @enum {string|null}
              */
             declaredKind: "first" | "renewal" | null;
+            /** @description Demande publique en attente : autres fiches de mêmes prénom, nom et date de naissance */
+            duplicateCandidates: components["schemas"]["MemberRef"][] | null;
             /** @description Tarif actuel */
             fee: components["schemas"]["MembershipFeeRef"];
             /** Format: int64 */
@@ -2095,6 +2546,8 @@ export interface components {
             seasonFees: components["schemas"]["MembershipFeeRef"][] | null;
             /** @enum {string} */
             status: "pending" | "validated" | "refused" | "cancelled";
+            /** @description Demande publique : auteur « Demande publique », sans compte demandeur */
+            viaPublic: boolean;
         };
         AdminMembershipActions: {
             cancel: boolean;
@@ -2160,6 +2613,8 @@ export interface components {
             season: components["schemas"]["SeasonRef"];
             /** @enum {string} */
             status: "pending" | "validated" | "refused" | "cancelled";
+            /** @description Demande publique (016) */
+            viaPublic: boolean;
         };
         AdminRegistration: {
             actions: components["schemas"]["AdminRegistrationActions"];
@@ -2211,6 +2666,8 @@ export interface components {
             registeredBy: components["schemas"]["AccountRef"];
             /** @enum {string} */
             state: "confirmed" | "cancelled";
+            /** @description Inscription publique (016) : auteur « Inscription publique », sans compte */
+            viaPublic: boolean;
         };
         AdminRegistrationActions: {
             adjustAmount: boolean;
@@ -2254,6 +2711,8 @@ export interface components {
             registeredAt: string;
             /** @enum {string} */
             state: "confirmed" | "cancelled";
+            /** @description Inscription publique (016) */
+            viaPublic: boolean;
         };
         AnnounceBody: {
             /**
@@ -2282,6 +2741,13 @@ export interface components {
             phone: string | null;
             social: components["schemas"]["SocialLinks"];
             website: string | null;
+        };
+        AttachBody: {
+            /**
+             * Format: int64
+             * @description Fiche existante qui reçoit la demande
+             */
+            memberId: number;
         };
         Attachment: {
             contentType: string;
@@ -2450,8 +2916,31 @@ export interface components {
              */
             outcome: "return" | "error" | "back";
         };
+        ConfirmOutcome: {
+            /** @description tracking : la personne a demandé à créer un compte */
+            createAccount: boolean;
+            /** @enum {string} */
+            kind: "membership" | "registration";
+            /**
+             * @description tracking : suivi par lien ; account : rattachée au compte de l'adresse ; duplicate : demande déjà enregistrée ; closed : demande impossible
+             * @enum {string}
+             */
+            outcome: "tracking" | "account" | "duplicate" | "closed";
+            /** @description closed : raison à afficher */
+            reason: string | null;
+        };
         ConfirmRegistrationCard: {
             registration: components["schemas"]["MyRegistration"];
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
+        ConfirmTrackedCardPayment: {
+            membership: components["schemas"]["TrackedMembership"];
+            /** @enum {string} */
+            status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
+        };
+        ConfirmTrackedRegistrationCard: {
+            registration: components["schemas"]["TrackedRegistration"];
             /** @enum {string} */
             status: "pending" | "succeeded" | "failed" | "abandoned" | "expired" | "refunded";
         };
@@ -2478,6 +2967,15 @@ export interface components {
              */
             role: "member" | "admin";
         };
+        CreateTrackingAccountInputBody: {
+            /** @description Au moins 8 caractères, dont une majuscule et un chiffre */
+            password: string;
+            /**
+             * Format: int64
+             * @description Fiche « Vous » parmi les fiches suivies ; null : aucune. Ignoré avec une seule fiche, marquée d'office
+             */
+            selfMemberId?: number | null;
+        };
         CustomFieldList: {
             member: components["schemas"]["FieldDefinition"][] | null;
             membership: components["schemas"]["FieldDefinition"][] | null;
@@ -2494,6 +2992,22 @@ export interface components {
             feeId: number;
             /** @enum {string} */
             kind: "first" | "renewal";
+        };
+        DeleteInactiveMembersInputBody: {
+            /** @description Fiches publiques inactives à supprimer */
+            ids: number[] | null;
+        };
+        DeleteInactiveMembersResult: {
+            /**
+             * Format: int64
+             * @description Fiches supprimées
+             */
+            deleted: number;
+            /**
+             * Format: int64
+             * @description Fiches ignorées : redevenues actives, déjà supprimées ou inconnues
+             */
+            skipped: number;
         };
         Delivery: {
             /** Format: int64 */
@@ -2576,8 +3090,11 @@ export interface components {
             /** @description Date et heure locales */
             endsAt: string;
             location: string;
-            /** @enum {string} */
-            openness: "season_members" | "all_members";
+            /**
+             * @description public : ouvert au public par un lien (016 FR-023)
+             * @enum {string}
+             */
+            openness: "season_members" | "all_members" | "public";
             /** @description Prix en euros, par exemple « 15,50 » ; vide : gratuit */
             price?: string;
             /** @description Absente : au début de l'événement */
@@ -2620,8 +3137,11 @@ export interface components {
             /** Format: int64 */
             id: number;
             location: string;
-            /** @enum {string} */
-            openness: "season_members" | "all_members";
+            /**
+             * @description public : ouvert au public par lien (016) ; pour un compte, comme all_members
+             * @enum {string}
+             */
+            openness: "season_members" | "all_members" | "public";
             /**
              * @description « Terminé » est calculé
              * @enum {string}
@@ -2797,6 +3317,10 @@ export interface components {
             name: string;
             /** @description Forme nationale à 10 chiffres */
             phone: string | null;
+            /** @description Accepter les demandes d'adhésion publiques */
+            publicMembershipEnabled: boolean;
+            /** @description Adresse de la page d'adhésion publique */
+            publicMembershipUrl: string;
             purpose: string | null;
             rna: string | null;
             shortName: string | null;
@@ -2812,6 +3336,8 @@ export interface components {
             foundedOn?: string | null;
             name: string;
             phone?: string | null;
+            /** @description Accepter les demandes d'adhésion publiques ; absent : inchangé */
+            publicMembershipEnabled?: boolean;
             purpose?: string | null;
             rna?: string | null;
             shortName?: string | null;
@@ -3065,6 +3591,11 @@ export interface components {
             helloassoFailing: boolean;
             /**
              * Format: int64
+             * @description Fiches publiques inactives à supprimer (016 FR-041)
+             */
+            inactivePublicCount: number;
+            /**
+             * Format: int64
              * @description Signalements de paiement des adhésions à traiter
              */
             paymentAlerts: number;
@@ -3234,8 +3765,11 @@ export interface components {
             location: string;
             /** @description Fiches gérées par le compte, par prénom */
             members: components["schemas"]["MyEventMember"][] | null;
-            /** @enum {string} */
-            openness: "season_members" | "all_members";
+            /**
+             * @description public : ouvert au public par lien (016) ; pour un compte, comme all_members
+             * @enum {string}
+             */
+            openness: "season_members" | "all_members" | "public";
             /**
              * @description « Terminé » est calculé
              * @enum {string}
@@ -3597,6 +4131,110 @@ export interface components {
             seasonId: number;
             subject: string;
         };
+        PublicEvent: {
+            /**
+             * @description Raison de l'absence de formulaire ; null si l'inscription est possible
+             * @enum {string|null}
+             */
+            closedReason: "cancelled" | "finished" | "full" | "not_yet_open" | "closed" | null;
+            description: string | null;
+            /** Format: date-time */
+            endsAt: string;
+            location: string;
+            /**
+             * Format: int64
+             * @description null : capacité illimitée
+             */
+            placesLeft: number | null;
+            /**
+             * Format: int64
+             * @description 0 : gratuit
+             */
+            priceCents: number;
+            /**
+             * Format: date-time
+             * @description Clôture des inscriptions : date saisie, sinon début
+             */
+            registrationClosesAt: string;
+            /** @description Le formulaire d'inscription est proposé */
+            registrationOpen: boolean;
+            /**
+             * Format: date-time
+             * @description Ouverture des inscriptions : date saisie, sinon publication
+             */
+            registrationOpensAt: string;
+            /** Format: date-time */
+            startsAt: string;
+            title: string;
+        };
+        PublicMembershipBody: {
+            addressLine1?: string;
+            addressLine2?: string;
+            /** Format: date */
+            birthDate: string;
+            city?: string;
+            /** @description Consentement au traitement des données (obligatoire) */
+            consent: boolean;
+            /** @description Proposer la création d'un compte après confirmation */
+            createAccount?: boolean;
+            /** @description Champs personnalisés de membre et d'adhésion */
+            customFields?: components["schemas"]["FieldInput"][] | null;
+            /** @description first ou renewal */
+            declaredKind: string;
+            /** @description Obligatoire */
+            email: string;
+            /** Format: int64 */
+            feeId: number;
+            firstName: string;
+            lastName: string;
+            /** @description Absent ou vide : aucun */
+            phone?: string;
+            postalCode?: string;
+            /** Format: int64 */
+            seasonId: number;
+            /** @description Piège à robots : doit rester vide */
+            website?: string;
+        };
+        PublicMembershipPage: {
+            /** @description Champs de membre « Rempli par le membre » actifs */
+            memberFields: components["schemas"]["FormField"][] | null;
+            /** @description Champs d'adhésion « Rempli par le membre » actifs */
+            membershipFields: components["schemas"]["FormField"][] | null;
+            /** @description Accueil activé et au moins une saison ouverte avec un tarif */
+            open: boolean;
+            /** @description Vide si l'accueil est fermé ; la plus récente d'abord */
+            seasons: components["schemas"]["PublicSeason"][] | null;
+        };
+        PublicMessage: {
+            message: string;
+        };
+        PublicSeason: {
+            /** @description Du montant le plus élevé au plus faible */
+            fees: components["schemas"]["MembershipFeeRef"][] | null;
+            /** Format: int64 */
+            id: number;
+            label: string;
+        };
+        PublicSubmissionBody: {
+            addressLine1?: string;
+            addressLine2?: string;
+            /** Format: date */
+            birthDate: string;
+            city?: string;
+            /** @description Consentement au traitement des données (obligatoire) */
+            consent: boolean;
+            /** @description Proposer la création d'un compte après confirmation */
+            createAccount?: boolean;
+            /** @description Obligatoire */
+            email: string;
+            firstName: string;
+            lastName: string;
+            /** @description Absent ou vide : aucun */
+            phone?: string;
+            postalCode?: string;
+            /** @description Piège à robots : doit rester vide */
+            website?: string;
+        };
         ReasonBody: {
             reason: string;
         };
@@ -3777,6 +4415,112 @@ export interface components {
         TokenInputBody: {
             /** @description Jeton reçu par e-mail */
             token: string;
+        };
+        TrackedActions: {
+            /** @description Annuler la demande ou l'inscription */
+            cancel: boolean;
+            /** @description Un moyen de paiement est proposé */
+            pay: boolean;
+        };
+        TrackedItem: {
+            actions: components["schemas"]["TrackedActions"];
+            /**
+             * Format: int64
+             * @description Montant à payer ; null si rien n'est à payer
+             */
+            amountCents: number | null;
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "membership" | "registration";
+            /** @description « Adhésion 2026-2027 — Adulte » ou titre de l'événement */
+            label: string;
+            member: components["schemas"]["MemberRef"];
+            /** @enum {string|null} */
+            paymentStatus: "due" | "announced" | "paid" | null;
+            /** @description Motif d'un refus ou d'une annulation */
+            reason: string | null;
+            reference: string | null;
+            /**
+             * @description États de 006 (adhésion) ou de 012 (inscription)
+             * @enum {string}
+             */
+            status: "pending" | "validated" | "refused" | "cancelled" | "confirmed";
+        };
+        TrackedMembership: {
+            actions: components["schemas"]["MyMembershipActions"];
+            /**
+             * Format: int64
+             * @description Montant appliqué s'il est figé, sinon montant du tarif actuel pour le type déclaré
+             */
+            amountCents: number;
+            /** @description Le montant a été figé à la validation */
+            amountFixed: boolean;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** @description Dernière tentative de paiement par carte */
+            cardPayment: components["schemas"]["CardPaymentState"];
+            /** Format: date-time */
+            decidedAt: string | null;
+            /**
+             * @description Type déclaré par le compte ; null si créée par un administrateur
+             * @enum {string|null}
+             */
+            declaredKind: "first" | "renewal" | null;
+            /** @description Tarif actuel */
+            fee: components["schemas"]["MembershipFeeRef"];
+            /** Format: int64 */
+            id: number;
+            /**
+             * @description Type retenu à la validation
+             * @enum {string|null}
+             */
+            kind: "first" | "renewal" | null;
+            member: components["schemas"]["MemberRef"];
+            /** @description null : adhésion non validée ou gratuite */
+            payment: components["schemas"]["Payment"];
+            /** @description Moyens activés ; vide s'il n'y a rien à payer ; la carte en premier */
+            paymentMethods: components["schemas"]["PaymentMethodInfo"][] | null;
+            /** @description Motif d'un refus ou d'une annulation */
+            reason: string | null;
+            /** Format: date-time */
+            requestedAt: string;
+            season: components["schemas"]["SeasonRef"];
+            /** @enum {string} */
+            status: "pending" | "validated" | "refused" | "cancelled";
+        };
+        TrackedRegistration: {
+            actions: components["schemas"]["MyRegistrationActions"];
+            /**
+             * Format: int64
+             * @description Prix figé à l'inscription ; 0 : gratuite
+             */
+            amountCents: number;
+            /** Format: date-time */
+            cancelledAt: string | null;
+            /** @description Dernière tentative de paiement par carte */
+            cardPayment: components["schemas"]["CardPaymentState"];
+            event: components["schemas"]["EventSummary"];
+            /** Format: int64 */
+            id: number;
+            member: components["schemas"]["MemberRef"];
+            /** @description null : inscription gratuite */
+            payment: components["schemas"]["Payment"];
+            /** @description Moyens activés ; vide s'il n'y a rien à payer ou dans la liste */
+            paymentMethods: components["schemas"]["PaymentMethodInfo"][] | null;
+            /** Format: date-time */
+            registeredAt: string;
+            /** @enum {string} */
+            state: "confirmed" | "cancelled";
+        };
+        Tracking: {
+            /** @description Aucun compte pour l'adresse et au plus 20 fiches suivies */
+            canCreateAccount: boolean;
+            email: string;
+            /** @description Par fiche, adhésions puis inscriptions */
+            items: components["schemas"]["TrackedItem"][] | null;
+            /** @description Fiches suivies, par nom puis prénom */
+            members: components["schemas"]["MemberRef"][] | null;
         };
         TransferSettings: {
             bic: string | null;
@@ -4758,6 +5502,38 @@ export interface operations {
             };
         };
     };
+    "regenerate-event-public-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'événement */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "publish-event": {
         parameters: {
             query?: never;
@@ -5057,6 +5833,10 @@ export interface operations {
                 field?: string[] | null;
                 /** @description none : fiches sans compte ; identifiant : fiches de ce compte */
                 account?: string;
+                /** @description public : fiches créées par un parcours public (016 FR-037) */
+                origin?: "public";
+                /** @description Vrai : fiches publiques inactives seulement (016 FR-041) */
+                inactive?: boolean;
                 /** @description Numéro de page */
                 page?: number;
                 /** @description Nombre de fiches par page */
@@ -5306,6 +6086,39 @@ export interface operations {
             };
         };
     };
+    "delete-inactive-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteInactiveMembersInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteInactiveMembersResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-member": {
         parameters: {
             query?: never;
@@ -5404,6 +6217,36 @@ export interface operations {
             };
         };
     };
+    "send-tracking-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-memberships": {
         parameters: {
             query?: {
@@ -5418,6 +6261,8 @@ export interface operations {
                 paidMethod?: "card" | "cash" | "cheque" | "transfer";
                 /** @description open : adhésions portant un signalement de paiement à traiter */
                 alerts?: "open";
+                /** @description public : demandes publiques (016) */
+                origin?: "public";
                 /** @description Filtre par champ personnalisé d'adhésion oui/non ou liste de choix : <champ>:true, <champ>:false, <champ>:empty ou <champ>:c<choix> ; répétable */
                 field?: string[] | null;
                 page?: number;
@@ -5587,6 +6432,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "attach-membership-to-member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachBody"];
             };
         };
         responses: {
@@ -5927,6 +6808,8 @@ export interface operations {
                 payment?: "due" | "announced" | "paid" | "free";
                 /** @description open : inscriptions portant un signalement de paiement à traiter */
                 alerts?: "open";
+                /** @description public : inscriptions publiques (016) */
+                origin?: "public";
                 /** @description Fragments d'au moins 3 caractères cherchés dans le nom, le prénom ou la référence */
                 q?: string;
                 page?: number;
@@ -8047,6 +8930,233 @@ export interface operations {
             };
         };
     };
+    "get-public-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Lien public de l'événement */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEvent"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "submit-public-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Lien public de l'événement */
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicSubmissionBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMessage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-public-membership-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMembershipPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "submit-public-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicMembershipBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMessage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-public-submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmOutcome"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "request-tracking-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMessage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "open-tracking-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-session": {
         parameters: {
             query?: never;
@@ -8063,6 +9173,431 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tracking"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-tracking-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTrackingAccountInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "close-tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-tracking-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-tracking-membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "start-tracking-membership-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-tracking-membership-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmCardPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmTrackedCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "announce-tracking-membership-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'adhésion */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnounceBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedMembership"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-tracking-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-tracking-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedRegistration"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "start-tracking-registration-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartCardPayment"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-tracking-registration-card-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmCardPaymentBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmTrackedRegistrationCard"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "announce-tracking-registration-payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'inscription */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnounceBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackedRegistration"];
                 };
             };
             /** @description Error */

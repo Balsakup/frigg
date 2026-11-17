@@ -45,6 +45,7 @@ const (
 	MsgRegistrationsClosed    = "Les inscriptions sont closes."
 	MsgRegistrationPaid       = "Cette inscription est réglée : contactez l'association pour l'annuler."
 	MsgNotPayableRegistration = "Cette inscription n'est pas à payer."
+	MsgEventNotPublic         = "Cet événement n'est pas ouvert au public."
 )
 
 // EventWindow est la période d'inscription effective de l'espace membre.
@@ -63,7 +64,7 @@ type EventSummary struct {
 	Season           SeasonRef    `json:"season"`
 	Status           string       `json:"status" enum:"draft,published,cancelled"`
 	Phase            string       `json:"phase" enum:"draft,upcoming,finished,cancelled" doc:"« Terminé » est calculé"`
-	Openness         string       `json:"openness" enum:"season_members,all_members"`
+	Openness         string       `json:"openness" enum:"season_members,all_members,public" doc:"public : ouvert au public par lien (016) ; pour un compte, comme all_members"`
 	Capacity         *int64       `json:"capacity" doc:"null : illimitée"`
 	PriceCents       int64        `json:"priceCents" doc:"0 : gratuit"`
 	ConfirmedCount   int64        `json:"confirmedCount"`
@@ -111,7 +112,7 @@ func eventSummary(e sqlc.Event, confirmed int64, seasons map[int64]seasonInfo, n
 		ID: e.ID, Title: e.Title, Location: e.Location,
 		StartsAt: st.StartsAt, EndsAt: st.EndsAt,
 		Season: seasons[e.SeasonID].ref, Status: e.Status, Phase: string(event.PhaseOf(st, now)),
-		Openness: e.Openness, Capacity: optionalInt(e.Capacity), PriceCents: e.PriceCents,
+		Openness: string(event.OpennessOf(e.Openness, e.PublicSlug)), Capacity: optionalInt(e.Capacity), PriceCents: e.PriceCents,
 		ConfirmedCount:   confirmed,
 		RegistrationOpen: event.CanRegister(st, now),
 	}

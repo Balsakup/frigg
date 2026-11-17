@@ -4,12 +4,13 @@
 -- name: CreateEvent :one
 INSERT INTO events (
     season_id, title, location, description, starts_at, ends_at, openness, capacity, price_cents,
-    registration_opens_at, registration_closes_at, status, created_by, updated_by, created_at, updated_at
+    registration_opens_at, registration_closes_at, status, created_by, updated_by, created_at, updated_at,
+    public_slug
 ) VALUES (
     sqlc.arg(season_id), sqlc.arg(title), sqlc.arg(location), sqlc.narg(description), sqlc.arg(starts_at),
     sqlc.arg(ends_at), sqlc.arg(openness), sqlc.narg(capacity), sqlc.arg(price_cents),
     sqlc.narg(registration_opens_at), sqlc.narg(registration_closes_at), 'draft', sqlc.narg(actor_id),
-    sqlc.narg(actor_id), sqlc.arg(now), sqlc.arg(now)
+    sqlc.narg(actor_id), sqlc.arg(now), sqlc.arg(now), sqlc.narg(public_slug)
 )
 RETURNING *;
 
@@ -19,9 +20,22 @@ SET season_id = sqlc.arg(season_id), title = sqlc.arg(title), location = sqlc.ar
     description = sqlc.narg(description), starts_at = sqlc.arg(starts_at), ends_at = sqlc.arg(ends_at),
     openness = sqlc.arg(openness), capacity = sqlc.narg(capacity), price_cents = sqlc.arg(price_cents),
     registration_opens_at = sqlc.narg(registration_opens_at),
-    registration_closes_at = sqlc.narg(registration_closes_at),
+    registration_closes_at = sqlc.narg(registration_closes_at), public_slug = sqlc.narg(public_slug),
     updated_by = sqlc.narg(actor_id), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status <> 'cancelled';
+
+-- Public link (research.md 016 R5): the slug is stored in clear text so that
+-- administrators can display it again; regenerating replaces it.
+
+-- name: SetEventPublicSlug :execrows
+UPDATE events SET public_slug = sqlc.arg(public_slug), updated_by = sqlc.narg(actor_id), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND public_slug IS NOT NULL;
+
+-- name: GetEventByPublicSlug :one
+SELECT sqlc.embed(e),
+       (SELECT count(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') AS confirmed_count
+FROM events e
+WHERE e.public_slug = sqlc.arg(public_slug);
 
 -- name: GetEvent :one
 SELECT sqlc.embed(e),

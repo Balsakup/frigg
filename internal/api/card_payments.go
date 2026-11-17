@@ -150,6 +150,28 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de l'adhésion impossible", err)
 	}
+	return s.startMembershipCard(ctx, q, r.Membership, r.MembershipFee.Label, cardOrigin{
+		account: account, returnPath: "/adhesions/%d",
+		payer:    func() (helloasso.Payer, error) { return s.accountPayer(ctx, q) },
+		logAttrs: []any{"actor_id", account.Int64},
+	})
+}
+
+// cardOrigin décrit qui lance un paiement par carte : le compte de l'espace
+// membre, ou un lien personnel (016 › R11). Seuls la tentative, le payeur et
+// l'adresse de retour en dépendent.
+type cardOrigin struct {
+	account sql.NullInt64
+	viaLink bool
+	// returnPath est le chemin du SPA de la cible, avec %d pour son identifiant.
+	returnPath string
+	payer      func() (helloasso.Payer, error)
+	logAttrs   []any
+}
+
+// startMembershipCard lance ou reprend le paiement par carte d'une adhésion
+// déjà relue dans le périmètre de l'appelant (compte ou lien personnel).
+func (s *server) startMembershipCard(ctx context.Context, q *sqlc.Queries, m sqlc.Membership, feeLabel string, origin cardOrigin) (*StartCardPaymentOutput, error) {
 	seasons, _, err := seasonIndex(ctx, q, s.today())
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des saisons impossible", err)
@@ -158,7 +180,6 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	m := r.Membership
 	snap := snapshotOf(m, seasons)
 	if !membership.CanPay(snap) {
 		return nil, huma.Error409Conflict(MsgNotPayableByCard)
@@ -178,9 +199,14 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 	}
+	payer, err := origin.payer()
+	if err != nil {
+		return nil, err
+	}
 
 	op, err := s.Store.Write.CreateOnlinePayment(ctx, sqlc.CreateOnlinePaymentParams{
-		MembershipID: nid(m.ID), AccountID: account, Environment: env, AmountCents: amount, Now: s.timestamp(),
+		MembershipID: nid(m.ID), AccountID: origin.account, ViaLink: boolInt(origin.viaLink),
+		Environment: env, AmountCents: amount, Now: s.timestamp(),
 	})
 	if err != nil {
 		return nil, s.internalError(ctx, "création du paiement en ligne impossible", err)
@@ -188,32 +214,39 @@ func (s *server) startMyCardPayment(ctx context.Context, in *MembershipIDInput) 
 
 	req := helloasso.CheckoutRequest{
 		AmountCents: amount,
-		ItemName:    cardItemName(seasons[m.SeasonID].ref.Label, r.MembershipFee.Label, m.PaymentReference.String),
+		ItemName:    cardItemName(seasons[m.SeasonID].ref.Label, feeLabel, m.PaymentReference.String),
 		Metadata:    helloasso.Metadata{Payment: op.ID, Membership: m.ID, Reference: m.PaymentReference.String},
 	}
-	base := fmt.Sprintf("%s/adhesions/%d?tentative=%d&carte=", s.Config.BaseURL, m.ID, op.ID)
-	redirect, err := s.openCheckout(ctx, q, op.ID, base, req)
+	base := fmt.Sprintf("%s"+origin.returnPath+"?tentative=%d&carte=", s.Config.BaseURL, m.ID, op.ID)
+	redirect, err := s.openCheckout(ctx, op.ID, base, req, payer)
 	if err != nil {
 		return nil, err
 	}
-	s.Logger.InfoContext(ctx, "paiement en ligne démarré",
-		"membership_id", m.ID, "online_payment_id", op.ID,
-		"environment", env, "amount_cents", amount, "actor_id", account.Int64)
+	s.Logger.InfoContext(ctx, "paiement en ligne démarré", append([]any{
+		"membership_id", m.ID, "online_payment_id", op.ID, "environment", env, "amount_cents", amount,
+	}, origin.logAttrs...)...)
 	return &StartCardPaymentOutput{Body: StartCardPayment{RedirectURL: redirect, OnlinePaymentID: op.ID}}, nil
 }
 
+// accountPayer renvoie le payeur prérempli d'un paiement lancé depuis
+// l'espace membre : adresse du compte, prénom et nom de sa fiche « Vous ».
+func (s *server) accountPayer(ctx context.Context, q *sqlc.Queries) (helloasso.Payer, error) {
+	payer := helloasso.Payer{Email: CurrentAccount(ctx).Email}
+	self, err := q.GetSelfMemberOfAccount(ctx, ownAccount(ctx))
+	if err == nil {
+		payer.FirstName, payer.LastName = self.FirstName, self.LastName
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return payer, s.internalError(ctx, "lecture de la fiche impossible", err)
+	}
+	return payer, nil
+}
+
 // openCheckout crée l'intention HelloAsso d'une tentative déjà enregistrée :
-// payeur prérempli (adresse du compte, prénom et nom de sa fiche « Vous »),
+// payeur prérempli fourni par l'appelant (compte ou lien personnel, 016 › R11),
 // adresses de retour construites sur base, intention mémorisée. Commun aux
 // adhésions et aux inscriptions (012 › R4).
-func (s *server) openCheckout(ctx context.Context, q *sqlc.Queries, opID int64, base string, req helloasso.CheckoutRequest) (string, error) {
-	account := ownAccount(ctx)
-	req.Payer = &helloasso.Payer{Email: CurrentAccount(ctx).Email}
-	if self, err := q.GetSelfMemberOfAccount(ctx, account); err == nil {
-		req.Payer.FirstName, req.Payer.LastName = self.FirstName, self.LastName
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return "", s.internalError(ctx, "lecture de la fiche impossible", err)
-	}
+func (s *server) openCheckout(ctx context.Context, opID int64, base string, req helloasso.CheckoutRequest, payer helloasso.Payer) (string, error) {
+	req.Payer = &payer
 	req.ReturnURL, req.ErrorURL, req.BackURL = base+"retour", base+"erreur", base+"annule"
 
 	intent, err := s.HelloAsso.CreateCheckout(ctx, req)
@@ -246,19 +279,30 @@ func (s *server) confirmMyCardPayment(ctx context.Context, in *ConfirmCardPaymen
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture du paiement en ligne impossible", err)
 	}
-	hint := map[string]string{"return": membership.HintReturn, "error": membership.HintError, "back": membership.HintBack}[in.Body.Outcome]
-	status, err := s.verifyOnlinePayment(ctx, op.ID, sourceReturn, hint)
-	if errors.Is(err, errHelloAssoUnavailable) {
-		status, err = membership.OnlineStatus(op.Status), nil
-	}
+	status, err := s.confirmCard(ctx, op, in.Body.Outcome)
 	if err != nil {
-		return nil, s.internalError(ctx, "vérification du paiement impossible", err)
+		return nil, err
 	}
 	out, err := s.myMembershipOutput(ctx, s.Store.Read, in.ID)
 	if err != nil {
 		return nil, err
 	}
 	return &ConfirmCardPaymentOutput{Body: ConfirmCardPayment{Status: string(status), Membership: out.Body}}, nil
+}
+
+// confirmCard vérifie une tentative au retour du navigateur, déjà relue dans
+// le périmètre de l'appelant. HelloAsso injoignable : l'état connu est
+// renvoyé, la vérification sera rejouée.
+func (s *server) confirmCard(ctx context.Context, op sqlc.OnlinePayment, outcome string) (membership.OnlineStatus, error) {
+	hint := map[string]string{"return": membership.HintReturn, "error": membership.HintError, "back": membership.HintBack}[outcome]
+	status, err := s.verifyOnlinePayment(ctx, op.ID, sourceReturn, hint)
+	if errors.Is(err, errHelloAssoUnavailable) {
+		return membership.OnlineStatus(op.Status), nil
+	}
+	if err != nil {
+		return "", s.internalError(ctx, "vérification du paiement impossible", err)
+	}
+	return status, nil
 }
 
 func (s *server) verifyCardPayment(ctx context.Context, in *MembershipIDInput) (*AdminMembershipOutput, error) {

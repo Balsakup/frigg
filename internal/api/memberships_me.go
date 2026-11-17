@@ -492,18 +492,8 @@ func (s *server) cancelMyMembership(ctx context.Context, in *MembershipIDInput) 
 
 func (s *server) announceMyPayment(ctx context.Context, in *AnnounceMyPaymentInput) (*MyMembershipOutput, error) {
 	m, err := s.myMembershipWrite(ctx, in.ID, func(q *sqlc.Queries, m sqlc.Membership, snap membership.Snapshot) error {
-		if !membership.ManualMethod(membership.Method(in.Body.Method)) {
-			return FieldErrors("body.method", MsgCardIsOnline)
-		}
-		if !membership.CanPay(snap) {
-			return huma.Error409Conflict(MsgMembershipChanged)
-		}
-		settings, err := s.paymentSettings(ctx, q)
-		if err != nil {
+		if err := s.checkAnnounce(ctx, q, snap, in.Body.Method); err != nil {
 			return err
-		}
-		if !settings.Enabled(membership.Method(in.Body.Method)) {
-			return FieldErrors("body.method", MsgMethodUnavailable)
 		}
 		return changed(q.AnnouncePaymentOfAccount(ctx, sqlc.AnnouncePaymentOfAccountParams{
 			Method: sql.NullString{String: in.Body.Method, Valid: true}, Now: s.timestamp(), ID: m.ID, AccountID: ownAccount(ctx),
@@ -514,6 +504,26 @@ func (s *server) announceMyPayment(ctx context.Context, in *AnnounceMyPaymentInp
 	}
 	s.logMembershipAction(ctx, "membership.payment_announce", m, "me", "method", in.Body.Method)
 	return s.myMembershipOutput(ctx, s.Store.Read, in.ID)
+}
+
+// checkAnnounce applique les règles de l'annonce d'un moyen de paiement
+// (006 FR-022b), communes à l'espace membre et au lien personnel : moyen
+// manuel, adhésion à payer, moyen activé.
+func (s *server) checkAnnounce(ctx context.Context, q *sqlc.Queries, snap membership.Snapshot, method string) error {
+	if !membership.ManualMethod(membership.Method(method)) {
+		return FieldErrors("body.method", MsgCardIsOnline)
+	}
+	if !membership.CanPay(snap) {
+		return huma.Error409Conflict(MsgMembershipChanged)
+	}
+	settings, err := s.paymentSettings(ctx, q)
+	if err != nil {
+		return err
+	}
+	if !settings.Enabled(membership.Method(method)) {
+		return FieldErrors("body.method", MsgMethodUnavailable)
+	}
+	return nil
 }
 
 // updateMyMembershipFields enregistre les champs d'adhésion remplis par le

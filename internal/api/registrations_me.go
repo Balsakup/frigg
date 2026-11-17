@@ -269,33 +269,82 @@ func (s *server) getMyRegistration(ctx context.Context, in *RegistrationIDInput)
 	return s.myRegistrationOutput(ctx, s.Store.Read, in.ID)
 }
 
-// myRegistrationWrite relit dans la transaction une inscription d'une fiche du
-// compte et applique fn.
-func (s *server) myRegistrationWrite(ctx context.Context, id int64, fn func(q *sqlc.Queries, r sqlc.EventRegistration, e sqlc.Event, st registrationState) error) (sqlc.EventRegistration, error) {
+// registrationLoader relit une inscription et son événement dans le périmètre
+// de l'appelant (compte ou lien personnel) ; sql.ErrNoRows hors périmètre.
+type registrationLoader func(q *sqlc.Queries) (sqlc.EventRegistration, sqlc.Event, error)
+
+// registrationWrite relit dans la transaction une inscription du périmètre de
+// l'appelant et applique fn.
+func (s *server) registrationWrite(ctx context.Context, load registrationLoader, fn func(q *sqlc.Queries, r sqlc.EventRegistration, e sqlc.Event, st registrationState) error) (sqlc.EventRegistration, error) {
 	var reg sqlc.EventRegistration
 	err := s.Store.WriteTx(ctx, func(q *sqlc.Queries) error {
-		r, err := q.GetRegistrationOfAccount(ctx, sqlc.GetRegistrationOfAccountParams{ID: id, AccountID: ownAccount(ctx)})
+		r, e, err := load(q)
 		if errors.Is(err, sql.ErrNoRows) {
 			return huma.Error404NotFound(MsgRegistrationGone)
 		}
 		if err != nil {
 			return err
 		}
-		reg = r.EventRegistration
+		reg = r
 		settings, err := s.paymentSettings(ctx, q)
 		if err != nil {
 			return err
 		}
-		st, err := s.myRegistrationState(ctx, q, r.EventRegistration, r.Event, settings, s.now())
+		st, err := s.myRegistrationState(ctx, q, r, e, settings, s.now())
 		if err != nil {
 			return err
 		}
-		return fn(q, r.EventRegistration, r.Event, st)
+		return fn(q, r, e, st)
 	})
 	if err != nil {
 		return reg, s.txError(ctx, "écriture de l'inscription impossible", err)
 	}
 	return reg, nil
+}
+
+// myRegistrationWrite relit dans la transaction une inscription d'une fiche du
+// compte et applique fn.
+func (s *server) myRegistrationWrite(ctx context.Context, id int64, fn func(q *sqlc.Queries, r sqlc.EventRegistration, e sqlc.Event, st registrationState) error) (sqlc.EventRegistration, error) {
+	return s.registrationWrite(ctx, func(q *sqlc.Queries) (sqlc.EventRegistration, sqlc.Event, error) {
+		r, err := q.GetRegistrationOfAccount(ctx, sqlc.GetRegistrationOfAccountParams{ID: id, AccountID: ownAccount(ctx)})
+		return r.EventRegistration, r.Event, err
+	}, fn)
+}
+
+// checkUnregister applique 012 FR-013 à l'annulation d'une inscription par la
+// personne (compte ou lien personnel).
+func (s *server) checkUnregister(r sqlc.EventRegistration, e sqlc.Event, st registrationState) error {
+	if event.CanUnregister(eventState(e), st.snap, s.now()) {
+		return nil
+	}
+	switch {
+	case r.Status != "confirmed":
+		return huma.Error409Conflict(MsgRegistrationChanged)
+	case st.snap.PaymentStatus == membership.Paid || st.snap.CardPending:
+		return huma.Error409Conflict(MsgRegistrationPaid)
+	default:
+		return huma.Error409Conflict(MsgRegistrationsClosed)
+	}
+}
+
+// checkRegistrationAnnounce vérifie l'annonce d'un moyen de paiement manuel
+// pour une inscription (012 FR-022).
+func (s *server) checkRegistrationAnnounce(ctx context.Context, q *sqlc.Queries, e sqlc.Event, st registrationState, method string) error {
+	m := membership.Method(method)
+	if !membership.ManualMethod(m) {
+		return FieldErrors("body.method", MsgCardIsOnline)
+	}
+	if !membership.CanPay(event.PaymentSnapshot(st.snap, e.Status == string(event.Cancelled))) {
+		return huma.Error409Conflict(MsgNotPayableRegistration)
+	}
+	settings, err := s.paymentSettings(ctx, q)
+	if err != nil {
+		return err
+	}
+	if !settings.Enabled(m) {
+		return FieldErrors("body.method", MsgMethodUnavailable)
+	}
+	return nil
 }
 
 func changedRegistration(n int64, err error) error {
@@ -307,15 +356,8 @@ func changedRegistration(n int64, err error) error {
 
 func (s *server) cancelMyRegistration(ctx context.Context, in *RegistrationIDInput) (*MyRegistrationOutput, error) {
 	r, err := s.myRegistrationWrite(ctx, in.ID, func(q *sqlc.Queries, r sqlc.EventRegistration, e sqlc.Event, st registrationState) error {
-		if !event.CanUnregister(eventState(e), st.snap, s.now()) {
-			switch {
-			case r.Status != "confirmed":
-				return huma.Error409Conflict(MsgRegistrationChanged)
-			case st.snap.PaymentStatus == membership.Paid || st.snap.CardPending:
-				return huma.Error409Conflict(MsgRegistrationPaid)
-			default:
-				return huma.Error409Conflict(MsgRegistrationsClosed)
-			}
+		if err := s.checkUnregister(r, e, st); err != nil {
+			return err
 		}
 		return changedRegistration(q.CancelRegistration(ctx, sqlc.CancelRegistrationParams{
 			ActorID: nid(CurrentAccount(ctx).ID), Now: ns(s.timestamp()), ID: r.ID,
@@ -330,19 +372,8 @@ func (s *server) cancelMyRegistration(ctx context.Context, in *RegistrationIDInp
 
 func (s *server) announceMyRegistrationPayment(ctx context.Context, in *AnnounceRegistrationInput) (*MyRegistrationOutput, error) {
 	r, err := s.myRegistrationWrite(ctx, in.ID, func(q *sqlc.Queries, r sqlc.EventRegistration, e sqlc.Event, st registrationState) error {
-		method := membership.Method(in.Body.Method)
-		if !membership.ManualMethod(method) {
-			return FieldErrors("body.method", MsgCardIsOnline)
-		}
-		if !membership.CanPay(event.PaymentSnapshot(st.snap, e.Status == string(event.Cancelled))) {
-			return huma.Error409Conflict(MsgNotPayableRegistration)
-		}
-		settings, err := s.paymentSettings(ctx, q)
-		if err != nil {
+		if err := s.checkRegistrationAnnounce(ctx, q, e, st, in.Body.Method); err != nil {
 			return err
-		}
-		if !settings.Enabled(method) {
-			return FieldErrors("body.method", MsgMethodUnavailable)
 		}
 		return changedRegistration(q.AnnounceRegistrationPaymentOfAccount(ctx, sqlc.AnnounceRegistrationPaymentOfAccountParams{
 			Method: ns(in.Body.Method), Now: s.timestamp(), ID: r.ID, AccountID: ownAccount(ctx),
@@ -370,11 +401,21 @@ func (s *server) startMyRegistrationCardPayment(ctx context.Context, in *Registr
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture de l'inscription impossible", err)
 	}
+	return s.startRegistrationCard(ctx, q, r.EventRegistration, r.Event, cardOrigin{
+		account: account, returnPath: "/mes-inscriptions/%d",
+		payer:    func() (helloasso.Payer, error) { return s.accountPayer(ctx, q) },
+		logAttrs: []any{"actor_id", account.Int64},
+	})
+}
+
+// startRegistrationCard lance ou reprend le paiement par carte d'une
+// inscription déjà relue dans le périmètre de l'appelant (compte ou lien
+// personnel, 016 › R11).
+func (s *server) startRegistrationCard(ctx context.Context, q *sqlc.Queries, reg sqlc.EventRegistration, e sqlc.Event, origin cardOrigin) (*StartCardPaymentOutput, error) {
 	settings, err := s.paymentSettings(ctx, q)
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture des paramètres impossible", err)
 	}
-	reg, e := r.EventRegistration, r.Event
 	snap := event.PaymentSnapshot(regSnapshot(reg), e.Status == string(event.Cancelled))
 	if !membership.CanPay(snap) {
 		return nil, huma.Error409Conflict(MsgNotPayableRegistration)
@@ -394,8 +435,13 @@ func (s *server) startMyRegistrationCardPayment(ctx context.Context, in *Registr
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, s.internalError(ctx, "lecture des paiements en ligne impossible", err)
 	}
+	payer, err := origin.payer()
+	if err != nil {
+		return nil, err
+	}
 	op, err := s.Store.Write.CreateOnlinePayment(ctx, sqlc.CreateOnlinePaymentParams{
-		RegistrationID: nid(reg.ID), AccountID: account, Environment: env, AmountCents: amount, Now: s.timestamp(),
+		RegistrationID: nid(reg.ID), AccountID: origin.account, ViaLink: boolInt(origin.viaLink),
+		Environment: env, AmountCents: amount, Now: s.timestamp(),
 	})
 	if err != nil {
 		return nil, s.internalError(ctx, "création du paiement en ligne impossible", err)
@@ -405,14 +451,15 @@ func (s *server) startMyRegistrationCardPayment(ctx context.Context, in *Registr
 		ItemName:    cardItemNameForEvent(e.Title, reg.PaymentReference.String),
 		Metadata:    helloasso.Metadata{Payment: op.ID, Registration: reg.ID, Reference: reg.PaymentReference.String},
 	}
-	base := fmt.Sprintf("%s/mes-inscriptions/%d?tentative=%d&carte=", s.Config.BaseURL, reg.ID, op.ID)
-	redirect, err := s.openCheckout(ctx, q, op.ID, base, req)
+	base := fmt.Sprintf("%s"+origin.returnPath+"?tentative=%d&carte=", s.Config.BaseURL, reg.ID, op.ID)
+	redirect, err := s.openCheckout(ctx, op.ID, base, req, payer)
 	if err != nil {
 		return nil, err
 	}
-	s.Logger.InfoContext(ctx, "paiement en ligne démarré",
+	s.Logger.InfoContext(ctx, "paiement en ligne démarré", append([]any{
 		"registration_id", reg.ID, "event_id", e.ID, "online_payment_id", op.ID,
-		"environment", env, "amount_cents", amount, "actor_id", account.Int64)
+		"environment", env, "amount_cents", amount,
+	}, origin.logAttrs...)...)
 	return &StartCardPaymentOutput{Body: StartCardPayment{RedirectURL: redirect, OnlinePaymentID: op.ID}}, nil
 }
 
@@ -426,13 +473,9 @@ func (s *server) confirmMyRegistrationCardPayment(ctx context.Context, in *Confi
 	if err != nil {
 		return nil, s.internalError(ctx, "lecture du paiement en ligne impossible", err)
 	}
-	hint := map[string]string{"return": membership.HintReturn, "error": membership.HintError, "back": membership.HintBack}[in.Body.Outcome]
-	status, err := s.verifyOnlinePayment(ctx, op.ID, sourceReturn, hint)
-	if errors.Is(err, errHelloAssoUnavailable) {
-		status, err = membership.OnlineStatus(op.Status), nil
-	}
+	status, err := s.confirmCard(ctx, op, in.Body.Outcome)
 	if err != nil {
-		return nil, s.internalError(ctx, "vérification du paiement impossible", err)
+		return nil, err
 	}
 	out, err := s.myRegistrationOutput(ctx, s.Store.Read, in.ID)
 	if err != nil {

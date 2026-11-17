@@ -78,6 +78,29 @@ type Limits struct {
 	// NotificationIP borne les appels à l'adresse publique de notification de
 	// HelloAsso (research.md 008 › R6).
 	NotificationIP *KeyedLimiter
+
+	// Parcours publics (research.md 016 › R9 ; principe VII) : chaque parcours
+	// est limité par IP et par adresse visée.
+
+	// PublicSubmitIP borne les dépôts de demande par IP.
+	PublicSubmitIP *KeyedLimiter
+	// PublicMailEmail borne, par adresse normalisée, tous les e-mails de
+	// confirmation et de lien personnel, y compris ceux d'un administrateur.
+	PublicMailEmail *KeyedLimiter
+	// PublicConfirmIP et PublicConfirmEmail bornent les confirmations de
+	// dépôt, par IP et par adresse du dépôt.
+	PublicConfirmIP    *KeyedLimiter
+	PublicConfirmEmail *KeyedLimiter
+	// TrackingRequestIP borne les demandes de lien personnel par IP.
+	TrackingRequestIP *KeyedLimiter
+	// TrackingOpenIP et TrackingOpenEmail bornent l'ouverture d'un lien, par
+	// IP et par adresse du lien.
+	TrackingOpenIP    *KeyedLimiter
+	TrackingOpenEmail *KeyedLimiter
+	// TrackingUseIP et TrackingUseEmail bornent les opérations par lien, par
+	// IP et par adresse du lien.
+	TrackingUseIP    *KeyedLimiter
+	TrackingUseEmail *KeyedLimiter
 }
 
 // NewLimits crée les limiteurs avec les valeurs de research.md › R7.
@@ -94,6 +117,16 @@ func NewLimits() *Limits {
 		AdminReset:     NewKeyedLimiter(30, time.Hour), // research.md 002 › R9
 		ChangePassword: NewKeyedLimiter(5, 15*time.Minute),
 		NotificationIP: NewKeyedLimiter(60, time.Minute),
+
+		PublicSubmitIP:     NewKeyedLimiter(10, time.Hour),
+		PublicMailEmail:    NewKeyedLimiter(5, time.Hour),
+		PublicConfirmIP:    NewKeyedLimiter(20, time.Hour),
+		PublicConfirmEmail: NewKeyedLimiter(10, time.Hour),
+		TrackingRequestIP:  NewKeyedLimiter(10, time.Hour),
+		TrackingOpenIP:     NewKeyedLimiter(30, time.Hour),
+		TrackingOpenEmail:  NewKeyedLimiter(30, time.Hour),
+		TrackingUseIP:      NewKeyedLimiter(120, time.Minute),
+		TrackingUseEmail:   NewKeyedLimiter(120, time.Minute),
 	}
 }
 
@@ -106,10 +139,20 @@ func (l *Limits) RunPurge(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			for _, k := range []*KeyedLimiter{l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP, l.InviteAdmin, l.AdminReset, l.ChangePassword, l.NotificationIP} {
+			for _, k := range l.all() {
 				k.purge(2 * time.Hour)
 			}
 		}
+	}
+}
+
+// all renvoie tous les limiteurs, pour la purge.
+func (l *Limits) all() []*KeyedLimiter {
+	return []*KeyedLimiter{
+		l.LoginEmail, l.LoginIP, l.ResetEmail, l.ResetIP, l.VerifyAccount, l.VerifyIP, l.TokenIP,
+		l.InviteAdmin, l.AdminReset, l.ChangePassword, l.NotificationIP,
+		l.PublicSubmitIP, l.PublicMailEmail, l.PublicConfirmIP, l.PublicConfirmEmail,
+		l.TrackingRequestIP, l.TrackingOpenIP, l.TrackingOpenEmail, l.TrackingUseIP, l.TrackingUseEmail,
 	}
 }
 

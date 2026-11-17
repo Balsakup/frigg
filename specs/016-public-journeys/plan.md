@@ -157,6 +157,11 @@ l'implémentation :
    garanti par le domaine et testé, et la sonde est documentée dans
    Complexity Tracking.
 
+Vérification (T078) : les sept points sont confirmés dans le code et couverts
+par des tests (`useFragmentToken.test.ts`, `public_logs_test.go`,
+`tracking_links_test.go`, `tracking_isolation_test.go`,
+`public_nonrevelation_test.go`, `recipients_test.go`, `db_test.go`).
+
 ## Project Structure
 
 ### Documentation (this feature)

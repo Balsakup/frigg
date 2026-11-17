@@ -9,4 +9,7 @@ Lieu : {{.Location}}{{if ne .PreviousLocation .Location}} (auparavant : {{.Previ
 Inscription concernée :
 {{range .Members}}- {{.}}
 {{end}}
-Si vous ne pouvez plus venir, annulez l'inscription dans « Mes inscriptions » ou prévenez l'association.{{end}}
+Si vous ne pouvez plus venir, annulez l'inscription dans « Mes inscriptions » ou prévenez l'association.{{if .Link}}
+
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}{{end}}{{end}}

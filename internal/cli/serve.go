@@ -85,6 +85,7 @@ func Serve(ctx context.Context) error {
 		logger.Warn("anciens fichiers de logo supprimés", "count", n)
 	}
 	go api.NewCommunicationAttachmentSweeper(deps).Run(ctx)
+	go api.NewPublicSweeper(deps).Run(ctx)
 	if deps.HelloAsso != nil {
 		go api.NewOnlinePaymentSweeper(deps).Run(ctx)
 	}

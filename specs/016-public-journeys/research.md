@@ -225,7 +225,12 @@ confirmation (`ConfirmOutcome`) qui fait foi.
 ## R8. Notifications : destinataire unifié et lien personnel dans l'e-mail
 
 **Decision** : `noticeRecipient` (adhésions) et `contactEmail`
-(inscriptions) cèdent la place à une seule fonction, `recipientOf(member)` :
+(inscriptions) cèdent la place à une seule fonction pure,
+`recipientOf(c noticeContact, disabledFallback bool) (to string, tracked bool)`
+(`internal/api/recipients.go`), où `noticeContact` porte le compte
+gestionnaire, son état et l'adresse de la fiche. L'émission du lien personnel
+est à part, dans `noticePath`, appelée dans la transaction qui met l'e-mail
+en file :
 
 - compte actif qui gère la fiche → adresse du compte, lien vers l'espace
   membre (inchangé) ;
@@ -312,8 +317,8 @@ gestionnaires de mots de passe et l'auto-complétion, pour un gain marginal.
 
 **Decision** :
 
-- `openCheckout` reçoit un `payer` explicite au lieu de lire
-  `CurrentAccount`.
+- `openCheckout(ctx, opID, base, req, payer)` reçoit un `helloasso.Payer`
+  explicite au lieu de lire `CurrentAccount`.
   - Côté compte : adresse du compte, fiche « Vous » (inchangé).
   - Côté lien : adresse du lien, prénom et nom de la fiche concernée (FR-020).
 - Les tentatives par lien ont `account_id` à `NULL` et `via_link = 1`. Les
@@ -367,8 +372,12 @@ Le signalement de doublon réutilise la recherche de 005 FR-005
 
 ## R14. Fiches publiques inactives
 
-**Decision** : une requête sqlc statique, `ListInactivePublicMembers`, avec
-la date de coupure en paramètre (aujourd'hui moins 12 mois). Les conditions
+**Decision** : une requête sqlc statique, `ListInactivePublicMembers`, qui
+renvoie les identifiants. La coupure (aujourd'hui moins 12 mois,
+`public.InactiveCutoff`) est passée en deux paramètres : `cutoff_on`, le jour
+(`AAAA-MM-JJ`, comparé à `seasons.ends_on`), et `cutoff_at`, ce jour à minuit
+à Paris en UTC (comparé à `members.created_at` et `events.ends_at`).
+`public.Inactive` reprend la même règle en Go pur. Les conditions
 sont celles du Vocabulaire de la spec : `origin = 'public'`, sans compte,
 créée avant la coupure, aucune demande en attente, aucune adhésion validée
 d'une saison terminée après la coupure, aucune inscription confirmée à un
@@ -377,7 +386,8 @@ d'une saison terminée après la coupure, aucune inscription confirmée à un
 Cette requête est exposée par :
 
 - le filtre `inactive=true` de `list-members` ;
-- `inactivePublicCount` dans `get-membership-dashboard` ;
+- `inactivePublicCount` dans `get-membership-dashboard`, compté en Go à partir
+  de la même liste (pas de requête de comptage distincte) ;
 - `POST /api/admin/members/inactive/delete`, avec une liste d'identifiants
   revérifiée en transaction. Les fiches devenues actives entre-temps sont
   ignorées et comptées dans la réponse.
@@ -405,11 +415,23 @@ gabarit.
 
 **Decision** : `slog` avec `action` parmi `public_submit`,
 `public_submit_rejected` (motif `rate_ip | rate_email | honeypot | closed |
-invalid`), `public_confirm`, `tracking_link_issued`, `tracking_link_opened`,
+invalid`, et pour une inscription `not_found` ou la raison de fermeture de
+l'événement), `public_confirm`, `tracking_link_issued`, `tracking_link_opened`,
 `tracking_account_created`, `membership_attached`, `event_public_link_regenerated`
-et `inactive_members_deleted`. Les seuls attributs sont des identifiants
-(dépôt, fiche, adhésion, inscription, lien, événement) : jamais d'adresse, de
-nom ni de jeton (FR-042).
+et `inactive_members_deleted` (`actor_id`, `deleted`, `skipped`), plus
+`tracking_link_request` (`outcome`), `tracking_link_sent` (envoi par un
+administrateur) et `public_purge` (balayeur). `tracking_account_created` ne
+porte que `account_id`. Les seuls attributs sont des identifiants
+(dépôt, fiche, adhésion, inscription, lien, événement) et des compteurs :
+jamais d'adresse, de nom ni de jeton (FR-042).
+
+**Journal des requêtes** : le slug d'un lien public est un secret. Le
+middleware `requestLogger` le masque (`redactPath` de
+`internal/server/middleware.go`) pour `/api/public/events/{slug}…` et pour la
+page `/e/{slug}`, comme la clé de l'adresse de notification HelloAsso. Le
+jeton personnel ne parvient jamais au serveur dans l'adresse : il voyage dans
+le fragment `#jeton=` puis dans le corps des requêtes. `public_logs_test.go`
+vérifie ces deux points.
 
 ## R17. Tests
 

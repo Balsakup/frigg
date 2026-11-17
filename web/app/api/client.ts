@@ -9,6 +9,12 @@ const PUBLIC_PAGES = [
   "/reinitialiser-mot-de-passe",
   "/confirmer-adresse",
   "/invitation",
+  // Parcours publics (016) : un 401 y signale un lien personnel absent ou
+  // expiré, affiché par la page elle-même.
+  "/adherer",
+  "/e",
+  "/confirmer-demande",
+  "/suivi",
 ];
 
 export function isPublicPage(pathname: string) {

@@ -4,6 +4,9 @@
 package event
 
 import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"time"
@@ -37,7 +40,48 @@ type Openness string
 const (
 	SeasonMembers Openness = "season_members"
 	AllMembers    Openness = "all_members"
+	// Public : toute personne qui reçoit le lien public peut s'inscrire ;
+	// pour un compte connecté, équivaut à AllMembers (016 FR-023). Stocké
+	// comme all_members avec un slug public (research.md 016 › R5).
+	Public Openness = "public"
 )
+
+// OpennessOf reconstitue l'ouverture d'un événement enregistré : all_members
+// avec un slug public est « Ouvert au public ».
+func OpennessOf(openness string, slug sql.NullString) Openness {
+	if Openness(openness) == AllMembers && slug.Valid {
+		return Public
+	}
+	return Openness(openness)
+}
+
+// StorageOf renvoie la valeur enregistrée d'une ouverture et indique si
+// l'événement doit porter un slug public.
+func StorageOf(o Openness) (openness string, public bool) {
+	if o == Public {
+		return string(AllMembers), true
+	}
+	return string(o), false
+}
+
+// PublicVisible : la page publique d'un événement est servie (016 FR-025)
+// s'il est ouvert au public et publié, annulé ou terminé ; jamais en
+// brouillon.
+func PublicVisible(status Status, phase Phase, o Openness) bool {
+	return o == Public && status != Draft && phase != PhaseDraft
+}
+
+// PublicSlugBytes est la taille, en octets aléatoires, d'un slug public
+// (128 bits).
+const PublicSlugBytes = 16
+
+// NewPublicSlug tire un slug public non devinable : 16 octets de crypto/rand
+// en base64url sans remplissage, soit 22 caractères (016 FR-024).
+func NewPublicSlug() string {
+	b := make([]byte, PublicSlugBytes)
+	_, _ = rand.Read(b) // crypto/rand.Read n'échoue jamais (Go 1.24).
+	return base64.RawURLEncoding.EncodeToString(b)
+}
 
 // Bornes de FR-002.
 const (
@@ -201,7 +245,7 @@ func ValidateEvent(in Input, seasons []SeasonSpan) (Event, error) {
 		}
 	}
 
-	if in.Openness != SeasonMembers && in.Openness != AllMembers {
+	if in.Openness != SeasonMembers && in.Openness != AllMembers && in.Openness != Public {
 		add("openness", ErrOpenness)
 	}
 	if in.Capacity != nil && (*in.Capacity < 1 || *in.Capacity > MaxCapacity) {

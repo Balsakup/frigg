@@ -163,7 +163,7 @@ func (s *server) myEvent(ctx context.Context, q *sqlc.Queries, id int64) (*MyEve
 			}
 			item.Registration = &MyRegistrationRef{ID: reg.ID, Payment: st.payment, Actions: st.actions}
 		}
-		reason := event.Eligibility(event.Openness(e.Openness), seasonMembers[m.ID], registered)
+		reason := event.Eligibility(event.OpennessOf(e.Openness, e.PublicSlug), seasonMembers[m.ID], registered)
 		item.Eligible = reason == event.Eligible
 		if !item.Eligible {
 			v := string(reason)
@@ -215,7 +215,7 @@ func (s *server) createRegistrations(ctx context.Context, q *sqlc.Queries, e sql
 		if location != "body.memberId" {
 			loc = fmt.Sprintf("%s[%d]", location, i)
 		}
-		switch event.Eligibility(event.Openness(e.Openness), seasonMembers[m.ID], n > 0) {
+		switch event.Eligibility(event.OpennessOf(e.Openness, e.PublicSlug), seasonMembers[m.ID], n > 0) {
 		case event.AlreadyRegistered:
 			details = append(details, &huma.ErrorDetail{Location: loc, Message: m.FirstName + " est déjà inscrit(e)."})
 		case event.NotSeasonMember:

@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -169,4 +170,64 @@ func TestListEventsFilters(t *testing.T) {
 	eq(ids("?status=finished"), past.ID)
 	eq(ids("?status=draft"), draft.ID)
 	eq(ids("?season=all&status=published"), past.ID, up.ID)
+}
+
+// Ouverture « Ouvert au public » et lien public (016 FR-023, FR-024).
+func TestEventPublicLink(t *testing.T) {
+	f := newEvFixture(t)
+	public := func(b map[string]any) { b["openness"] = "public" }
+	ev := f.createEvent(t, eventBody("Portes ouvertes", public))
+	if ev.Openness != "public" || ev.PublicURL == nil ||
+		!regexp.MustCompile(`^http://frigg\.test/e/[A-Za-z0-9_-]{22}$`).MatchString(*ev.PublicURL) {
+		t.Fatalf("lien public : %+v", ev.PublicURL)
+	}
+	first := *ev.PublicURL
+	ev = f.publish(t, ev.ID)
+	if ev.PublicURL == nil || *ev.PublicURL != first {
+		t.Fatal("la publication change le lien public")
+	}
+	// Une modification qui garde l'ouverture garde le lien.
+	ev = expectAdminEvent(t, f.admin.Do("PUT", eventPath(ev.ID, ""), eventBody("Portes ouvertes 2026", public)), http.StatusOK)
+	if ev.PublicURL == nil || *ev.PublicURL != first {
+		t.Fatal("la modification change le lien public")
+	}
+	reg := register(t, f.claire, ev.ID, http.StatusCreated, f.lucas.ID)
+
+	// Régénération : nouveau slug, journal sans slug.
+	ev = expectAdminEvent(t, f.admin.Do("POST", eventPath(ev.ID, "/public-link"), nil), http.StatusOK)
+	if ev.PublicURL == nil || *ev.PublicURL == first || len(*ev.PublicURL) != len(first) {
+		t.Fatalf("régénération : %v", ev.PublicURL)
+	}
+	if !strings.Contains(f.env.Logs.String(), `"action":"event_public_link_regenerated"`) {
+		t.Error("journal de régénération absent")
+	}
+	for _, url := range []string{first, *ev.PublicURL} {
+		_, slug, _ := strings.Cut(url, "/e/")
+		noLeak(t, f.env, slug)
+	}
+
+	// Quitter « Ouvert au public » : plus de lien, les inscriptions restent.
+	ev = expectAdminEvent(t, f.admin.Do("PUT", eventPath(ev.ID, ""), eventBody("Portes ouvertes 2026", paidEvent("0"))), http.StatusOK)
+	if ev.Openness != "all_members" || ev.PublicURL != nil || ev.ConfirmedCount != 1 {
+		t.Fatalf("ouverture interne : %+v %v %d", ev.Openness, ev.PublicURL, ev.ConfirmedCount)
+	}
+	if got := f.myRegistration(t, reg.CreatedRegistrationIDs[0]); got.State != "confirmed" {
+		t.Fatalf("inscription : %+v", got)
+	}
+	res := f.admin.Do("POST", eventPath(ev.ID, "/public-link"), nil)
+	if res.Status != http.StatusConflict || !strings.Contains(res.Body, "pas ouvert au public") {
+		t.Fatalf("régénération d'un événement interne : %d %s", res.Status, res.Body)
+	}
+	// Revenir au public tire un nouveau lien.
+	ev = expectAdminEvent(t, f.admin.Do("PUT", eventPath(ev.ID, ""), eventBody("Portes ouvertes 2026", public)), http.StatusOK)
+	if ev.PublicURL == nil || *ev.PublicURL == first {
+		t.Fatalf("retour au public : %v", ev.PublicURL)
+	}
+	// La liste expose l'ouverture publique.
+	list := expectJSON[struct {
+		Items []api.EventSummary `json:"items"`
+	}](t, f.admin.Do("GET", "/api/admin/events", nil), http.StatusOK)
+	if len(list.Items) != 1 || list.Items[0].Openness != "public" {
+		t.Fatalf("liste : %+v", list.Items)
+	}
 }

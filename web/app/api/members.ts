@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { type MemberFilters, toApiQuery } from "~/lib/member-filters";
 import { $api } from "./queries";
+import { queryClient } from "./query-client";
 
 // « Mes membres » : fiches du compte connecté (005, US1).
 export function myMemberListQuery() {
@@ -42,4 +43,26 @@ export async function invalidateMembers(qc: QueryClient) {
     // Compteurs de fiches sans valeur des champs personnalisés (011).
     qc.invalidateQueries({ queryKey: ["get", "/admin/custom-fields"] }),
   ]);
+}
+
+// Identifiants de toutes les fiches publiques inactives listées, dans la
+// limite d'un envoi de delete-inactive-members (016, FR-041).
+export const INACTIVE_DELETE_MAX = 500;
+
+export async function inactiveMemberIds(): Promise<number[]> {
+  const ids: number[] = [];
+  for (let page = 1; ids.length < INACTIVE_DELETE_MAX; page++) {
+    const data = await queryClient.fetchQuery(
+      $api.queryOptions("get", "/admin/members", {
+        params: { query: { origin: "public", inactive: true, pageSize: 100, page } },
+      }),
+    );
+    ids.push(...(data.items ?? []).map((m) => m.id));
+    if (page * data.pageSize >= data.total) break;
+  }
+  return ids.slice(0, INACTIVE_DELETE_MAX);
+}
+
+export function useDeleteInactiveMembers() {
+  return $api.useMutation("post", "/admin/members/inactive/delete");
 }

@@ -5,4 +5,7 @@ L'adhésion de {{.Member}} à {{.Association}} pour la saison {{.Season}} a ét�
 
 Motif : {{.Reason}}
 
-Pour toute question, contactez le bureau de l'association.{{end}}
+Pour toute question, contactez le bureau de l'association.{{if .Link}}
+
+Pour suivre vos demandes et vos inscriptions, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}{{end}}{{end}}

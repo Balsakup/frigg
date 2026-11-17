@@ -7,6 +7,8 @@ interface MemberFieldsProps<T extends MemberFormValues & FieldValues> {
   errors: FieldErrors<T>;
   /** Fiche du titulaire : active l'autocomplétion du navigateur. */
   autocompleteSelf?: boolean;
+  /** Aide sous le champ d'adresse électronique. */
+  emailHint?: string;
 }
 
 // Champs communs d'une fiche membre (contracts/ui-routes.md 005 › Formulaire) :
@@ -16,6 +18,7 @@ export function MemberFields<T extends MemberFormValues & FieldValues>({
   register,
   errors,
   autocompleteSelf = false,
+  emailHint,
 }: MemberFieldsProps<T>) {
   const reg = (name: keyof MemberFormValues) => register(name as Path<T>);
   const err = (name: keyof MemberFormValues) => errors[name]?.message as string | undefined;
@@ -62,6 +65,7 @@ export function MemberFields<T extends MemberFormValues & FieldValues>({
             type="email"
             maxLength={254}
             autoComplete={auto("email")}
+            hint={emailHint}
             error={err("email")}
             {...reg("email")}
           />

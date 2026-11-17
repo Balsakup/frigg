@@ -54,3 +54,51 @@ func TestForwardedUntrusted(t *testing.T) {
 		t.Error("X-Forwarded-For d'un proxy de confiance : rien à signaler")
 	}
 }
+
+// Limiteurs des parcours publics (research.md 016 › R9) : valeurs et purge.
+func TestPublicLimits(t *testing.T) {
+	l := NewLimits()
+	tests := []struct {
+		name string
+		lim  *KeyedLimiter
+		n    int
+	}{
+		{"PublicSubmitIP", l.PublicSubmitIP, 10},
+		{"PublicMailEmail", l.PublicMailEmail, 5},
+		{"PublicConfirmIP", l.PublicConfirmIP, 20},
+		{"PublicConfirmEmail", l.PublicConfirmEmail, 10},
+		{"TrackingRequestIP", l.TrackingRequestIP, 10},
+		{"TrackingOpenIP", l.TrackingOpenIP, 30},
+		{"TrackingOpenEmail", l.TrackingOpenEmail, 30},
+		{"TrackingUseIP", l.TrackingUseIP, 120},
+		{"TrackingUseEmail", l.TrackingUseEmail, 120},
+	}
+	for _, tt := range tests {
+		for i := range tt.n {
+			if !tt.lim.Allow("cle") {
+				t.Fatalf("%s : tentative %d refusée", tt.name, i+1)
+			}
+		}
+		if tt.lim.Allow("cle") {
+			t.Errorf("%s : tentative %d acceptée", tt.name, tt.n+1)
+		}
+		if !tt.lim.Allow("autre") {
+			t.Errorf("%s : une autre clé est bloquée", tt.name)
+		}
+	}
+	all := l.all()
+	for _, tt := range tests {
+		found := false
+		for _, k := range all {
+			found = found || k == tt.lim
+		}
+		if !found {
+			t.Errorf("%s absent de la purge", tt.name)
+		}
+	}
+	for _, k := range all {
+		if k == nil {
+			t.Fatal("limiteur nil dans la purge")
+		}
+	}
+}

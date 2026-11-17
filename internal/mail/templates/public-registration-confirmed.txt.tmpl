@@ -1,0 +1,18 @@
+{{define "subject"}}Inscription confirmée : {{.Event}}{{end}}
+{{define "body"}}Bonjour,
+
+Votre adresse est confirmée : l'inscription de {{.Member}} à « {{.Event}} » est enregistrée et sa place est réservée.
+
+Date : {{.When}}
+Lieu : {{.Location}}
+{{if .Amount}}
+Montant à régler : {{.Amount}}
+Référence de paiement : {{.Reference}}
+
+Pour payer ou annuler l'inscription, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}
+{{else}}
+Pour suivre ou annuler l'inscription, ouvrez votre lien personnel (valable 30 jours, ne le transmettez pas) :
+{{.Link}}
+{{end}}
+Si ce lien a expiré, vous pourrez en demander un nouveau depuis la page « Recevoir mon lien de suivi ».{{end}}

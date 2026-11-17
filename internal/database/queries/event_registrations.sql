@@ -12,6 +12,19 @@ INSERT INTO event_registrations (
 )
 RETURNING *;
 
+-- Public registration (research.md 016 R7): confirmed at the confirmation
+-- of the address, without an author.
+
+-- name: CreatePublicRegistration :one
+INSERT INTO event_registrations (
+    event_id, member_id, status, registered_by, registered_at, amount_cents, payment_reference,
+    payment_status, via_public, updated_at
+) VALUES (
+    sqlc.arg(event_id), sqlc.arg(member_id), 'confirmed', NULL, sqlc.arg(now),
+    sqlc.arg(amount_cents), sqlc.narg(payment_reference), sqlc.narg(payment_status), 1, sqlc.arg(now)
+)
+RETURNING *;
+
 -- name: CountConfirmedRegistrations :one
 SELECT count(*) FROM event_registrations WHERE event_id = sqlc.arg(event_id) AND status = 'confirmed';
 
@@ -98,6 +111,7 @@ WHERE (CAST(sqlc.narg(event_id) AS INTEGER) IS NULL OR r.event_id = CAST(sqlc.na
        OR r.member_id IN (SELECT rowid FROM members_fts WHERE members_fts MATCH CAST(sqlc.narg(query) AS TEXT)))
   AND (CAST(sqlc.narg(open_alerts) AS INTEGER) IS NULL
        OR r.id IN (SELECT pa.registration_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL))
+  AND (CAST(sqlc.narg(via_public) AS INTEGER) IS NULL OR r.via_public = CAST(sqlc.narg(via_public) AS INTEGER))
 ORDER BY r.registered_at DESC, r.id DESC;
 
 -- name: CancelRegistration :execrows
@@ -176,7 +190,7 @@ WHERE r.member_id = sqlc.arg(member_id) AND r.status = 'confirmed' AND r.payment
 -- name: ListNoticeRecipientsOfEvent :many
 SELECT r.id, r.member_id, r.payment_status, r.payment_reference, r.amount_cents, m.first_name, m.last_name,
        CAST(CASE WHEN a.disabled_at IS NULL THEN coalesce(a.email, '') ELSE '' END AS TEXT) AS account_email,
-       CAST(coalesce(m.email, '') AS TEXT) AS member_email
+       CAST(coalesce(m.email, '') AS TEXT) AS member_email, m.account_id AS member_account_id
 FROM event_registrations r
 JOIN members m ON m.id = r.member_id
 LEFT JOIN accounts a ON a.id = m.account_id
@@ -186,8 +200,40 @@ WHERE r.event_id = sqlc.arg(event_id) AND r.status = 'confirmed';
 SELECT r.id, r.member_id, r.event_id, r.payment_status, r.payment_reference, r.amount_cents,
        r.paid_method, r.paid_on, r.paid_amount_cents, m.first_name, m.last_name,
        CAST(CASE WHEN a.disabled_at IS NULL THEN coalesce(a.email, '') ELSE '' END AS TEXT) AS account_email,
-       CAST(coalesce(m.email, '') AS TEXT) AS member_email
+       CAST(coalesce(m.email, '') AS TEXT) AS member_email, m.account_id AS member_account_id
 FROM event_registrations r
 JOIN members m ON m.id = r.member_id
 LEFT JOIN accounts a ON a.id = m.account_id
 WHERE r.id = sqlc.arg(id);
+
+-- Personal link scope (research.md 016 R1): registrations of members without
+-- an account whose email matches the link, compared without case (FR-014).
+
+-- name: ListRegistrationsOfTrackedEmail :many
+SELECT sqlc.embed(r), sqlc.embed(e), m.first_name, m.last_name
+FROM event_registrations r
+JOIN events e ON e.id = r.event_id
+JOIN members m ON m.id = r.member_id
+WHERE m.account_id IS NULL AND m.email = sqlc.arg(email) COLLATE NOCASE
+ORDER BY e.starts_at, r.registered_at, r.id;
+
+-- name: GetRegistrationOfTrackedEmail :one
+SELECT sqlc.embed(r), sqlc.embed(e), m.first_name, m.last_name
+FROM event_registrations r
+JOIN events e ON e.id = r.event_id
+JOIN members m ON m.id = r.member_id
+WHERE r.id = sqlc.arg(id) AND m.account_id IS NULL AND m.email = sqlc.arg(email) COLLATE NOCASE;
+
+-- name: CancelRegistrationOfTrackedEmail :execrows
+UPDATE event_registrations
+SET status = 'cancelled', cancelled_by = NULL, cancelled_at = sqlc.arg(now), updated_at = sqlc.arg(now)
+WHERE event_registrations.id = sqlc.arg(id) AND status = 'confirmed'
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = sqlc.arg(email) COLLATE NOCASE);
+
+-- name: AnnounceRegistrationPaymentOfTrackedEmail :execrows
+UPDATE event_registrations
+SET payment_status = 'announced', announced_method = sqlc.arg(method), updated_at = sqlc.arg(now)
+WHERE event_registrations.id = sqlc.arg(id) AND status = 'confirmed' AND payment_status IN ('due', 'announced')
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = sqlc.arg(email) COLLATE NOCASE);

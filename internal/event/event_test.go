@@ -1,6 +1,7 @@
 package event
 
 import (
+	"database/sql"
 	"errors"
 	"strings"
 	"testing"
@@ -192,6 +193,11 @@ func TestEligibility(t *testing.T) {
 		{SeasonMembers, false, false, NotSeasonMember},
 		{AllMembers, false, false, Eligible},
 		{AllMembers, false, true, AlreadyRegistered},
+		// « Ouvert au public » se comporte comme AllMembers pour un compte
+		// (016 FR-023).
+		{Public, false, false, Eligible},
+		{Public, true, false, Eligible},
+		{Public, false, true, AlreadyRegistered},
 	}
 	for _, c := range cases {
 		if got := Eligibility(c.o, c.member, c.already); got != c.want {
@@ -286,5 +292,98 @@ func TestReferencePrefix(t *testing.T) {
 	}
 	if got := membership.NextReference("EVT-2627-", []string{"EVT-2627-0001", "EVT-2627-0009"}); got != "EVT-2627-0010" {
 		t.Fatalf("suivante = %s", got)
+	}
+}
+
+// Ouverture « Ouvert au public » (016 › R5) : all_members avec un slug.
+func TestPublicOpenness(t *testing.T) {
+	slug := sql.NullString{String: "AAAAAAAAAAAAAAAAAAAAAA", Valid: true}
+	for _, c := range []struct {
+		openness string
+		slug     sql.NullString
+		want     Openness
+	}{
+		{"all_members", slug, Public},
+		{"all_members", sql.NullString{}, AllMembers},
+		{"season_members", sql.NullString{}, SeasonMembers},
+	} {
+		if got := OpennessOf(c.openness, c.slug); got != c.want {
+			t.Errorf("OpennessOf(%q, %v) = %q, attendu %q", c.openness, c.slug.Valid, got, c.want)
+		}
+	}
+	for _, c := range []struct {
+		o        Openness
+		openness string
+		public   bool
+	}{
+		{Public, "all_members", true},
+		{AllMembers, "all_members", false},
+		{SeasonMembers, "season_members", false},
+	} {
+		if openness, public := StorageOf(c.o); openness != c.openness || public != c.public {
+			t.Errorf("StorageOf(%q) = %q, %v", c.o, openness, public)
+		}
+	}
+	if _, err := ValidateEvent(func() Input { in := valid(); in.Openness = Public; return in }(), seasons); err != nil {
+		t.Errorf("ouverture publique refusée : %v", err)
+	}
+}
+
+func TestPublicVisible(t *testing.T) {
+	for _, c := range []struct {
+		status Status
+		phase  Phase
+		o      Openness
+		want   bool
+	}{
+		{Published, PhaseUpcoming, Public, true},
+		{Cancelled, PhaseCancelled, Public, true},
+		{Published, PhaseFinished, Public, true},
+		{Draft, PhaseDraft, Public, false},
+		{Published, PhaseUpcoming, AllMembers, false},
+		{Published, PhaseUpcoming, SeasonMembers, false},
+	} {
+		if got := PublicVisible(c.status, c.phase, c.o); got != c.want {
+			t.Errorf("PublicVisible(%s, %s, %s) = %v", c.status, c.phase, c.o, got)
+		}
+	}
+}
+
+func TestNewPublicSlug(t *testing.T) {
+	seen := map[string]bool{}
+	for range 100 {
+		s := NewPublicSlug()
+		if len(s) != 22 || strings.ContainsAny(s, "+/=") || seen[s] {
+			t.Fatalf("slug %q", s)
+		}
+		seen[s] = true
+	}
+}
+
+func TestPublicClosedReason(t *testing.T) {
+	s := published()
+	s.Capacity = ptr(2)
+	cancelled := s
+	cancelled.Status = Cancelled
+	notYet := s
+	notYet.RegistrationOpensAt = ptr(at("2026-11-20T00:00:00Z"))
+	for _, c := range []struct {
+		name      string
+		s         State
+		confirmed int
+		now       string
+		want      ClosedReason
+	}{
+		{"ouvert", s, 1, "2026-11-10T00:00:00Z", NotClosed},
+		{"complet", s, 2, "2026-11-10T00:00:00Z", ReasonFull},
+		{"annulé", cancelled, 0, "2026-11-10T00:00:00Z", ReasonCancelled},
+		{"terminé", s, 0, "2026-12-12T16:00:00Z", ReasonFinished},
+		{"clos", s, 0, "2026-12-12T13:00:00Z", ReasonClosed},
+		{"pas encore ouvert", notYet, 0, "2026-11-10T00:00:00Z", ReasonNotYet},
+		{"illimité", State{Status: Published, PublishedAt: s.PublishedAt, StartsAt: s.StartsAt, EndsAt: s.EndsAt}, 500, "2026-11-10T00:00:00Z", NotClosed},
+	} {
+		if got := PublicClosedReason(c.s, c.confirmed, at(c.now)); got != c.want {
+			t.Errorf("%s : %q, attendu %q", c.name, got, c.want)
+		}
 	}
 }

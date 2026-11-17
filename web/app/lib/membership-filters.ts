@@ -2,7 +2,7 @@ import { hasSearchableTerm } from "./account-filters";
 import { parseFieldFilters } from "./member-filters";
 
 // Critères de la liste des adhésions, portés par l'URL (FR-011, FR-018) :
-// `?season=…&status=…&payment=…&paidMethod=…&alerts=open&q=…&page=…`. Saison absente : choix du
+// `?season=…&status=…&payment=…&paidMethod=…&alerts=open&origin=public&q=…&page=…`. Saison absente : choix du
 // serveur (saison courante, sinon la plus récente ouverte).
 
 export interface MembershipFilters {
@@ -13,6 +13,8 @@ export interface MembershipFilters {
   paidMethod?: string;
   /** « open » : adhésions portant un signalement de paiement à traiter. */
   alerts?: string;
+  /** « public » : demandes publiques (016, FR-037). */
+  origin?: string;
   /** Filtres par champ personnalisé d'adhésion (011), paramètre `champ`. */
   fields?: string[];
   q: string;
@@ -38,6 +40,7 @@ export function parseMembershipFilters(params: URLSearchParams): MembershipFilte
     payment: (payments as readonly string[]).includes(payment) ? payment : "",
     paidMethod: (paidMethods as readonly string[]).includes(paidMethod) ? paidMethod : "",
     alerts: params.get("alerts") === "open" ? "open" : "",
+    origin: params.get("origin") === "public" ? "public" : "",
     fields: parseFieldFilters(params),
     q: params.get("q") ?? "",
     page: Number.isInteger(page) && page >= 1 ? page : 1,
@@ -51,6 +54,7 @@ export function hasActiveMembershipFilters(f: MembershipFilters) {
     f.payment !== "" ||
     !!f.paidMethod ||
     !!f.alerts ||
+    !!f.origin ||
     (f.fields?.length ?? 0) > 0
   );
 }
@@ -63,6 +67,7 @@ export function toMembershipApiQuery(f: MembershipFilters) {
     ...(f.payment ? { payment: f.payment as PaymentFilter } : {}),
     ...(f.paidMethod ? { paidMethod: f.paidMethod as PaidMethod } : {}),
     ...(f.alerts === "open" ? { alerts: "open" as const } : {}),
+    ...(f.origin === "public" ? { origin: "public" as const } : {}),
     ...(f.fields?.length ? { field: f.fields } : {}),
     ...(hasSearchableTerm(f.q) ? { q: f.q.trim() } : {}),
     page: f.page,
@@ -76,6 +81,7 @@ export function toMembershipSearchParams(f: MembershipFilters) {
   if (f.payment) params.set("payment", f.payment);
   if (f.paidMethod) params.set("paidMethod", f.paidMethod);
   if (f.alerts) params.set("alerts", f.alerts);
+  if (f.origin) params.set("origin", f.origin);
   for (const v of f.fields ?? []) params.append("champ", v);
   if (f.q.trim() !== "") params.set("q", f.q.trim());
   if (f.page > 1) params.set("page", String(f.page));

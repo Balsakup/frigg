@@ -14,6 +14,19 @@ export default [
     route("reinitialiser-mot-de-passe", "routes/auth/reset-password.tsx"),
     route("confirmer-adresse", "routes/auth/confirm-email.tsx"),
   ]),
+  // Parcours publics (016, contracts/ui-routes.md) : hors du layout `app`, ils
+  // n'exigent aucune session et ne redirigent jamais vers /connexion. Chaque
+  // user story y ajoute ses routes.
+  layout("routes/public/layout.tsx", [
+    route("adherer", "routes/public/membership.tsx"),
+    route("e/:slug", "routes/public/event.tsx"),
+    route("confirmer-demande", "routes/public/confirm.tsx"),
+    route("suivi", "routes/public/tracking.tsx"),
+    route("suivi/lien", "routes/public/tracking-request.tsx"),
+    route("suivi/adhesions/:id", "routes/public/tracking-membership.tsx"),
+    route("suivi/inscriptions/:id", "routes/public/tracking-registration.tsx"),
+    route("suivi/compte", "routes/public/tracking-account.tsx"),
+  ]),
   layout("routes/app/layout.tsx", [
     index("routes/app/member/home.tsx"),
     route("mon-compte", "routes/app/account.tsx"),

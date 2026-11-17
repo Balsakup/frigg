@@ -107,7 +107,7 @@ function EventView({ event: e }: { event: MyEvent }) {
               Inscriptions
             </h2>
             <p className="mt-2 text-muted">
-              {e.openness === "all_members"
+              {e.openness !== "season_members"
                 ? "Ouvert à tous les membres."
                 : `Réservé aux adhérents de la saison ${e.season.label}.`}{" "}
               {e.registrationOpen && e.window

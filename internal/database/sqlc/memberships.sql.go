@@ -37,6 +37,34 @@ func (q *Queries) AnnouncePaymentOfAccount(ctx context.Context, arg AnnouncePaym
 	return result.RowsAffected()
 }
 
+const announcePaymentOfTrackedEmail = `-- name: AnnouncePaymentOfTrackedEmail :execrows
+UPDATE memberships
+SET payment_status = 'announced', announced_method = ?1, updated_at = ?2
+WHERE memberships.id = ?3 AND status = 'validated' AND payment_status IN ('due', 'announced')
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = ?4 COLLATE NOCASE)
+`
+
+type AnnouncePaymentOfTrackedEmailParams struct {
+	Method sql.NullString
+	Now    string
+	ID     int64
+	Email  sql.NullString
+}
+
+func (q *Queries) AnnouncePaymentOfTrackedEmail(ctx context.Context, arg AnnouncePaymentOfTrackedEmailParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, announcePaymentOfTrackedEmail,
+		arg.Method,
+		arg.Now,
+		arg.ID,
+		arg.Email,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const cancelMembership = `-- name: CancelMembership :execrows
 UPDATE memberships
 SET status = 'cancelled', reason = ?1, cancelled_by = ?2,
@@ -85,6 +113,28 @@ func (q *Queries) CancelMembershipOfAccount(ctx context.Context, arg CancelMembe
 		arg.ID,
 		arg.AccountID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const cancelMembershipOfTrackedEmail = `-- name: CancelMembershipOfTrackedEmail :execrows
+UPDATE memberships
+SET status = 'cancelled', cancelled_by = NULL, cancelled_at = ?1, updated_at = ?1
+WHERE memberships.id = ?2 AND status = 'pending'
+  AND member_id IN (SELECT members.id FROM members
+                    WHERE members.account_id IS NULL AND members.email = ?3 COLLATE NOCASE)
+`
+
+type CancelMembershipOfTrackedEmailParams struct {
+	Now   sql.NullString
+	ID    int64
+	Email sql.NullString
+}
+
+func (q *Queries) CancelMembershipOfTrackedEmail(ctx context.Context, arg CancelMembershipOfTrackedEmailParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, cancelMembershipOfTrackedEmail, arg.Now, arg.ID, arg.Email)
 	if err != nil {
 		return 0, err
 	}
@@ -151,6 +201,24 @@ WHERE member_id = ?1 AND status IN ('pending', 'validated')
 
 func (q *Queries) CountActiveMembershipsOfMember(ctx context.Context, memberID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countActiveMembershipsOfMember, memberID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countActiveMembershipsOfMemberInSeason = `-- name: CountActiveMembershipsOfMemberInSeason :one
+SELECT count(*) FROM memberships
+WHERE member_id = ?1 AND season_id = ?2
+  AND status IN ('pending', 'validated')
+`
+
+type CountActiveMembershipsOfMemberInSeasonParams struct {
+	MemberID int64
+	SeasonID int64
+}
+
+func (q *Queries) CountActiveMembershipsOfMemberInSeason(ctx context.Context, arg CountActiveMembershipsOfMemberInSeasonParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveMembershipsOfMemberInSeason, arg.MemberID, arg.SeasonID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -250,9 +318,44 @@ func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipPara
 	return id, err
 }
 
+const createPublicMembership = `-- name: CreatePublicMembership :one
+
+INSERT INTO memberships (
+    member_id, season_id, fee_id, status, declared_kind, via_public, requested_at, updated_at
+) VALUES (
+    ?1, ?2, ?3, 'pending',
+    ?4, 1, ?5, ?5
+)
+RETURNING id
+`
+
+type CreatePublicMembershipParams struct {
+	MemberID     int64
+	SeasonID     int64
+	FeeID        int64
+	DeclaredKind sql.NullString
+	Now          string
+}
+
+// Public journeys (research.md 016 R7, R13).
+// Pending request created by a confirmed public submission: no requesting or
+// creating account (FR-012).
+func (q *Queries) CreatePublicMembership(ctx context.Context, arg CreatePublicMembershipParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createPublicMembership,
+		arg.MemberID,
+		arg.SeasonID,
+		arg.FeeID,
+		arg.DeclaredKind,
+		arg.Now,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getMembership = `-- name: GetMembership :one
-SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date,
-       m.account_id AS member_account_id,
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date,
+       m.account_id AS member_account_id, m.email AS member_email,
        a.email AS account_email, a.disabled_at AS account_disabled_at,
        rb.email AS requested_by_email, cb.email AS created_by_email,
        db.email AS decided_by_email, xb.email AS cancelled_by_email,
@@ -276,6 +379,7 @@ type GetMembershipRow struct {
 	LastName          string
 	BirthDate         string
 	MemberAccountID   sql.NullInt64
+	MemberEmail       sql.NullString
 	AccountEmail      sql.NullString
 	AccountDisabledAt sql.NullString
 	RequestedByEmail  sql.NullString
@@ -318,6 +422,7 @@ func (q *Queries) GetMembership(ctx context.Context, id int64) (GetMembershipRow
 		&i.Membership.PaidAmountCents,
 		&i.Membership.BaseAmountCents,
 		&i.Membership.AdjustmentReason,
+		&i.Membership.ViaPublic,
 		&i.MembershipFee.ID,
 		&i.MembershipFee.SeasonID,
 		&i.MembershipFee.Label,
@@ -330,6 +435,7 @@ func (q *Queries) GetMembership(ctx context.Context, id int64) (GetMembershipRow
 		&i.LastName,
 		&i.BirthDate,
 		&i.MemberAccountID,
+		&i.MemberEmail,
 		&i.AccountEmail,
 		&i.AccountDisabledAt,
 		&i.RequestedByEmail,
@@ -342,7 +448,7 @@ func (q *Queries) GetMembership(ctx context.Context, id int64) (GetMembershipRow
 }
 
 const getMembershipOfAccount = `-- name: GetMembershipOfAccount :one
-SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
 FROM memberships ms
 JOIN members m ON m.id = ms.member_id
 JOIN membership_fees f ON f.id = ms.fee_id
@@ -395,6 +501,77 @@ func (q *Queries) GetMembershipOfAccount(ctx context.Context, arg GetMembershipO
 		&i.Membership.PaidAmountCents,
 		&i.Membership.BaseAmountCents,
 		&i.Membership.AdjustmentReason,
+		&i.Membership.ViaPublic,
+		&i.MembershipFee.ID,
+		&i.MembershipFee.SeasonID,
+		&i.MembershipFee.Label,
+		&i.MembershipFee.AmountCents,
+		&i.MembershipFee.Description,
+		&i.MembershipFee.CreatedAt,
+		&i.MembershipFee.UpdatedAt,
+		&i.MembershipFee.RenewalAmountCents,
+		&i.FirstName,
+		&i.LastName,
+		&i.BirthDate,
+	)
+	return i, err
+}
+
+const getMembershipOfTrackedEmail = `-- name: GetMembershipOfTrackedEmail :one
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
+FROM memberships ms
+JOIN members m ON m.id = ms.member_id
+JOIN membership_fees f ON f.id = ms.fee_id
+WHERE ms.id = ?1 AND m.account_id IS NULL AND m.email = ?2 COLLATE NOCASE
+`
+
+type GetMembershipOfTrackedEmailParams struct {
+	ID    int64
+	Email sql.NullString
+}
+
+type GetMembershipOfTrackedEmailRow struct {
+	Membership    Membership
+	MembershipFee MembershipFee
+	FirstName     string
+	LastName      string
+	BirthDate     string
+}
+
+func (q *Queries) GetMembershipOfTrackedEmail(ctx context.Context, arg GetMembershipOfTrackedEmailParams) (GetMembershipOfTrackedEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, getMembershipOfTrackedEmail, arg.ID, arg.Email)
+	var i GetMembershipOfTrackedEmailRow
+	err := row.Scan(
+		&i.Membership.ID,
+		&i.Membership.MemberID,
+		&i.Membership.SeasonID,
+		&i.Membership.FeeID,
+		&i.Membership.Status,
+		&i.Membership.DeclaredKind,
+		&i.Membership.Kind,
+		&i.Membership.AmountCents,
+		&i.Membership.Reason,
+		&i.Membership.RequestedBy,
+		&i.Membership.CreatedBy,
+		&i.Membership.RequestedAt,
+		&i.Membership.DecidedBy,
+		&i.Membership.DecidedAt,
+		&i.Membership.CancelledBy,
+		&i.Membership.CancelledAt,
+		&i.Membership.PaymentReference,
+		&i.Membership.PaymentStatus,
+		&i.Membership.AnnouncedMethod,
+		&i.Membership.PaidMethod,
+		&i.Membership.PaidOn,
+		&i.Membership.PaidBy,
+		&i.Membership.PaidAt,
+		&i.Membership.PaymentNote,
+		&i.Membership.UpdatedAt,
+		&i.Membership.PaidOnlinePaymentID,
+		&i.Membership.PaidAmountCents,
+		&i.Membership.BaseAmountCents,
+		&i.Membership.AdjustmentReason,
+		&i.Membership.ViaPublic,
 		&i.MembershipFee.ID,
 		&i.MembershipFee.SeasonID,
 		&i.MembershipFee.Label,
@@ -464,7 +641,7 @@ func (q *Queries) ListActiveSeasonsOfAccount(ctx context.Context, accountID sql.
 
 const listMemberships = `-- name: ListMemberships :many
 
-SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, f.label AS fee_label, m.first_name, m.last_name, m.birth_date
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.label AS fee_label, m.first_name, m.last_name, m.birth_date
 FROM memberships ms
 JOIN members m ON m.id = ms.member_id
 JOIN membership_fees f ON f.id = ms.fee_id
@@ -483,8 +660,10 @@ WHERE (CAST(?1 AS INTEGER) IS NULL OR ms.season_id = CAST(?1 AS INTEGER))
        OR (ms.payment_status = 'paid' AND ms.paid_method = CAST(?7 AS TEXT)))
   AND (CAST(?8 AS INTEGER) IS NULL
        OR ms.id IN (SELECT pa.membership_id FROM payment_alerts pa WHERE pa.resolved_at IS NULL))
+  AND (CAST(?9 AS TEXT) IS NULL
+       OR (CAST(?9 AS TEXT) = 'public' AND ms.via_public = 1))
   AND NOT EXISTS (
-      SELECT 1 FROM json_each(coalesce(CAST(?9 AS TEXT), '[]')) ff
+      SELECT 1 FROM json_each(coalesce(CAST(?10 AS TEXT), '[]')) ff
       WHERE CASE json_extract(ff.value, '$.op')
           WHEN 'true' THEN NOT EXISTS (SELECT 1 FROM membership_field_values fv
               WHERE fv.membership_id = ms.id AND fv.field_id = json_extract(ff.value, '$.field') AND fv.value_bool = 1)
@@ -507,6 +686,7 @@ type ListMembershipsParams struct {
 	OrderID      sql.NullInt64
 	PaidMethod   sql.NullString
 	OpenAlerts   sql.NullInt64
+	Origin       sql.NullString
 	FieldFilters sql.NullString
 }
 
@@ -531,6 +711,7 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 		arg.OrderID,
 		arg.PaidMethod,
 		arg.OpenAlerts,
+		arg.Origin,
 		arg.FieldFilters,
 	)
 	if err != nil {
@@ -570,6 +751,7 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 			&i.Membership.PaidAmountCents,
 			&i.Membership.BaseAmountCents,
 			&i.Membership.AdjustmentReason,
+			&i.Membership.ViaPublic,
 			&i.FeeLabel,
 			&i.FirstName,
 			&i.LastName,
@@ -590,7 +772,7 @@ func (q *Queries) ListMemberships(ctx context.Context, arg ListMembershipsParams
 
 const listMembershipsOfAccount = `-- name: ListMembershipsOfAccount :many
 
-SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
 FROM memberships ms
 JOIN members m ON m.id = ms.member_id
 JOIN membership_fees f ON f.id = ms.fee_id
@@ -652,6 +834,7 @@ func (q *Queries) ListMembershipsOfAccount(ctx context.Context, arg ListMembersh
 			&i.Membership.PaidAmountCents,
 			&i.Membership.BaseAmountCents,
 			&i.Membership.AdjustmentReason,
+			&i.Membership.ViaPublic,
 			&i.MembershipFee.ID,
 			&i.MembershipFee.SeasonID,
 			&i.MembershipFee.Label,
@@ -678,7 +861,7 @@ func (q *Queries) ListMembershipsOfAccount(ctx context.Context, arg ListMembersh
 }
 
 const listMembershipsOfMember = `-- name: ListMembershipsOfMember :many
-SELECT id, member_id, season_id, fee_id, status, declared_kind, kind, amount_cents, reason, requested_by, created_by, requested_at, decided_by, decided_at, cancelled_by, cancelled_at, payment_reference, payment_status, announced_method, paid_method, paid_on, paid_by, paid_at, payment_note, updated_at, paid_online_payment_id, paid_amount_cents, base_amount_cents, adjustment_reason FROM memberships WHERE member_id = ?1
+SELECT id, member_id, season_id, fee_id, status, declared_kind, kind, amount_cents, reason, requested_by, created_by, requested_at, decided_by, decided_at, cancelled_by, cancelled_at, payment_reference, payment_status, announced_method, paid_method, paid_on, paid_by, paid_at, payment_note, updated_at, paid_online_payment_id, paid_amount_cents, base_amount_cents, adjustment_reason, via_public FROM memberships WHERE member_id = ?1
 `
 
 func (q *Queries) ListMembershipsOfMember(ctx context.Context, memberID int64) ([]Membership, error) {
@@ -720,6 +903,93 @@ func (q *Queries) ListMembershipsOfMember(ctx context.Context, memberID int64) (
 			&i.PaidAmountCents,
 			&i.BaseAmountCents,
 			&i.AdjustmentReason,
+			&i.ViaPublic,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMembershipsOfTrackedEmail = `-- name: ListMembershipsOfTrackedEmail :many
+
+SELECT ms.id, ms.member_id, ms.season_id, ms.fee_id, ms.status, ms.declared_kind, ms.kind, ms.amount_cents, ms.reason, ms.requested_by, ms.created_by, ms.requested_at, ms.decided_by, ms.decided_at, ms.cancelled_by, ms.cancelled_at, ms.payment_reference, ms.payment_status, ms.announced_method, ms.paid_method, ms.paid_on, ms.paid_by, ms.paid_at, ms.payment_note, ms.updated_at, ms.paid_online_payment_id, ms.paid_amount_cents, ms.base_amount_cents, ms.adjustment_reason, ms.via_public, f.id, f.season_id, f.label, f.amount_cents, f.description, f.created_at, f.updated_at, f.renewal_amount_cents, m.first_name, m.last_name, m.birth_date
+FROM memberships ms
+JOIN members m ON m.id = ms.member_id
+JOIN membership_fees f ON f.id = ms.fee_id
+WHERE m.account_id IS NULL AND m.email = ?1 COLLATE NOCASE
+ORDER BY ms.requested_at DESC, ms.id DESC
+`
+
+type ListMembershipsOfTrackedEmailRow struct {
+	Membership    Membership
+	MembershipFee MembershipFee
+	FirstName     string
+	LastName      string
+	BirthDate     string
+}
+
+// Personal link scope (research.md 016 R1): memberships of members without an
+// account whose email matches the link, compared without case (FR-014). The
+// scope is evaluated on every query.
+func (q *Queries) ListMembershipsOfTrackedEmail(ctx context.Context, email sql.NullString) ([]ListMembershipsOfTrackedEmailRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMembershipsOfTrackedEmail, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMembershipsOfTrackedEmailRow{}
+	for rows.Next() {
+		var i ListMembershipsOfTrackedEmailRow
+		if err := rows.Scan(
+			&i.Membership.ID,
+			&i.Membership.MemberID,
+			&i.Membership.SeasonID,
+			&i.Membership.FeeID,
+			&i.Membership.Status,
+			&i.Membership.DeclaredKind,
+			&i.Membership.Kind,
+			&i.Membership.AmountCents,
+			&i.Membership.Reason,
+			&i.Membership.RequestedBy,
+			&i.Membership.CreatedBy,
+			&i.Membership.RequestedAt,
+			&i.Membership.DecidedBy,
+			&i.Membership.DecidedAt,
+			&i.Membership.CancelledBy,
+			&i.Membership.CancelledAt,
+			&i.Membership.PaymentReference,
+			&i.Membership.PaymentStatus,
+			&i.Membership.AnnouncedMethod,
+			&i.Membership.PaidMethod,
+			&i.Membership.PaidOn,
+			&i.Membership.PaidBy,
+			&i.Membership.PaidAt,
+			&i.Membership.PaymentNote,
+			&i.Membership.UpdatedAt,
+			&i.Membership.PaidOnlinePaymentID,
+			&i.Membership.PaidAmountCents,
+			&i.Membership.BaseAmountCents,
+			&i.Membership.AdjustmentReason,
+			&i.Membership.ViaPublic,
+			&i.MembershipFee.ID,
+			&i.MembershipFee.SeasonID,
+			&i.MembershipFee.Label,
+			&i.MembershipFee.AmountCents,
+			&i.MembershipFee.Description,
+			&i.MembershipFee.CreatedAt,
+			&i.MembershipFee.UpdatedAt,
+			&i.MembershipFee.RenewalAmountCents,
+			&i.FirstName,
+			&i.LastName,
+			&i.BirthDate,
 		); err != nil {
 			return nil, err
 		}
@@ -848,6 +1118,27 @@ func (q *Queries) ListUsedFeeIDs(ctx context.Context, seasonID int64) ([]int64, 
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveMembershipToMember = `-- name: MoveMembershipToMember :execrows
+UPDATE memberships SET member_id = ?1, updated_at = ?2
+WHERE id = ?3 AND via_public = 1 AND status = 'pending'
+`
+
+type MoveMembershipToMemberParams struct {
+	MemberID int64
+	Now      string
+	ID       int64
+}
+
+// Only a pending public request can move; memberships_one_active rejects a
+// second active membership of the target for the season.
+func (q *Queries) MoveMembershipToMember(ctx context.Context, arg MoveMembershipToMemberParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveMembershipToMember, arg.MemberID, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const recordCardPayment = `-- name: RecordCardPayment :execrows
