@@ -17,15 +17,19 @@ Frigg gère **une seule association par instance**.
 **Rationale** : supprimer le multi-tenant élimine une classe entière de fuites de
 données entre organisations et garde le code et les requêtes simples.
 
-### II. Authentification obligatoire partout
+### II. Refus par défaut, exceptions publiques énumérées
 
-L'application entière est protégée par authentification : refus par défaut.
+L'application entière est protégée : refus par défaut. Une personne accède aux
+données par une session ou, pour un périmètre borné, par un lien personnel.
 
 - Toute route de l'API et toute page du frontend MUST exiger une session valide,
   sauf :
   - les parcours qui permettent d'en obtenir une : connexion, réinitialisation
     du mot de passe, vérification de l'adresse électronique, acceptation d'une
-    invitation envoyée par un administrateur ;
+    invitation envoyée par un administrateur, création d'un compte à partir
+    d'une adresse confirmée par un parcours public. Il n'y a jamais
+    d'inscription libre : un tel compte naît seulement d'une demande
+    d'adhésion ou d'une inscription confirmée ;
   - le point de santé, en lecture seule, destiné aux vérifications de santé du
     conteneur, d'un orchestrateur ou d'un reverse proxy. Il indique uniquement
     si l'instance peut servir des requêtes et MUST NOT exposer de donnée de
@@ -56,7 +60,49 @@ L'application entière est protégée par authentification : refus par défaut.
       de version ou de configuration MUST NOT être ajoutée à cette réponse ; une
       extension de son contenu exige un amendement ;
     - le logo est servi sous son nom généré, avec son type validé, sans révéler
-      son nom d'origine ni les métadonnées de dépôt.
+      son nom d'origine ni les métadonnées de dépôt ;
+  - les **parcours publics d'adhésion et d'inscription**, chacun limité à ce
+    qui suit :
+    - la **page d'adhésion publique**, en lecture seule. Elle est servie
+      seulement si un administrateur a activé l'accueil des demandes
+      publiques, sinon elle se limite à un message de fermeture. Elle se
+      limite à l'identité visuelle, aux saisons ouvertes non closes portant un
+      tarif, à leurs tarifs (libellé, montants, description) et aux
+      définitions des champs personnalisés remplis par le membre ;
+    - la **page publique d'un événement**, en lecture seule, atteinte
+      uniquement par un lien non devinable, qu'un administrateur diffuse et
+      peut régénérer. Elle n'existe que pour un événement non brouillon dont
+      l'ouverture est « Ouvert au public », et se limite à ses titre, dates,
+      lieu, description, prix, période d'inscription et places restantes.
+      Aucun inscrit n'y figure, et tout autre cas reçoit la même réponse qu'un
+      lien inconnu. Aucun listing public des événements n'est autorisé ;
+    - le **dépôt** d'une demande d'adhésion ou d'une inscription. Il ne
+      produit aucun effet visible (ni fiche, ni adhésion, ni inscription, ni
+      place réservée) tant que l'adresse électronique saisie n'a pas été
+      confirmée par le lien reçu à cette adresse ;
+    - la **confirmation** de l'adresse d'un dépôt, par ce lien ;
+    - la **demande d'un lien personnel**, dont la réponse est toujours la
+      même ;
+- Le **lien personnel** est la seule forme d'accès sans session à des données
+  de membres :
+  - c'est un secret aléatoire, envoyé uniquement par e-mail, à durée de vie
+    limitée, révocable et stocké haché ;
+  - il donne accès à un périmètre fermé : les fiches sans compte dont
+    l'adresse électronique est celle pour laquelle il a été émis, et leurs
+    adhésions et inscriptions. Ce périmètre est réévalué à chaque requête ;
+  - il permet seulement de consulter ce périmètre, d'annuler une demande ou
+    une inscription selon les règles applicables aux comptes, de choisir un
+    moyen de paiement, de lancer un paiement par carte et de créer un
+    compte. Il MUST NOT permettre de modifier une identité, des coordonnées
+    ou une valeur de champ, ni de constater un paiement ;
+  - toute donnée hors de ce périmètre reçoit la même réponse qu'une donnée
+    inexistante.
+- Toute réponse d'un parcours public MUST NOT révéler de donnée de
+  l'association, d'un membre, de version ou de configuration au-delà de ce que
+  la liste ci-dessus autorise ; une extension de son contenu exige un
+  amendement.
+- Les pages publiques MUST rester exclues de l'indexation par les moteurs de
+  recherche.
 - Cette liste d'exceptions est explicite et centralisée dans le code ; une
   nouvelle route publique MUST faire l'objet d'un amendement de cette
   constitution.
@@ -72,7 +118,14 @@ L'application entière est protégée par authentification : refus par défaut.
 sont personnelles ; aucune ne doit être lisible sans identification. Le nom, le
 logo et les couleurs sont en revanche des informations que l'association affiche
 publiquement sur tous ses supports : les montrer sur l'écran de connexion ne
-divulgue rien, et la liste fermée de ces champs empêche toute dérive.
+divulgue rien, et la liste fermée de ces champs empêche toute dérive. De même,
+les tarifs d'une saison ouverte et un événement que l'association choisit
+d'ouvrir au public sont des informations qu'elle diffuse elle-même. Une
+personne extérieure doit pouvoir adhérer ou s'inscrire sans qu'un
+administrateur lui crée d'abord un accès. La confirmation de l'adresse
+empêche qu'un dépôt laisse une trace exploitable. Le lien personnel s'appuie
+sur la possession de la messagerie, comme la réinitialisation du mot de
+passe, et son périmètre fermé borne ce qu'il expose.
 
 ### III. Deux rôles : l'administrateur est un membre
 
@@ -82,8 +135,13 @@ Il existe exactement deux rôles : **membre** et **administrateur**.
   qu'un membre peut faire, un administrateur MUST pouvoir le faire.
 - Les permissions sont modélisées comme une hiérarchie (`admin ⊇ member`) et vérifiées par une fonction d'autorisation unique côté serveur ;
   les vérifications ad hoc de rôle dispersées dans les handlers sont interdites.
-- Chaque opération de l'API déclare le rôle minimal requis ; une opération sans
-  rôle déclaré est un défaut bloquant.
+- Chaque opération de l'API déclare son niveau d'accès : public (exceptions du
+  principe II), lien personnel, membre ou administrateur. Une opération sans
+  niveau déclaré est un défaut bloquant.
+- L'accès par lien personnel (principe II) n'est pas un rôle. Il est vérifié
+  par la même fonction d'autorisation, n'ouvre aucune rubrique de l'espace
+  membre ni de l'administration, et une session de membre n'élargit pas le
+  périmètre d'une opération par lien.
 - Le premier administrateur est créé exclusivement par la commande CLI
   `frigg create-admin`.
 
@@ -216,11 +274,23 @@ unicode61, adapté au texte long, ne trouve que des débuts de mots.
 - **Limitation de débit** : la connexion, la demande de réinitialisation et le
   renvoi du lien de vérification MUST être limités par IP et par compte via
   `golang.org/x/time/rate` ; un dépassement renvoie `429` sans révéler si le
-  compte existe.
-- Les jetons envoyés par e-mail (vérification, réinitialisation) sont aléatoires,
-  à usage unique, à durée de vie limitée, et stockés hachés.
-- Les réponses aux parcours d'authentification MUST NOT révéler si une adresse
-  électronique possède un compte.
+  compte existe. Les dépôts publics, les confirmations d'adresse, les demandes
+  de lien personnel et les accès par lien personnel MUST être limités de même,
+  par IP et par adresse électronique visée. Le nombre d'e-mails envoyés à une
+  même adresse par ces parcours MUST être plafonné, pour qu'un tiers ne puisse
+  pas en inonder une messagerie.
+- Les jetons envoyés par e-mail sont aléatoires, à durée de vie limitée et
+  stockés hachés. Ceux de vérification, de réinitialisation, d'invitation et
+  de confirmation d'un dépôt public sont à usage unique. Le lien personnel
+  (principe II) reste valable jusqu'à son expiration ou sa révocation, et il
+  est révoqué dès qu'un compte est créé pour son adresse.
+- Les réponses aux parcours d'authentification et aux parcours publics MUST NOT
+  révéler si une adresse électronique possède un compte, une fiche ou une
+  demande.
+- Les formulaires publics MUST comporter un piège à robots invisible des
+  personnes, y compris au lecteur d'écran. Ils MUST NOT dépendre d'un service
+  tiers de vérification (captcha), qui transmettrait des données des
+  visiteurs à un tiers.
 - Les journaux MUST NOT contenir de mots de passe, de jetons, de cookies de
   session ni le contenu des e-mails.
 - Les fichiers déposés sont stockés sous un nom généré (jamais le nom fourni par
@@ -228,9 +298,15 @@ unicode61, adapté au texte long, ne trouve que des débuts de mots.
   résolu à l'intérieur du répertoire de données (pas de traversée `..`).
 - Les données personnelles des membres sont traitées dans le respect du RGPD :
   ne collecter que le nécessaire et permettre leur export et leur suppression.
+  Un formulaire public MUST recueillir un consentement explicite, dont la date
+  est conservée. Les données d'un dépôt non confirmé MUST être supprimées
+  automatiquement dans le délai fixé par sa spécification.
 
 **Rationale** : Frigg stocke des données personnelles de bénévoles et
-d'adhérents ; une fuite engage la responsabilité de l'association.
+d'adhérents ; une fuite engage la responsabilité de l'association. Ouvrir des
+formulaires sans session expose l'instance aux robots, à l'énumération
+d'adresses et à l'usage de Frigg pour harceler une messagerie : ces règles en
+bornent chaque effet.
 
 ## Contraintes techniques
 
@@ -360,9 +436,15 @@ internationalisation n'est prévue.
   HTTP complète dès que les sessions, les cookies ou la protection CSRF sont en
   jeu (humatest appelle l'API huma sans les middlewares HTTP qui l'entourent).
 - Les règles d'autorisation (principes II et III) MUST être couvertes par des
-  tests automatisés : pour chaque opération, un accès anonyme est refusé, un
-  membre est refusé lorsque l'opération est réservée aux administrateurs, et un
-  administrateur est accepté pour toute opération accessible aux membres.
+  tests automatisés :
+  - pour chaque opération non publique, un accès anonyme est refusé ;
+  - un membre est refusé lorsque l'opération est réservée aux administrateurs ;
+  - un administrateur est accepté pour toute opération accessible aux membres ;
+  - pour chaque opération par lien personnel, un lien expiré, révoqué ou
+    inconnu est refusé, et une donnée hors du périmètre du lien reçoit la même
+    réponse qu'une donnée inexistante ;
+  - chaque opération publique ne renvoie que les données que le principe II
+    autorise.
 - Les migrations sont append-only : une migration déjà publiée n'est jamais
   modifiée ; on en ajoute une nouvelle. « Publiée » signifie déployée sur au
   moins une instance (y compris de recette) ; tant que le projet n'a jamais été
@@ -390,4 +472,4 @@ internationalisation n'est prévue.
 - **Conformité** : chaque revue de code vérifie le respect des principes ; une
   violation non justifiée dans « Complexity Tracking » bloque la fusion.
 
-**Version**: 1.8.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-03
+**Version**: 1.9.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-11-17
