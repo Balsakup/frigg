@@ -432,7 +432,8 @@ des adhésions sur l'origine « Publique ».
   l'espace de suivi (FR-016).
 - **Dépôt avec l'adresse d'un compte qui gère déjà 20 fiches** : la fiche ne
   peut pas être rattachée. Elle reste « Sans compte », suivie par lien, et
-  l'e-mail l'explique.
+  l'e-mail de confirmation l'explique. L'écran, lui, reste identique à celui
+  de toute autre adresse.
 - **Dépôt avec l'adresse d'un compte désactivé** (002) : la fiche n'est pas
   rattachée. Elle reste « Sans compte », suivie par lien, et la réponse ne
   révèle pas l'état du compte.
@@ -610,8 +611,9 @@ des adhésions sur l'origine « Publique ».
   lien inconnu.
 - **FR-026**: Le formulaire d'inscription publique MUST faire saisir le
   prénom, le nom, la date de naissance, l'adresse électronique et le
-  consentement. Il propose les champs personnalisés de membre « Rempli par le
-  membre » actifs, sans les exiger, et la case « Créer un compte ».
+  consentement, et proposer la case « Créer un compte ». Il ne propose aucun
+  champ personnalisé : le principe II limite la page publique d'un événement
+  à ses informations propres.
 - **FR-027**: Une inscription publique MUST suivre toutes les règles de 012
   et de 014 : confirmation immédiate (à la confirmation de l'adresse),
   capacité garantie y compris en cas de confirmations simultanées, prix figé,
@@ -671,6 +673,9 @@ des adhésions sur l'origine « Publique ».
   lorsque l'adhésion ou l'inscription est à régler. Cette règle remplace
   l'exclusion « Aucun e-mail n'est envoyé pour une fiche sans compte » de
   006 FR-023. Une fiche sans compte et sans adresse ne reçoit toujours rien.
+  Les autres règles de destinataire sont inchangées : une fiche dont le compte
+  est désactivé ne reçoit pas d'e-mail d'adhésion (006 FR-023), mais reçoit
+  les e-mails d'inscription à son adresse, sans lien personnel (012).
 - **FR-036**: Les e-mails des parcours publics MUST passer par la file
   d'attente existante, insérés dans la même opération que l'action qui les
   déclenche. Ils ne contiennent aucune donnée d'une autre personne.
@@ -817,9 +822,9 @@ des adhésions sur l'origine « Publique ».
   administrative : un doublon de fiche créé par une inscription publique est
   signalé (doublon probable) mais pas fusionné automatiquement. La fusion de
   deux fiches reste hors périmètre.
-- Les champs personnalisés d'adhésion ne s'appliquent qu'aux demandes
-  d'adhésion. Les inscriptions publiques ne proposent que les champs de
-  membre, facultatifs, faute de champ personnalisé d'événement (012).
+- Les champs personnalisés ne sont proposés que sur la page d'adhésion
+  publique. Les inscriptions publiques n'en proposent aucun (FR-026,
+  principe II) : un administrateur peut les compléter ensuite sur la fiche.
 - Les durées retenues (48 heures pour la confirmation, 7 jours avant
   suppression d'un dépôt, 30 jours de validité d'un lien personnel, 5 e-mails
   par heure et par adresse) sont des valeurs par défaut fixes, non
